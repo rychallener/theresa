@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import starry
 sys.path.append('lib')
 import pca
+import eigen
 
 def main():
     # Eventually read configuration here. For now, will assign values
@@ -47,38 +48,12 @@ def main():
 
     system = starry.System(star, planet)
 
-    # Create harmonic maps of the planet, excluding Y00
-    # (lmax**2 maps, plus a negative version for all but Y00)
-    nharm = 2 * ((lmax + 1)**2 - 1)
-    lcs = np.zeros((nharm, nt))
-    ind = 0
-    for i, l in enumerate(range(1, lmax + 1)):
-        for j, m in enumerate(range(-l, l + 1)):           
-            planet.map[l, m] =  1.0
-            sflux, lcs[ind]   = [a.eval() for a in system.flux(t, total=False)]
-            planet.map[l, m] = -1.0
-            sflux, lcs[ind+1] = [a.eval() for a in system.flux(t, total=False)]
-            planet.map[l, m] = 0.0
-            ind += 2
-            
-
-    # Run PCA to determine orthogonal light curves
-    evalues, evectors, proj = pca.pca(lcs)
-
-    # Convert orthogonal light curves into a map
-    eigeny = np.zeros((nharm, (lmax + 1)**2))
-    eigeny[:,0] = 1.0 # Y00 = 1 for all maps
-    for j in range(nharm):
-        yi  = 1
-        shi = 0
-        for l in range(1, lmax + 1):
-            for m in range(-l, l + 1):
-                eigeny[j,yi] = evectors.T[j,shi] - evectors.T[j,shi+1]
-                yi  += 1
-                shi += 2
-
+    eigeny, evalues, evectors, proj = eigen.mkcurves(system, t, lmax)
+    
     if not os.path.isdir(outdir):
         os.mkdir(outdir)
+
+    nharm = 2 * ((lmax + 1)**2 - 1)
 
     for j in range(nharm):
         planet.map[1:,:] = 0

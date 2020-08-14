@@ -7,7 +7,7 @@ def pca(arr):
     Arguments
     ---------
     arr: 2D array
-        n x m array, where m is the size of the dataset (e.g., times
+        m x n array, where m is the size of the dataset (e.g., times
         in an observation) and n is the number of vectors
 
     Returns
@@ -19,7 +19,11 @@ def pca(arr):
         n x n array of sorted eigenvectors
 
     score: 2D array
-        n x m array of data projected in the new space
+        m x n array of data projected in the new space
+
+    Notes
+    -----
+    See https://glowingpython.blogspot.com/2011/07/pca-and-image-compression-with-numpy.html
     """
     arr = arr.T
     # Subtract the mean
