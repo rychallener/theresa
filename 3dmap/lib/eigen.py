@@ -70,4 +70,4 @@ def mkcurves(system, t, lmax):
                 yi  += 1
                 shi += 2
 
-    return eigeny, evalues, evectors, proj
+    return eigeny, evalues, evectors, proj, lcs
