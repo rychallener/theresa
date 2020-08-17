@@ -8,43 +8,34 @@ import starry
 sys.path.append('lib')
 import pca
 import eigen
+import config
 
-def main():
-    # Eventually read configuration here. For now, will assign values
-
-    # General settings
-    lmax = 3
-    outdir = 'testout'
-
-    # Star
-    ms    = 1.0 # Mass in solar masses
-    rs    = 1.0 # Radius in solar radii
-    prots = 1.0 # Rotational period in days
-
-    # Planet
-    mp    =  0.001 # Mass in solar masses
-    rp    =  0.1   # Radius in solar radii
-    porb  =  1.0   # Orbital period in days
-    protp =  1.0   # Rotational period in days
-    Omega =  0.0   # Long. of asc. node in deg
-    ecc   =  0.0   # Eccentricity
-    inc   = 88.5   # Inclination
-    w     = 90     # Long of periastron in deg
-    t0    =  0     # Time of transit in days
+def main(cfile):
+    cfg = config.read_config(cfile)
+    lmax   = cfg.cfg.getint('General', 'lmax')
+    outdir = cfg.cfg.get(   'General', 'outdir')
 
     # Observation
+    # TODO: Eventually read this in
     nt = 1000
-    t = np.linspace(0.4*porb, 0.6*porb, nt)
+    t = np.linspace(0.4, 0.6, nt)
 
     # Create star, planet, and system objects
     star = starry.Primary(starry.Map(ydeg=0, udeg=0, amp=1),
-                          m=ms, r=rs, prot=prots)
+                          m   =cfg.cfg.getfloat('Star', 'm'),
+                          r   =cfg.cfg.getfloat('Star', 'r'),
+                          prot=cfg.cfg.getfloat('Star', 'prot'))
 
     planet = starry.kepler.Secondary(starry.Map(ydeg=lmax),
-                                     m=mp, r=rp, porb=porb,
-                                     prot=protp, Omega=Omega,
-                                     ecc=ecc, w=w, t0=t0,
-                                     inc=inc)
+                                     m    =cfg.cfg.getfloat('Planet', 'm'),
+                                     r    =cfg.cfg.getfloat('Planet', 'r'),
+                                     porb =cfg.cfg.getfloat('Planet', 'porb'),
+                                     prot =cfg.cfg.getfloat('Planet', 'prot'),
+                                     Omega=cfg.cfg.getfloat('Planet', 'Omega'),
+                                     ecc  =cfg.cfg.getfloat('Planet', 'ecc'),
+                                     w    =cfg.cfg.getfloat('Planet', 'w'),
+                                     t0   =cfg.cfg.getfloat('Planet', 't0'),
+                                     inc  =cfg.cfg.getfloat('Planet', 'inc'))
 
     system = starry.System(star, planet)
 
@@ -64,7 +55,7 @@ def main():
                 planet.map[l, m] = eigeny[j, yi]
                 yi += 1
 
-        fill = np.int(np.floor(np.log10(nharm))) + 1
+        fill = np.int(np.log10(nharm)) + 1
         fnum = str(j).zfill(fill)
         
         fig, ax = plt.subplots(1, figsize=(5,5))
@@ -83,7 +74,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) < 2:
+        print("Provide configuration file as a command-line argument.")
+        sys.exit()
+    else:
+        cfile = sys.argv[1]
+    main(cfile)
         
 
     
