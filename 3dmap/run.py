@@ -11,10 +11,13 @@ import eigen
 import plots
 import config
 
+starry.config.quiet = True
+
 def main(cfile):
     """
     One function to rule them all.
     """
+    print("Reading the configuration file.")
     cfg = config.read_config(cfile)
 
     # Observation
@@ -23,6 +26,7 @@ def main(cfile):
     t = np.linspace(0.4, 0.6, nt)
 
     # Create star, planet, and system objects
+    print("Initializing star and planet objects.")
     star = starry.Primary(starry.Map(ydeg=0, udeg=0, amp=1),
                           m   =cfg.cfg.getfloat('Star', 'm'),
                           r   =cfg.cfg.getfloat('Star', 'r'),
@@ -41,16 +45,19 @@ def main(cfile):
 
     system = starry.System(star, planet)
 
+    print("Running PCA to determine eigencurves.")
     eigeny, evalues, evectors, proj, lcs = eigen.mkcurves(system, t, cfg.lmax)
     
     if not os.path.isdir(cfg.outdir):
         os.mkdir(cfg.outdir)
 
     if cfg.mkplots:
+        print("Making plots.")
         plots.circmaps(planet, eigeny, cfg.outdir)
         plots.rectmaps(planet, eigeny, cfg.outdir)
         plots.lightcurves(t, lcs, cfg.outdir)
         plots.eigencurves(t, proj, cfg.outdir, ncurves=cfg.ncurves)
+        plots.ecurvepower(evalues, cfg.outdir)
 
         
 if __name__ == "__main__":

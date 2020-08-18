@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 def circmaps(planet, eigeny, outdir):
     nharm, ny = eigeny.shape
 
+    lmax = np.int((nharm / 2 + 1)**0.5 - 1)
+
     for j in range(nharm):
         planet.map[1:,:] = 0
 
@@ -27,6 +29,8 @@ def circmaps(planet, eigeny, outdir):
 def rectmaps(planet, eigeny, outdir):
     nharm, ny = eigeny.shape
 
+    lmax = np.int((nharm / 2 + 1)**0.5 - 1)
+    
     for j in range(nharm):
         planet.map[1:,:] = 0
 
@@ -40,7 +44,8 @@ def rectmaps(planet, eigeny, outdir):
         fnum = str(j).zfill(fill)    
         fig, ax = plt.subplots(1, figsize=(6,3))
         ax.imshow(planet.map.render(projection="rect").eval(),
-                  origin="lower", cmap="plasma")
+                  origin="lower", cmap="plasma",
+                  extent=(-180, 180, -90, 90))
         plt.savefig(os.path.join(outdir, 'emap-rect-{}.png'.format(fnum)))
         plt.close(fig)
 
@@ -88,3 +93,15 @@ def eigencurves(t, lcs, outdir, ncurves=None):
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'eigencurves.png'))
     
+def ecurvepower(evalues, outdir):
+    ncurves = len(evalues)
+    num = np.arange(1, ncurves + 1)
+
+    fig, ax = plt.subplots()
+    
+    plt.plot(num, evalues / np.sum(evalues), 'ob')
+    plt.xlabel('E-curve Number')
+    plt.ylabel('Normalized Power')
+
+    fig.tight_layout()
+    plt.savefig(os.path.join(outdir, 'ecurvepower.png'))
