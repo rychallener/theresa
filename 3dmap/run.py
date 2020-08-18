@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import starry
+import mc3
 sys.path.append('lib')
 import pca
 import eigen
@@ -44,6 +45,7 @@ def main(cfile):
                                      inc  =cfg.cfg.getfloat('Planet', 'inc'))
 
     system = starry.System(star, planet)
+    sflux, pflux_y00 = system.flux(t, total=False)
 
     print("Running PCA to determine eigencurves.")
     eigeny, evalues, evectors, proj, lcs = eigen.mkcurves(system, t, cfg.lmax)
