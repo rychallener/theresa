@@ -34,7 +34,7 @@ def mkcurves(system, t, lmax):
 
     proj: 2D array
         nharm x nt array of the data projected in the new space (the PCA
-        "eigencurves"
+        "eigencurves"). The imaginary part is discarded, if nonzero.
     """
     star   = system.bodies[0]
     planet = system.bodies[1]
@@ -58,7 +58,10 @@ def mkcurves(system, t, lmax):
     # Run PCA to determine orthogonal light curves
     evalues, evectors, proj = pca.pca(lcs)
 
-    # Convert orthogonal light curves into a map
+    # Discard imaginary part of eigencurves to appease numpy
+    proj = np.real(proj)
+
+    # Convert orthogonal light curves into maps
     eigeny = np.zeros((nharm, (lmax + 1)**2))
     eigeny[:,0] = 1.0 # Y00 = 1 for all maps
     for j in range(nharm):

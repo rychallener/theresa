@@ -51,25 +51,40 @@ def lightcurves(t, lcs, outdir):
     m = -1
     pos = True
 
-    fig, ax = plt.subplots(1, figsize=(6,3))
+    fig, ax = plt.subplots(1, figsize=(8,5))
     
     for i in range(nharm):
-        print(l, m, pos)
         plt.plot(t, lcs[i], label=r"${}Y_{{{}{}}}$".format(["-", "+"][pos],
                                                            l, m))
         if pos:
             pos = False
         else:
+            pos = True
             if l == m:
                 l += 1
-                m  = -l
-                pos = True
+                m  = -l               
             else:
-                pos = True
                 m += 1
             
-    plt.ylabel('Time (days)')
-    plt.xlabel('Normalized Flux')
+    plt.ylabel('Normalized Flux')
+    plt.xlabel('Time (days)')
     plt.legend(ncol=l, fontsize=6)
+    fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'lightcurves.png'))
+
+def eigencurves(t, lcs, outdir, ncurves=None):
+    if type(ncurves) == type(None):
+        ncurves = lcs.shape[0]
+
+    fig, ax = plt.subplots(1, figsize=(8,5))    
+
+    for i in range(ncurves):
+        plt.plot(t, lcs[i], label="E-curve {}".format(i+1))
+
+    plt.ylabel('Normalized Flux')
+    plt.xlabel('Time (days)')
+
+    plt.legend(fontsize=6)
+    fig.tight_layout()
+    plt.savefig(os.path.join(outdir, 'eigencurves.png'))
     

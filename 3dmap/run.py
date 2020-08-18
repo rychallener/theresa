@@ -8,12 +8,14 @@ import starry
 sys.path.append('lib')
 import pca
 import eigen
+import plots
 import config
 
 def main(cfile):
+    """
+    One function to rule them all.
+    """
     cfg = config.read_config(cfile)
-    lmax   = cfg.cfg.getint('General', 'lmax')
-    outdir = cfg.cfg.get(   'General', 'outdir')
 
     # Observation
     # TODO: Eventually read this in
@@ -26,7 +28,7 @@ def main(cfile):
                           r   =cfg.cfg.getfloat('Star', 'r'),
                           prot=cfg.cfg.getfloat('Star', 'prot'))
 
-    planet = starry.kepler.Secondary(starry.Map(ydeg=lmax),
+    planet = starry.kepler.Secondary(starry.Map(ydeg=cfg.lmax),
                                      m    =cfg.cfg.getfloat('Planet', 'm'),
                                      r    =cfg.cfg.getfloat('Planet', 'r'),
                                      porb =cfg.cfg.getfloat('Planet', 'porb'),
@@ -39,40 +41,18 @@ def main(cfile):
 
     system = starry.System(star, planet)
 
-    eigeny, evalues, evectors, proj = eigen.mkcurves(system, t, lmax)
+    eigeny, evalues, evectors, proj, lcs = eigen.mkcurves(system, t, cfg.lmax)
     
-    if not os.path.isdir(outdir):
-        os.mkdir(outdir)
+    if not os.path.isdir(cfg.outdir):
+        os.mkdir(cfg.outdir)
 
-    nharm = 2 * ((lmax + 1)**2 - 1)
+    if cfg.mkplots:
+        plots.circmaps(planet, eigeny, cfg.outdir)
+        plots.rectmaps(planet, eigeny, cfg.outdir)
+        plots.lightcurves(t, lcs, cfg.outdir)
+        plots.eigencurves(t, proj, cfg.outdir, ncurves=cfg.ncurves)
 
-    for j in range(nharm):
-        planet.map[1:,:] = 0
-
-        yi = 1
-        for l in range(1, lmax + 1):
-            for m in range(-l, l + 1):
-                planet.map[l, m] = eigeny[j, yi]
-                yi += 1
-
-        fill = np.int(np.log10(nharm)) + 1
-        fnum = str(j).zfill(fill)
         
-        fig, ax = plt.subplots(1, figsize=(5,5))
-        ax.imshow(planet.map.render(theta=180).eval(),
-                  origin="lower", cmap="plasma")
-        ax.axis("off")
-        plt.savefig(os.path.join(outdir, 'emap-ecl-{}.png'.format(fnum)))
-        plt.close(fig)
-
-        fig, ax = plt.subplots(1, figsize=(6,3))
-        ax.imshow(planet.map.render(projection="rect").eval(),
-                  origin="lower", cmap="plasma")
-        plt.savefig(os.path.join(outdir, 'emap-rect-{}.png'.format(fnum)))
-        plt.close(fig)
-                
-
-
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Provide configuration file as a command-line argument.")
