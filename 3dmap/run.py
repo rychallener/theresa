@@ -2,13 +2,16 @@
 
 import os
 import sys
+import mc3
+import pickle
+import starry
 import numpy as np
 import matplotlib.pyplot as plt
-import starry
-import mc3
+
 sys.path.append('lib')
 import pca
 import eigen
+import model
 import plots
 import config
 
@@ -18,15 +21,18 @@ def main(cfile):
     """
     One function to rule them all.
     """
+    # Create the master fit object
+    fit = model.Fit()
+    
     print("Reading the configuration file.")
     cfg = config.read_config(cfile)
+    fit.cfg = cfg
 
-    # Observation
-    # TODO: Eventually read this in
-    nt = 1000
-    t = np.linspace(0.4, 0.6, nt)
+    # Read data
+    fit.t, fit.flux, fit.ferr = np.loadtxt(fit.cfg.datafile, unpack=True)
 
     # Create star, planet, and system objects
+    # Not added to fit obj because they aren't pickleable
     print("Initializing star and planet objects.")
     star = starry.Primary(starry.Map(ydeg=0, udeg=0, amp=1),
                           m   =cfg.cfg.getfloat('Star', 'm'),
@@ -44,23 +50,28 @@ def main(cfile):
                                      t0   =cfg.cfg.getfloat('Planet', 't0'),
                                      inc  =cfg.cfg.getfloat('Planet', 'inc'))
 
+
     system = starry.System(star, planet)
-    sflux, pflux_y00 = system.flux(t, total=False)
+    
+    fit.sflux, fit.pflux_y00 = [a.eval() for a in  \
+                                system.flux(fit.t, total=False)]
 
     print("Running PCA to determine eigencurves.")
-    eigeny, evalues, evectors, proj, lcs = eigen.mkcurves(system, t, cfg.lmax)
+    fit.eigeny, fit.evalues, fit.evectors, fit.proj, fit.lcs = \
+        eigen.mkcurves(system, fit.t, cfg.lmax)
     
     if not os.path.isdir(cfg.outdir):
         os.mkdir(cfg.outdir)
 
     if cfg.mkplots:
         print("Making plots.")
-        plots.circmaps(planet, eigeny, cfg.outdir)
-        plots.rectmaps(planet, eigeny, cfg.outdir)
-        plots.lightcurves(t, lcs, cfg.outdir)
-        plots.eigencurves(t, proj, cfg.outdir, ncurves=cfg.ncurves)
-        plots.ecurvepower(evalues, cfg.outdir)
+        plots.circmaps(planet, fit.eigeny, cfg.outdir)
+        plots.rectmaps(planet, fit.eigeny, cfg.outdir)
+        plots.lightcurves(fit.t, fit.lcs, cfg.outdir)
+        plots.eigencurves(fit.t, fit.proj, cfg.outdir, ncurves=cfg.ncurves)
+        plots.ecurvepower(fit.evalues, cfg.outdir)
 
+    fit.save(fit.cfg.outdir)
         
 if __name__ == "__main__":
     if len(sys.argv) < 2:

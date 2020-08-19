@@ -17,9 +17,10 @@ def read_config(cfile):
     cfg.cfile = cfile
     cfg.cfg   = config
 
-    cfg.lmax    = cfg.cfg.getint(    'General', 'lmax')
-    cfg.outdir  = cfg.cfg.get(       'General', 'outdir')
-    cfg.mkplots = cfg.cfg.getboolean('General', 'mkplots')
-    cfg.ncurves = cfg.cfg.getint(    'General', 'ncurves')
+    cfg.lmax     = cfg.cfg.getint(    'General', 'lmax')
+    cfg.outdir   = cfg.cfg.get(       'General', 'outdir')
+    cfg.mkplots  = cfg.cfg.getboolean('General', 'mkplots')
+    cfg.ncurves  = cfg.cfg.getint(    'General', 'ncurves')
+    cfg.datafile = cfg.cfg.get(       'General', 'datafile')
 
     return cfg    
