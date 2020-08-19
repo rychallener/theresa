@@ -17,15 +17,17 @@ class Fit:
         with open(os.path.join(outdir, fname), 'wb') as f:
             pickle.dump(self, f)
 
-def fit_2d(ecurves, y00, t, params, ncurves):
+def fit_2d(params, ecurves, t, y00, sflux, ncurves):
     f = np.zeros(len(t))
 
     for i in range(ncurves):
-        f += ecurves[i] * getattr(params, 'e{}'.format(i))
+        f += ecurves[i] * params[i]
    
-    f += y00
+    f += params[i+1] * y00
 
-    f += params.scorr
+    f += params[i+2]
+
+    f += sflux
 
     return f
 

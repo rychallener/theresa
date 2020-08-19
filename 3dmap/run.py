@@ -57,7 +57,7 @@ def main(cfile):
                                 system.flux(fit.t, total=False)]
 
     print("Running PCA to determine eigencurves.")
-    fit.eigeny, fit.evalues, fit.evectors, fit.proj, fit.lcs = \
+    fit.eigeny, fit.evalues, fit.evectors, fit.ecurves, fit.lcs = \
         eigen.mkcurves(system, fit.t, cfg.lmax)
     
     if not os.path.isdir(cfg.outdir):
@@ -68,9 +68,27 @@ def main(cfile):
         plots.circmaps(planet, fit.eigeny, cfg.outdir)
         plots.rectmaps(planet, fit.eigeny, cfg.outdir)
         plots.lightcurves(fit.t, fit.lcs, cfg.outdir)
-        plots.eigencurves(fit.t, fit.proj, cfg.outdir, ncurves=cfg.ncurves)
+        plots.eigencurves(fit.t, fit.ecurves, cfg.outdir, ncurves=cfg.ncurves)
         plots.ecurvepower(fit.evalues, cfg.outdir)
 
+    indparams = (fit.ecurves, fit.t, fit.pflux_y00, fit.sflux, cfg.ncurves)
+
+    params = np.zeros(cfg.ncurves + 2)
+    pstep  = np.ones(cfg.ncurves + 2) * 0.01
+
+    mc3npz = os.path.join(cfg.outdir, 'mcmc.npz')
+
+    mc3out = mc3.sample(data=fit.flux, uncert=fit.ferr, func=model.fit_2d,
+                        params=params, indparams=indparams, pstep=pstep,
+                        sampler='snooker', nsamples=1000000, burnin=10000,
+                        ncpu=4, savefile=mc3npz, plots=True)
+
+    bestfit = mc3out['best_model']
+    bestp   = mc3out['bestp']
+
+    # TODO: build map out of best-fitting parameters by calculating
+    # Y values and summing the eigencurve maps
+    
     fit.save(fit.cfg.outdir)
         
 if __name__ == "__main__":
