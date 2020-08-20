@@ -22,5 +22,8 @@ def read_config(cfile):
     cfg.mkplots  = cfg.cfg.getboolean('General', 'mkplots')
     cfg.ncurves  = cfg.cfg.getint(    'General', 'ncurves')
     cfg.datafile = cfg.cfg.get(       'General', 'datafile')
+    cfg.ncpu     = cfg.cfg.getint(    'General', 'ncpu')
+    cfg.nsamples = cfg.cfg.getint(    'General', 'nsamples')
+    cfg.burnin   = cfg.cfg.getint(    'General', 'burnin')
 
     return cfg    

@@ -65,8 +65,8 @@ def main(cfile):
 
     if cfg.mkplots:
         print("Making plots.")
-        plots.circmaps(planet, fit.eigeny, cfg.outdir)
-        plots.rectmaps(planet, fit.eigeny, cfg.outdir)
+        plots.circmaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves)
+        plots.rectmaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves)
         plots.lightcurves(fit.t, fit.lcs, cfg.outdir)
         plots.eigencurves(fit.t, fit.ecurves, cfg.outdir, ncurves=cfg.ncurves)
         plots.ecurvepower(fit.evalues, cfg.outdir)
@@ -80,15 +80,21 @@ def main(cfile):
 
     mc3out = mc3.sample(data=fit.flux, uncert=fit.ferr, func=model.fit_2d,
                         params=params, indparams=indparams, pstep=pstep,
-                        sampler='snooker', nsamples=1000000, burnin=10000,
-                        ncpu=4, savefile=mc3npz, plots=True)
+                        sampler='snooker', nsamples=cfg.nsamples,
+                        burnin=cfg.burnin, ncpu=cfg.ncpu, savefile=mc3npz,
+                        plots=True)
 
-    bestfit = mc3out['best_model']
-    bestp   = mc3out['bestp']
+    fit.bestfit = mc3out['best_model']
+    fit.bestp   = mc3out['bestp']
 
-    # TODO: build map out of best-fitting parameters by calculating
-    # Y values and summing the eigencurve maps
-    
+    fit.besty = np.zeros((cfg.ncurves, (cfg.lmax + 1)**2))
+
+    if cfg.mkplots:
+        plots.mapsumcirc(planet, fit.eigeny, fit.bestp, cfg.outdir,
+                         ncurves=cfg.ncurves)
+        plots.mapsumrect(planet, fit.eigeny, fit.bestp, cfg.outdir,
+                         ncurves=cfg.ncurves)       
+        
     fit.save(fit.cfg.outdir)
         
 if __name__ == "__main__":
