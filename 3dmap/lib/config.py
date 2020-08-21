@@ -25,5 +25,9 @@ def read_config(cfile):
     cfg.ncpu     = cfg.cfg.getint(    'General', 'ncpu')
     cfg.nsamples = cfg.cfg.getint(    'General', 'nsamples')
     cfg.burnin   = cfg.cfg.getint(    'General', 'burnin')
+    cfg.leastsq  = cfg.cfg.get(       'General', 'leastsq')
+
+    if cfg.leastsq == 'None' or cfg.leastsq == 'False':
+        cfg.leastsq = None
 
     return cfg    

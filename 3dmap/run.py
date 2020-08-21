@@ -50,7 +50,6 @@ def main(cfile):
                                      t0   =cfg.cfg.getfloat('Planet', 't0'),
                                      inc  =cfg.cfg.getfloat('Planet', 'inc'))
 
-
     system = starry.System(star, planet)
     
     fit.sflux, fit.pflux_y00 = [a.eval() for a in  \
@@ -82,18 +81,17 @@ def main(cfile):
                         params=params, indparams=indparams, pstep=pstep,
                         sampler='snooker', nsamples=cfg.nsamples,
                         burnin=cfg.burnin, ncpu=cfg.ncpu, savefile=mc3npz,
-                        plots=True)
+                        plots=True, leastsq=cfg.leastsq)
 
     fit.bestfit = mc3out['best_model']
     fit.bestp   = mc3out['bestp']
-
-    fit.besty = np.zeros((cfg.ncurves, (cfg.lmax + 1)**2))
 
     if cfg.mkplots:
         plots.mapsumcirc(planet, fit.eigeny, fit.bestp, cfg.outdir,
                          ncurves=cfg.ncurves)
         plots.mapsumrect(planet, fit.eigeny, fit.bestp, cfg.outdir,
-                         ncurves=cfg.ncurves)       
+                         ncurves=cfg.ncurves)
+        plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, cfg.outdir)
         
     fit.save(fit.cfg.outdir)
         
@@ -104,6 +102,7 @@ if __name__ == "__main__":
     else:
         cfile = sys.argv[1]
     main(cfile)
+    
         
 
     

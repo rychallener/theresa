@@ -49,7 +49,7 @@ def rectmaps(planet, eigeny, outdir, ncurves=None):
         fill = np.int(np.log10(ncurves)) + 1
         fnum = str(j).zfill(fill)    
         fig, ax = plt.subplots(1, figsize=(6,3))
-        ax.imshow(planet.map.render(projection="rect").eval(),
+        ax.imshow(planet.map.render(theta=180, projection="rect").eval(),
                   origin="lower", cmap="plasma",
                   extent=(-180, 180, -90, 90))
         plt.savefig(os.path.join(outdir, 'emap-rect-{}.png'.format(fnum)))
@@ -119,7 +119,7 @@ def mapsumcirc(planet, eigeny, params, outdir, ncurves=None, res=300):
     planet.map[1:,:] = 0
 
     # Start with uniform map with correct total flux
-    map = planet.map.render(theta=180, res=res).eval() * params[ncurves + 1]
+    map = planet.map.render(theta=180, res=res).eval() * params[ncurves]
     
     fig, ax = plt.subplots()
     
@@ -136,12 +136,14 @@ def mapsumcirc(planet, eigeny, params, outdir, ncurves=None, res=300):
 def mapsumrect(planet, eigeny, params, outdir, ncurves=None, res=300):
     if type(ncurves) == type(None):
         ncurves = eigeny.shape[0]
+
+    ny = eigeny.shape[1]
     # Reset planet's harmonic coefficients
     planet.map[1:,:] = 0
 
     # Start with uniform map with correct total flux
     map = planet.map.render(theta=180, res=res,
-                            projection='rect').eval() * params[ncurves + 1]
+                            projection='rect').eval() * params[ncurves]
     
     fig, ax = plt.subplots()
     
@@ -157,5 +159,15 @@ def mapsumrect(planet, eigeny, params, outdir, ncurves=None, res=300):
     plt.savefig(os.path.join(outdir, 'bestfit-rect.png'))        
     plt.close(fig)
 
+def bestfit(t, model, data, unc, outdir):
+    fig, ax = plt.subplots()
+    ax.plot(t, model, zorder=2)
+    ax.errorbar(t, data, unc, zorder=1)
+    ax.set_xlabel('Time (days)')
+    ax.set_ylabel('Normalized Flux')
+    fig.tight_layout()
+    plt.savefig(os.path.join(outdir, 'bestfit-lc.png'))
+    plt.close(fig)
     
+
     
