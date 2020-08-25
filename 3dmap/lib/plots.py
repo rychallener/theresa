@@ -115,6 +115,7 @@ def ecurvepower(evalues, outdir):
 def mapsumcirc(planet, eigeny, params, outdir, ncurves=None, res=300):
     if type(ncurves) == type(None):
         ncurves = eigeny.shape[0]
+        
     # Reset planet's harmonic coefficients
     planet.map[1:,:] = 0
 
@@ -137,13 +138,12 @@ def mapsumrect(planet, eigeny, params, outdir, ncurves=None, res=300):
     if type(ncurves) == type(None):
         ncurves = eigeny.shape[0]
 
-    ny = eigeny.shape[1]
     # Reset planet's harmonic coefficients
     planet.map[1:,:] = 0
 
     # Start with uniform map with correct total flux
     map = planet.map.render(theta=180, res=res,
-                            projection='rect').eval() * params[ncurves]
+                               projection='rect').eval() * params[ncurves]
     
     fig, ax = plt.subplots()
     
@@ -164,6 +164,7 @@ def bestfit(t, model, data, unc, outdir):
     ax.plot(t, model, zorder=2)
     ax.errorbar(t, data, unc, zorder=1)
     ax.set_xlabel('Time (days)')
+
     ax.set_ylabel('Normalized Flux')
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'bestfit-lc.png'))
