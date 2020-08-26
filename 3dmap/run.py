@@ -13,7 +13,6 @@ import pca
 import eigen
 import model
 import plots
-import config
 
 starry.config.quiet = True
 
@@ -25,11 +24,11 @@ def main(cfile):
     fit = model.Fit()
     
     print("Reading the configuration file.")
-    cfg = config.read_config(cfile)
-    fit.cfg = cfg
+    fit.read_config(cfile)
+    cfg = fit.cfg
 
-    # Read data
-    fit.t, fit.flux, fit.ferr = np.loadtxt(fit.cfg.datafile, unpack=True)
+    print("Reading the data.")
+    fit.read_data()
 
     # Create star, planet, and system objects
     # Not added to fit obj because they aren't pickleable
@@ -73,7 +72,7 @@ def main(cfile):
     indparams = (fit.ecurves, fit.t, fit.pflux_y00, fit.sflux, cfg.ncurves)
 
     params = np.zeros(cfg.ncurves + 2)
-    pstep  = np.ones(cfg.ncurves + 2) * 0.01
+    pstep  = np.ones( cfg.ncurves + 2) * 0.01
 
     mc3npz = os.path.join(cfg.outdir, 'mcmc.npz')
 
