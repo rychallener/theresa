@@ -1,6 +1,9 @@
 import numpy as np
 
 def fit_2d(params, ecurves, t, y00, sflux, ncurves):
+    """
+    Basic 2D fitting routine for a single wavelength.
+    """
     f = np.zeros(len(t))
 
     for i in range(ncurves):
@@ -14,6 +17,21 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves):
 
     return f
 
-def fit_3d():
-    pass
+def fit_3d(params, ecurves, t, wl, y00, sflux, ncurves):
+    """
+    3D fitting routine that calls the 2D fitting routine for each
+    wavelength.
+    """
+    f = np.zeros(len(t) * len(wl))
+
+    nt   = len(t)
+    nw   = len(wl)
+    npar = int(len(params) / nw) # params per wavelength
+    for i in range(nw):
+        f[i*nt:(i+1)*nt] = fit_2d(params[i*npar:(i+1)*npar], ecurves,
+                                  t, y00[:,i],sflux[:,i], ncurves)
+
+    return f
+                                        
+    
     

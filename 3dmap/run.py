@@ -13,6 +13,7 @@ import pca
 import eigen
 import model
 import plots
+import fitclass as fc
 
 starry.config.quiet = True
 
@@ -21,7 +22,7 @@ def main(cfile):
     One function to rule them all.
     """
     # Create the master fit object
-    fit = model.Fit()
+    fit = fc.Fit()
     
     print("Reading the configuration file.")
     fit.read_config(cfile)
@@ -33,7 +34,7 @@ def main(cfile):
     # Create star, planet, and system objects
     # Not added to fit obj because they aren't pickleable
     print("Initializing star and planet objects.")
-    star = starry.Primary(starry.Map(ydeg=0, udeg=0, amp=1),
+    star = starry.Primary(starry.Map(ydeg=1, amp=1),
                           m   =cfg.cfg.getfloat('Star', 'm'),
                           r   =cfg.cfg.getfloat('Star', 'r'),
                           prot=cfg.cfg.getfloat('Star', 'prot'))
@@ -69,14 +70,19 @@ def main(cfile):
         plots.eigencurves(fit.t, fit.ecurves, cfg.outdir, ncurves=cfg.ncurves)
         plots.ecurvepower(fit.evalues, cfg.outdir)
 
-    indparams = (fit.ecurves, fit.t, fit.pflux_y00, fit.sflux, cfg.ncurves)
+    # Set up for MCMC
+    indparams = (fit.ecurves, fit.t, fit.wl, fit.pflux_y00,
+                 fit.sflux, cfg.ncurves)
 
-    params = np.zeros(cfg.ncurves + 2)
-    pstep  = np.ones( cfg.ncurves + 2) * 0.01
+    params = np.zeros((cfg.ncurves + 2) * len(fit.wl))
+    pstep  = np.ones( (cfg.ncurves + 2) * len(fit.wl)) * 0.01
 
     mc3npz = os.path.join(cfg.outdir, 'mcmc.npz')
 
-    mc3out = mc3.sample(data=fit.flux, uncert=fit.ferr, func=model.fit_2d,
+    mc3data = fit.flux.flatten('F')
+    mc3unc  = fit.ferr.flatten('F')
+
+    mc3out = mc3.sample(data=mc3data, uncert=mc3unc, func=model.fit_3d,
                         params=params, indparams=indparams, pstep=pstep,
                         sampler='snooker', nsamples=cfg.nsamples,
                         burnin=cfg.burnin, ncpu=cfg.ncpu, savefile=mc3npz,
