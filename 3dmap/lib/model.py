@@ -29,7 +29,7 @@ def fit_3d(params, ecurves, t, wl, y00, sflux, ncurves):
     npar = int(len(params) / nw) # params per wavelength
     for i in range(nw):
         f[i*nt:(i+1)*nt] = fit_2d(params[i*npar:(i+1)*npar], ecurves,
-                                  t, y00[:,i],sflux[:,i], ncurves)
+                                  t, y00, sflux, ncurves)
 
     return f
                                         

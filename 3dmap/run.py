@@ -74,13 +74,15 @@ def main(cfile):
     indparams = (fit.ecurves, fit.t, fit.wl, fit.pflux_y00,
                  fit.sflux, cfg.ncurves)
 
-    params = np.zeros((cfg.ncurves + 2) * len(fit.wl))
-    pstep  = np.ones( (cfg.ncurves + 2) * len(fit.wl)) * 0.01
+    npar = cfg.ncurves + 2
+
+    params = np.zeros(npar * len(fit.wl))
+    pstep  = np.ones( npar * len(fit.wl)) * 0.01
 
     mc3npz = os.path.join(cfg.outdir, 'mcmc.npz')
 
-    mc3data = fit.flux.flatten('F')
-    mc3unc  = fit.ferr.flatten('F')
+    mc3data = fit.flux.flatten()
+    mc3unc  = fit.ferr.flatten()
 
     mc3out = mc3.sample(data=mc3data, uncert=mc3unc, func=model.fit_3d,
                         params=params, indparams=indparams, pstep=pstep,
@@ -92,11 +94,16 @@ def main(cfile):
     fit.bestp   = mc3out['bestp']
 
     if cfg.mkplots:
-        plots.mapsumcirc(planet, fit.eigeny, fit.bestp, cfg.outdir,
-                         ncurves=cfg.ncurves)
-        plots.mapsumrect(planet, fit.eigeny, fit.bestp, cfg.outdir,
-                         ncurves=cfg.ncurves)
-        plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, cfg.outdir)
+        for i in range(len(fit.wl)):
+            ipar = range(i*npar, (i+1)*npar)
+            plots.mapsumcirc(planet, fit.eigeny, fit.bestp[ipar],
+                             fit.wl[i], cfg.outdir,
+                             ncurves=cfg.ncurves)
+            plots.mapsumrect(planet, fit.eigeny, fit.bestp[ipar],
+                             fit.wl[i], cfg.outdir,
+                             ncurves=cfg.ncurves)
+        plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, fit.wl,
+                      cfg.outdir)
         
     fit.save(fit.cfg.outdir)
         

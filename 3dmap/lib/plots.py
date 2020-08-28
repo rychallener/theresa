@@ -112,7 +112,7 @@ def ecurvepower(evalues, outdir):
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'ecurvepower.png'))
 
-def mapsumcirc(planet, eigeny, params, outdir, ncurves=None, res=300):
+def mapsumcirc(planet, eigeny, params, wl, outdir, ncurves=None, res=300):
     if type(ncurves) == type(None):
         ncurves = eigeny.shape[0]
         
@@ -131,10 +131,10 @@ def mapsumcirc(planet, eigeny, params, outdir, ncurves=None, res=300):
     im = ax.imshow(map, origin='lower', cmap='plasma')
     plt.colorbar(im, ax=ax)
     fig.tight_layout()
-    plt.savefig(os.path.join(outdir, 'bestfit-ecl.png'))        
+    plt.savefig(os.path.join(outdir, 'bestfit-ecl-{}um.png.'.format(wl)))  
     plt.close(fig)
 
-def mapsumrect(planet, eigeny, params, outdir, ncurves=None, res=300):
+def mapsumrect(planet, eigeny, params, wl, outdir, ncurves=None, res=300):
     if type(ncurves) == type(None):
         ncurves = eigeny.shape[0]
 
@@ -143,7 +143,7 @@ def mapsumrect(planet, eigeny, params, outdir, ncurves=None, res=300):
 
     # Start with uniform map with correct total flux
     map = planet.map.render(theta=180, res=res,
-                               projection='rect').eval() * params[ncurves]
+                            projection='rect').eval() * params[ncurves]
     
     fig, ax = plt.subplots()
     
@@ -156,18 +156,22 @@ def mapsumrect(planet, eigeny, params, outdir, ncurves=None, res=300):
                    extent=(-180, 180, -90, 90))
     plt.colorbar(im, ax=ax)
     fig.tight_layout()
-    plt.savefig(os.path.join(outdir, 'bestfit-rect.png'))        
+    plt.savefig(os.path.join(outdir, 'bestfit-rect-{}um.png'.format(wl)))    
     plt.close(fig)
 
-def bestfit(t, model, data, unc, outdir):
+def bestfit(t, model, data, unc, wl, outdir):
     fig, ax = plt.subplots()
-    ax.plot(t, model, zorder=2)
-    ax.errorbar(t, data, unc, zorder=1)
-    ax.set_xlabel('Time (days)')
 
+    nt = len(t)
+    
+    for i in range(len(wl)):
+        ax.plot(t, model[i*nt:(i+1)*nt], zorder=2)
+        ax.errorbar(t, data[i], unc[i], zorder=1)
+
+    ax.set_xlabel('Time (days)')
     ax.set_ylabel('Normalized Flux')
     fig.tight_layout()
-    plt.savefig(os.path.join(outdir, 'bestfit-lc.png'))
+    plt.savefig(os.path.join(outdir, 'bestfit-lcs.png'))
     plt.close(fig)
     
 
