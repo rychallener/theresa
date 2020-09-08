@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+# General imports
 import os
 import sys
 import mc3
@@ -8,12 +9,24 @@ import starry
 import numpy as np
 import matplotlib.pyplot as plt
 
-sys.path.append('lib')
+# Directory structure
+maindir = os.path.dirname(os.path.realpath(__file__))
+libdir  = os.path.join(maindir, 'lib')
+moddir  = os.path.join(libdir,  'modules')
+ratedir = os.path.join(moddir,  'rate')
+
+# Lib imports
+sys.path.append(libdir)
+import atm
 import pca
 import eigen
 import model
 import plots
 import fitclass as fc
+
+# Module imports
+sys.path.append(ratedir)
+import rate
 
 starry.config.quiet = True
 
@@ -84,7 +97,7 @@ def main(cfile):
     mc3data = fit.flux.flatten()
     mc3unc  = fit.ferr.flatten()
 
-
+    print("Optimizing 2D maps.")
     mc3out = mc3.fit(data=mc3data, uncert=mc3unc, func=model.fit_2d_wl,
                      params=params, indparams=indparams, pstep=pstep,
                      leastsq=cfg.leastsq)
@@ -109,6 +122,10 @@ def main(cfile):
                              ncurves=cfg.ncurves)
         plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, fit.wl,
                       cfg.outdir)
+
+    print("Initializing atmosphere.")
+    p, temp, abn = atm.atminit(cfg.atmtype, cfg.atmfile, cfg.nlayers,
+                               cfg.ptop, cfg.pbot, cfg.temp, cfg.outdir)
         
     fit.save(fit.cfg.outdir)
         
