@@ -17,9 +17,9 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves):
 
     return f
 
-def fit_3d(params, ecurves, t, wl, y00, sflux, ncurves):
+def fit_2d_wl(params, ecurves, t, wl, y00, sflux, ncurves):
     """
-    3D fitting routine that calls the 2D fitting routine for each
+    2D fitting driver that calls the 2D fitting routine for each
     wavelength.
     """
     f = np.zeros(len(t) * len(wl))

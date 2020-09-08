@@ -84,11 +84,16 @@ def main(cfile):
     mc3data = fit.flux.flatten()
     mc3unc  = fit.ferr.flatten()
 
-    mc3out = mc3.sample(data=mc3data, uncert=mc3unc, func=model.fit_3d,
-                        params=params, indparams=indparams, pstep=pstep,
-                        sampler='snooker', nsamples=cfg.nsamples,
-                        burnin=cfg.burnin, ncpu=cfg.ncpu, savefile=mc3npz,
-                        plots=True, leastsq=cfg.leastsq)
+
+    mc3out = mc3.fit(data=mc3data, uncert=mc3unc, func=model.fit_2d_wl,
+                     params=params, indparams=indparams, pstep=pstep,
+                     leastsq=cfg.leastsq)
+    
+    # mc3out = mc3.sample(data=mc3data, uncert=mc3unc, func=model.fit_2d_wl,
+    #                     params=params, indparams=indparams, pstep=pstep,
+    #                     sampler='snooker', nsamples=cfg.nsamples,
+    #                     burnin=cfg.burnin, ncpu=cfg.ncpu, savefile=mc3npz,
+    #                     plots=True, leastsq=cfg.leastsq)
 
     fit.bestfit = mc3out['best_model']
     fit.bestp   = mc3out['bestp']

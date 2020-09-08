@@ -131,7 +131,7 @@ def mapsumcirc(planet, eigeny, params, wl, outdir, ncurves=None, res=300):
     im = ax.imshow(map, origin='lower', cmap='plasma')
     plt.colorbar(im, ax=ax)
     fig.tight_layout()
-    plt.savefig(os.path.join(outdir, 'bestfit-ecl-{}um.png.'.format(wl)))  
+    plt.savefig(os.path.join(outdir, 'bestfit-ecl-{}um.png'.format(wl)))  
     plt.close(fig)
 
 def mapsumrect(planet, eigeny, params, wl, outdir, ncurves=None, res=300):
