@@ -7,13 +7,15 @@ import mc3
 import pickle
 import starry
 import numpy as np
+import subprocess
 import matplotlib.pyplot as plt
 
 # Directory structure
-maindir = os.path.dirname(os.path.realpath(__file__))
-libdir  = os.path.join(maindir, 'lib')
-moddir  = os.path.join(libdir,  'modules')
-ratedir = os.path.join(moddir,  'rate')
+maindir    = os.path.dirname(os.path.realpath(__file__))
+libdir     = os.path.join(maindir, 'lib')
+moddir     = os.path.join(libdir,  'modules')
+ratedir    = os.path.join(moddir,  'rate')
+transitdir = os.path.join(moddir, 'transit')
 
 # Lib imports
 sys.path.append(libdir)
@@ -22,6 +24,7 @@ import pca
 import eigen
 import model
 import plots
+import mkcfg
 import fitclass as fc
 
 # Module imports
@@ -126,6 +129,13 @@ def main(cfile):
     print("Initializing atmosphere.")
     p, temp, abn = atm.atminit(cfg.atmtype, cfg.atmfile, cfg.nlayers,
                                cfg.ptop, cfg.pbot, cfg.temp, cfg.outdir)
+
+    print("Generating spectrum.")
+    if cfg.rtfunc == 'transit':
+        tcfg = mkcfg.mktransit(cfile, cfg.outdir)
+        rtcall = os.path.join(transitdir, 'transit', 'transit')
+        subprocess.call(["{:s} -c {:s}".format(rtcall, tcfg.split('/')[-1])],
+                        shell=True, cwd=cfg.outdir)
         
     fit.save(fit.cfg.outdir)
         
