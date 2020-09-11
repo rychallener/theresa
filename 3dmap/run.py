@@ -127,8 +127,12 @@ def main(cfile):
                       cfg.outdir)
 
     print("Initializing atmosphere.")
-    p, temp, abn = atm.atminit(cfg.atmtype, cfg.atmfile, cfg.nlayers,
-                               cfg.ptop, cfg.pbot, cfg.temp, cfg.outdir)
+    r, p, temp, abn = atm.atminit(cfg.atmtype, cfg.atmfile, cfg.nlayers,
+                                  cfg.ptop, cfg.pbot, cfg.temp,
+                                  cfg.cfg.getfloat('Planet', 'm'),
+                                  cfg.cfg.getfloat('Planet', 'r'),
+                                  cfg.cfg.getfloat('Planet', 'p0'),
+                                  cfg.elemfile, cfg.outdir)
 
     print("Generating spectrum.")
     if cfg.rtfunc == 'transit':

@@ -78,13 +78,13 @@ def atminit(atmtype, atmfile, nlayers, ptop, pbot, t, mp, rp, refpress,
         t = np.ones(nlayers) * t
 
     # Convert planet mass and radius to Jupiter
-    rp *= c.Rjup / c.Rsun
-    mp *= c.Mjup / c.Msun
+    rp *= c.Rsun / c.Rjup
+    mp *= c.Msun / c.Mjup
 
     if os.path.isfile(atmfile):
         print("Using atmosphere " + atm)
         r, p, t, abn = atmload(atmfile)
-        atmsave(r, p, t, abn, outdir, atmfile)
+        atmsave(r, p, t, abn, spec, outdir, atmfile)
         return r, p, t, abn
 
     p = np.logspace(pbot, ptop, nlayers)
@@ -99,10 +99,10 @@ def atminit(atmtype, atmfile, nlayers, ptop, pbot, t, mp, rp, refpress,
 
     r  = calcrad(p, t, mu, rp, mp, refpress)
         
-    atmsave(r, p, t, abn, outdir, atmfile)
+    atmsave(r, p, t, abn, spec, outdir, atmfile)
     return r, p, t, abn
 
-def atmsave(r, p, t, abn, outdir, atmfile):
+def atmsave(r, p, t, abn, spec, outdir, atmfile):
     """
     Save an atmosphere file. Columns are pressure, temeprature, and abundance.
 
@@ -122,14 +122,26 @@ def atmsave(r, p, t, abn, outdir, atmfile):
         columns are pressure.
 
     """
+           
     nlayers = len(p)
     atmarr = np.hstack((r.reshape((nlayers, 1)),
                         p.reshape((nlayers, 1)),
                         t.reshape((nlayers, 1)),
                         abn))
-    np.savetxt(os.path.join(outdir, atmfile), atmarr,
-               fmt='%.4e')
 
+    with open(os.path.join(outdir, atmfile), 'w') as f:
+        f.write('# Atmospheric File\n')
+        f.write('ur {}\n'.format(1e2))
+        f.write('up {}\n'.format(1e6))
+        f.write('q number\n')
+        f.write('#SPECIES\n')
+        f.write(' '.join(spec) + '\n')
+        f.write('#TEADATA\n')
+
+    with open(os.path.join(outdir, atmfile), 'a') as f:
+        np.savetxt(f, atmarr, fmt='%.4e')
+        
+        
 def atmload(atmfile):
     """
     Load an atmosphere file.
