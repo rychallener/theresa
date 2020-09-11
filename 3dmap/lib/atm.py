@@ -83,9 +83,9 @@ def atminit(atmtype, atmfile, nlayers, ptop, pbot, t, mp, rp, refpress,
 
     if os.path.isfile(atmfile):
         print("Using atmosphere " + atm)
-        r, p, t, abn = atmload(atmfile)
+        r, p, t, abn, spec = atmload(atmfile)
         atmsave(r, p, t, abn, spec, outdir, atmfile)
-        return r, p, t, abn
+        return r, p, t, abn, spec
 
     p = np.logspace(pbot, ptop, nlayers)
 
@@ -100,7 +100,7 @@ def atminit(atmtype, atmfile, nlayers, ptop, pbot, t, mp, rp, refpress,
     r  = calcrad(p, t, mu, rp, mp, refpress)
         
     atmsave(r, p, t, abn, spec, outdir, atmfile)
-    return r, p, t, abn
+    return r, p, t, abn, spec
 
 def atmsave(r, p, t, abn, spec, outdir, atmfile):
     """
@@ -167,14 +167,49 @@ def atmload(atmfile):
         columns are pressure.
 
     """
-    arr = np.loadtxt(atmfile)
+    with open(atmfile, 'r') as f:
+        lines = f.readlines()
+
+    for line in lines:
+        # Take out comments
+        if line.startswith('#') and not \
+           line.startswith('#SPECIES') and not \
+           line.startswith('#TEADATA'):
+            lines.remove(line)
+        # Take out blank or whitespace lines
+        if not line.rstrip():
+            lines.remove(line)
+
+    for i, line in enumerate(lines):
+        if line.startswith('ur'):
+            ur = float(line.split()[-1])
+        if line.startswith('up'):
+            up = float(line.split()[-1])
+        if line.startswith('q'):
+            q  = line.split()[-1]
+        if line.startswith('#SPECIES'):
+            ispec = i + 1
+        if line.startswith('#TEADATA'):
+            idata = i + 1
+
+    spec = lines[ispec].split()
+
+    datalines = lines[idata:]
+
+    nlayer = len(datalines)
+    ncol   = len(datalines[0].rstrip().split())
+
+    arr = np.zeros((nlayer, ncol))
+    
+    for i in range(nlayer):
+        arr[i] = np.array(datalines[i].rstrip().split(), dtype=float)
 
     r   = arr[:,0 ]
     p   = arr[:,1 ]
     t   = arr[:,2 ]
     abn = arr[:,3:]
 
-    return p, t, abn
+    return r, p, t, abn, spec
                         
 def calcmu(elemfile, abn, spec):
     """
