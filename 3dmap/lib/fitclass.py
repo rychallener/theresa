@@ -51,6 +51,8 @@ class Fit:
             self.cfg.leastsq = None
 
         self.cfg.rtfunc = self.cfg.cfg.get('General', 'rtfunc')
+
+        self.cfg.elemfile = self.cfg.cfg.get('General', 'elemfile')
         
     def read_data(self):
         self.t    = np.loadtxt(self.cfg.timefile)
