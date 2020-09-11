@@ -2,6 +2,8 @@ import os
 import numpy as np
 import configparser as cp
 
+libdir = os.path.dirname(os.path.realpath(__file__))
+
 def mktransit(cfile, outdir):
     """
     Parse transit configuration from ConfigParser format in the 
@@ -18,6 +20,15 @@ def mktransit(cfile, outdir):
     for key in keys:
         val = maincfg.get('transit', key) 
         f.write("{:s} {:s}\n".format(key, val))
+
+    if "molfile" not in keys:
+        f.write("{:s} {:s}\n".format('molfile', os.path.join(libdir,
+                                                             "modules",
+                                                             "transit",
+                                                             "inputs",
+                                                             "molecules.dat")))
+
+    f.close()
 
     return tfile
 

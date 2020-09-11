@@ -139,6 +139,7 @@ def main(cfile):
     if cfg.rtfunc == 'transit':
         tcfg = mkcfg.mktransit(cfile, cfg.outdir)
         rtcall = os.path.join(transitdir, 'transit', 'transit')
+        print(["{:s} -c {:s}".format(rtcall, tcfg.split('/')[-1])])
         subprocess.call(["{:s} -c {:s}".format(rtcall, tcfg.split('/')[-1])],
                         shell=True, cwd=cfg.outdir)
         
