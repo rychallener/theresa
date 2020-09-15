@@ -30,6 +30,6 @@ def mktransit(cfile, outdir):
 
     f.close()
 
-    return tfile
+    return 'transit.cfg'
 
         

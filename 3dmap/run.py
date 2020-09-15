@@ -6,6 +6,7 @@ import sys
 import mc3
 import pickle
 import starry
+import shutil
 import numpy as np
 import subprocess
 import matplotlib.pyplot as plt
@@ -139,8 +140,20 @@ def main(cfile):
     if cfg.rtfunc == 'transit':
         tcfg = mkcfg.mktransit(cfile, cfg.outdir)
         rtcall = os.path.join(transitdir, 'transit', 'transit')
-        print(["{:s} -c {:s}".format(rtcall, tcfg.split('/')[-1])])
-        subprocess.call(["{:s} -c {:s}".format(rtcall, tcfg.split('/')[-1])],
+        opacfile = cfg.cfg.get('transit', 'opacityfile')
+        if not os.path.isfile(opacfile):
+            print("  Generating opacity grid.")
+            subprocess.call(["{:s} -c {:s} --justOpacity".format(rtcall, tcfg)],
+                            shell=True, cwd=cfg.outdir)
+        else:
+            print(" Copying opacity grid: {}".format(opacfile))
+            try:
+                shutil.copy2(opacfile, os.path.join(cfg.outdir,
+                                                    os.path.basename(opacfile)))
+            except shutil.SameFileError:
+                print("  Files match. Skipping.")
+                pass
+        subprocess.call(["{:s} -c {:s}".format(rtcall, tcfg)],
                         shell=True, cwd=cfg.outdir)
         
     fit.save(fit.cfg.outdir)
