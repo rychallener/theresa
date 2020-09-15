@@ -1,5 +1,6 @@
 import numpy as np
 import pca
+import scipy.constants as sc
 
 def mkcurves(system, t, lmax):
     """
@@ -74,3 +75,81 @@ def mkcurves(system, t, lmax):
                 shi += 2
 
     return eigeny, evalues, evectors, proj, lcs
+
+def mkmaps(planet, eigeny, params, npar, wl, rs, rp, ts, proj='rect', res=300):
+    """
+    Calculate flux maps and brightness temperature maps from
+    2D map fits.
+
+    Arguments
+    ---------
+    planet: starry Planet object
+        Planet object. planet.map will be reset and modified within this
+        function.
+
+    eigeny: 2D array
+        Eigenvalues for the eigenmaps that form the basis for the
+        2D fit.
+
+    params: 1D array
+        Weights for each of the eigenmaps. Array length should be 
+        (npar) * (number of wavelengths)
+
+    npar: int
+        Number of parameters in the fit per wavelenght (e.g., a weight
+        for each eigenmap, a base brightness, and a stellar correction term)
+
+    wl: 1D array
+        The wavelengths for each 2D map, in microns.
+
+    rs: float
+        Radius of the star (same units as rp)
+
+    rp: float
+        radius of the planet (same units as rs)
+
+    ts: float
+        Temperature of the star in Kelvin
+
+    res: int (optional)
+        Resolution of the maps along each dimension. Default is 300.
+
+    Returns
+    -------
+    fmaps: 3D array
+        Array with shape (nwl, nres, nres) of planetary emission at
+        each wavelength and location
+
+    tmaps: 3D array
+        Same as fmaps but for brightness temperature.
+    """
+    ncurves = int(len(params) / npar)
+
+    fmaps = np.zeros((ncurves, res, res)) # flux maps
+    tmaps = np.zeros((ncurves, res, res)) # temp maps
+
+    # Convert wl to m
+    wl_m = wl * 1e-6
+
+    for j in range(len(wl)):
+        planet.map[1:,:] = 0
+
+        fmaps[j] = planet.map.render(theta=180, projection=proj,
+                                    res=res).eval() * params[ncurves]
+
+        for i in range(ncurves):
+            planet.map[1:,:] = eigeny[i,1:]
+            fmaps[j] += params[j*npar+i] * planet.map.render(theta=180,
+                                                             projection=proj,
+                                                             res=res).eval()
+            
+        # Convert to brightness temperatures
+        # see Rauscher et al., 2018, Eq. 8
+        ptemp = (sc.h * sc.c) / (wl_m[j] * sc.k)
+        tmaps[j] = ptemp / np.log(1 + (rp / rs)**2 *
+                                  (np.exp(ptemp / ts) - 1) /
+                                  (np.pi * fmaps[j]))
+
+    return fmaps, tmaps
+
+        

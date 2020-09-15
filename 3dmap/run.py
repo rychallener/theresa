@@ -115,15 +115,14 @@ def main(cfile):
     fit.bestfit = mc3out['best_model']
     fit.bestp   = mc3out['bestp']
 
+    print("Computing total flux and brightness temperature maps.")
+    fmaps, tmaps = eigen.mkmaps(planet, fit.eigeny, fit.bestp, npar,
+                                fit.wl, cfg.cfg.getfloat('Star', 'r'),
+                                cfg.cfg.getfloat('Planet', 'r'),
+                                cfg.cfg.getfloat('Star', 't'))
+
     if cfg.mkplots:
-        for i in range(len(fit.wl)):
-            ipar = range(i*npar, (i+1)*npar)
-            plots.mapsumcirc(planet, fit.eigeny, fit.bestp[ipar],
-                             fit.wl[i], cfg.outdir,
-                             ncurves=cfg.ncurves)
-            plots.mapsumrect(planet, fit.eigeny, fit.bestp[ipar],
-                             fit.wl[i], cfg.outdir,
-                             ncurves=cfg.ncurves)
+        plots.pltmaps(tmaps, fit.wl, cfg.outdir, proj='rect')
         plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, fit.wl,
                       cfg.outdir)
 
@@ -146,7 +145,7 @@ def main(cfile):
             subprocess.call(["{:s} -c {:s} --justOpacity".format(rtcall, tcfg)],
                             shell=True, cwd=cfg.outdir)
         else:
-            print(" Copying opacity grid: {}".format(opacfile))
+            print("  Copying opacity grid: {}".format(opacfile))
             try:
                 shutil.copy2(opacfile, os.path.join(cfg.outdir,
                                                     os.path.basename(opacfile)))
@@ -155,6 +154,10 @@ def main(cfile):
                 pass
         subprocess.call(["{:s} -c {:s}".format(rtcall, tcfg)],
                         shell=True, cwd=cfg.outdir)
+
+        wl, flux = np.loadtxt(os.path.join(cfg.outdir,
+                                           cfg.cfg.get('transit', 'outspec')),
+                              unpack=True)
         
     fit.save(fit.cfg.outdir)
         

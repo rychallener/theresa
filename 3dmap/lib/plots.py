@@ -112,51 +112,44 @@ def ecurvepower(evalues, outdir):
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'ecurvepower.png'))
 
-def mapsumcirc(planet, eigeny, params, wl, outdir, ncurves=None, res=300):
-    if type(ncurves) == type(None):
-        ncurves = eigeny.shape[0]
-        
-    # Reset planet's harmonic coefficients
-    planet.map[1:,:] = 0
+def pltmaps(maps, wl, outdir, proj='rect'):
+    nmaps = len(wl)
 
-    # Start with uniform map with correct total flux
-    map = planet.map.render(theta=180, res=res).eval() * params[ncurves]
-    
-    fig, ax = plt.subplots()
-    
-    for i in range(ncurves):
-        planet.map[1:,:] = eigeny[i,1:]
-        map += params[i] * planet.map.render(theta=180, res=res).eval()
+    ncols = np.min((nmaps, 3))
+    nrows = nmaps // ncols + (nmaps % ncols != 0)
 
-    im = ax.imshow(map, origin='lower', cmap='plasma')
-    plt.colorbar(im, ax=ax)
+    xsize = 7. / 3. * ncols
+    if proj == 'rect':
+        ysize = 7. / 3. / 2. * nrows
+    elif proj == 'ortho':
+        ysize = 7. / 3. * nrows
+
+    figsize = (xsize, ysize)
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
+                             sharey=True, squeeze=False, figsize=figsize)
+
+    vmax = np.max(maps[~np.isnan(maps)])
+    vmin = np.min(maps[~np.isnan(maps)])
+    print(vmax)
+    print(vmin)
+    
+    if proj == 'rect':
+        extent = (-180, 180, -90, 90)
+    elif proj == 'ortho':
+        extent = (-90,   90, -90, 90)
+
+    for i in range(nmaps):
+        irow = i // ncols
+        icol = i %  ncols
+        ax = axes[irow,icol]
+        im = ax.imshow(maps[i], origin='lower', cmap='plasma', extent=extent,
+                       vmin=vmin, vmax=vmax)
+        plt.colorbar(im, ax=ax)
+        ax.set_title('{} um'.format(wl[i]))
+
     fig.tight_layout()
-    plt.savefig(os.path.join(outdir, 'bestfit-ecl-{}um.png'.format(wl)))  
-    plt.close(fig)
-
-def mapsumrect(planet, eigeny, params, wl, outdir, ncurves=None, res=300):
-    if type(ncurves) == type(None):
-        ncurves = eigeny.shape[0]
-
-    # Reset planet's harmonic coefficients
-    planet.map[1:,:] = 0
-
-    # Start with uniform map with correct total flux
-    map = planet.map.render(theta=180, res=res,
-                            projection='rect').eval() * params[ncurves]
-    
-    fig, ax = plt.subplots()
-    
-    for i in range(ncurves):
-        planet.map[1:,:] = eigeny[i,1:]
-        map += params[i] * planet.map.render(theta=180, res=res,
-                                             projection='rect').eval()
-
-    im = ax.imshow(map, origin='lower', cmap='plasma',
-                   extent=(-180, 180, -90, 90))
-    plt.colorbar(im, ax=ax)
-    fig.tight_layout()
-    plt.savefig(os.path.join(outdir, 'bestfit-rect-{}um.png'.format(wl)))    
+    plt.savefig(os.path.join(outdir, 'bestfit-{}-maps.png'.format(proj)))
     plt.close(fig)
 
 def bestfit(t, model, data, unc, wl, outdir):
