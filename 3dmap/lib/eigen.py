@@ -76,7 +76,8 @@ def mkcurves(system, t, lmax):
 
     return eigeny, evalues, evectors, proj, lcs
 
-def mkmaps(planet, eigeny, params, npar, wl, rs, rp, ts, proj='rect', res=300):
+def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts,
+           proj='rect', res=300):
     """
     Calculate flux maps and brightness temperature maps from
     2D map fits.
@@ -96,8 +97,11 @@ def mkmaps(planet, eigeny, params, npar, wl, rs, rp, ts, proj='rect', res=300):
         (npar) * (number of wavelengths)
 
     npar: int
-        Number of parameters in the fit per wavelenght (e.g., a weight
+        Number of parameters in the fit per wavelength (e.g., a weight
         for each eigenmap, a base brightness, and a stellar correction term)
+
+    ncurves: int
+        Number of eigencurves (or eigenmaps) included in the total map.
 
     wl: 1D array
         The wavelengths for each 2D map, in microns.
@@ -123,19 +127,19 @@ def mkmaps(planet, eigeny, params, npar, wl, rs, rp, ts, proj='rect', res=300):
     tmaps: 3D array
         Same as fmaps but for brightness temperature.
     """
-    ncurves = int(len(params) / npar)
-
-    fmaps = np.zeros((ncurves, res, res)) # flux maps
-    tmaps = np.zeros((ncurves, res, res)) # temp maps
+    nwl = len(wl)
+    
+    fmaps = np.zeros((nwl, res, res)) # flux maps
+    tmaps = np.zeros((nwl, res, res)) # temp maps
 
     # Convert wl to m
     wl_m = wl * 1e-6
 
-    for j in range(len(wl)):
+    for j in range(nwl):
         planet.map[1:,:] = 0
 
         fmaps[j] = planet.map.render(theta=180, projection=proj,
-                                    res=res).eval() * params[ncurves]
+                                     res=res).eval() * params[j*npar+ncurves]
 
         for i in range(ncurves):
             planet.map[1:,:] = eigeny[i,1:]
@@ -146,10 +150,84 @@ def mkmaps(planet, eigeny, params, npar, wl, rs, rp, ts, proj='rect', res=300):
         # Convert to brightness temperatures
         # see Rauscher et al., 2018, Eq. 8
         ptemp = (sc.h * sc.c) / (wl_m[j] * sc.k)
+        sfact = 1 + params[j*npar+ncurves+1]
         tmaps[j] = ptemp / np.log(1 + (rp / rs)**2 *
                                   (np.exp(ptemp / ts) - 1) /
-                                  (np.pi * fmaps[j]))
+                                  (np.pi * fmaps[j] * sfact))
 
     return fmaps, tmaps
 
-        
+def emapminmax(planet, eigeny, ncurves):
+    """
+    Calculates the latitudes and longitudes of eigenmap minimum and maximum.
+    Useful for checking for positivity in summed maps. Minimum is calculated
+    with planet.map.minimize. Maximum is planet.map.minimize on a map
+    with inverted sign eigenvalues.
+
+    Arguments
+    ---------
+    planet: starry Planet object
+        Planet object. planet.map will be modified in this function.
+
+    eigeny: 2D array
+        Array of eigenvalues for the eigenmaps. Same form as returned
+        by mkcurves().
+
+    ncurves: int
+        Compute min and max for the first ncurves maps
+
+    Returns
+    -------
+    lat: 1D array
+        Array of latitudes, in degrees, of minimum and maximum of first
+        ncurves maps. Length is 2 * ncurves
+
+    lon: 1D array
+        Array of longitudes, same format as lat.
+
+    intens: 2D array
+        Array of intensities at (lat, lon) for each eigenmap. Shape is
+        (ncurves, nlocations).
+    """
+    lat    = np.zeros(2 * ncurves)
+    lon    = np.zeros(2 * ncurves)
+    intens = np.zeros((ncurves, len(lat)))
+
+    nharm, ny = eigeny.shape
+    
+    lmax = np.int((nharm / 2 + 1)**0.5 - 1)
+
+    # Find min/max locations of each eigenmap
+    for j in range(0, 2 * ncurves, 2):
+        planet.map[1:,:] = 0
+
+        yi = 1
+        for l in range(1, lmax + 1):
+            for m in range(-l, l + 1):
+                planet.map[l, m] = eigeny[j,yi]
+                yi += 1
+
+        lat[j], lon[j], _ = [a.eval() for a in planet.map.minimize()]
+
+        yi = 1
+        for l in range(1, lmax + 1):
+            for m in range(-l, l + 1):
+                planet.map[l, m] = -1 * eigeny[j,yi]
+                yi += 1        
+
+        lat[j+1], lon[j+1], _ = [a.eval() for a in planet.map.minimize()]
+
+    # Compute intensity of each eigenmap at EVERY position
+    for j in range(ncurves):
+        planet.map[1:,:] = 0
+
+        yi = 0
+        for l in range(1, lmax + 1):
+            for m in range(-l, l + 1):
+                planet.map[l, m] = eigeny[j,yi]
+                yi += 1
+
+        for i in range(len(lat)):
+            intens[j,i] = planet.map.intensity(lat=lat[i], lon=lon[i]).eval()
+            
+    return lat, lon, intens

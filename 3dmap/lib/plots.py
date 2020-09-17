@@ -131,8 +131,6 @@ def pltmaps(maps, wl, outdir, proj='rect'):
 
     vmax = np.max(maps[~np.isnan(maps)])
     vmin = np.min(maps[~np.isnan(maps)])
-    print(vmax)
-    print(vmin)
     
     if proj == 'rect':
         extent = (-180, 180, -90, 90)

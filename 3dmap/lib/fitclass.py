@@ -53,6 +53,8 @@ class Fit:
         self.cfg.rtfunc = self.cfg.cfg.get('General', 'rtfunc')
 
         self.cfg.elemfile = self.cfg.cfg.get('General', 'elemfile')
+
+        self.cfg.posflux = self.cfg.cfg.getboolean('General', 'posflux')
         
     def read_data(self):
         self.t    = np.loadtxt(self.cfg.timefile)

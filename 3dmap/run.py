@@ -28,10 +28,6 @@ import plots
 import mkcfg
 import fitclass as fc
 
-# Module imports
-sys.path.append(ratedir)
-import rate
-
 starry.config.quiet = True
 
 def main(cfile):
@@ -75,6 +71,10 @@ def main(cfile):
     print("Running PCA to determine eigencurves.")
     fit.eigeny, fit.evalues, fit.evectors, fit.ecurves, fit.lcs = \
         eigen.mkcurves(system, fit.t, cfg.lmax)
+
+    print("Computing location of minimum and maximum of each eigenmap.")
+    fit.mmlat, fit.mmlon, fit.mmint = eigen.emapminmax(planet, fit.eigeny,
+                                                       cfg.ncurves)
     
     if not os.path.isdir(cfg.outdir):
         os.mkdir(cfg.outdir)
@@ -88,12 +88,18 @@ def main(cfile):
         plots.ecurvepower(fit.evalues, cfg.outdir)
 
     # Set up for MCMC
+    if cfg.posflux:
+        intens = fit.mmint
+    else:
+        intens = None
+        
     indparams = (fit.ecurves, fit.t, fit.wl, fit.pflux_y00,
-                 fit.sflux, cfg.ncurves)
+                 fit.sflux, cfg.ncurves, intens)
 
     npar = cfg.ncurves + 2
 
     params = np.zeros(npar * len(fit.wl))
+    params[cfg.ncurves::npar] = 0.001
     pstep  = np.ones( npar * len(fit.wl)) * 0.01
 
     mc3npz = os.path.join(cfg.outdir, 'mcmc.npz')
@@ -115,12 +121,16 @@ def main(cfile):
     fit.bestfit = mc3out['best_model']
     fit.bestp   = mc3out['bestp']
 
+    print("Best-fit parameters:")
+    print(fit.bestp)
+
     print("Computing total flux and brightness temperature maps.")
     fmaps, tmaps = eigen.mkmaps(planet, fit.eigeny, fit.bestp, npar,
-                                fit.wl, cfg.cfg.getfloat('Star', 'r'),
+                                cfg.ncurves, fit.wl,
+                                cfg.cfg.getfloat('Star', 'r'),
                                 cfg.cfg.getfloat('Planet', 'r'),
                                 cfg.cfg.getfloat('Star', 't'))
-
+    
     if cfg.mkplots:
         plots.pltmaps(tmaps, fit.wl, cfg.outdir, proj='rect')
         plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, fit.wl,
