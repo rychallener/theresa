@@ -17,6 +17,11 @@ from taurex import chemistry
 from taurex import planet
 from taurex import stellar
 from taurex import model
+from taurex import pressure
+from taurex import temperature
+# This import is explicit because it's not included in taurex.temperature. Bug?
+from taurex.data.profiles.temperature.temparray import TemperatureArray
+
 
 # Directory structure
 maindir    = os.path.dirname(os.path.realpath(__file__))
@@ -191,17 +196,23 @@ def main(cfile):
         for i in range(len(spec)):
             if spec[i] not in ['H2', 'He']:
                 gas = taurex.chemistry.Gas(spec[i], spec[i])
-                gas._mixProfile = abn[:,i]
+                gas.mixProfile = abn[:,i]
                 rtchem.addGas(gas)
+        rtp = taurex.pressure.SimplePressureProfile(
+            nlayers=cfg.nlayers,
+            atm_min_pressure=cfg.ptop * 1e5,
+            atm_max_pressure=cfg.pbot * 1e5)
+        rtt = TemperatureArray(
+            tp_array=temp)
         rtcall = taurex.model.EmissionModel(
             planet=rtplan,
             star=rtstar,
-            pressure_profile=p,
-            temperature_profile=temp,
+            pressure_profile=rtp,
+            temperature_profile=rtt,
             chemistry=rtchem,
-            nlayers=cfg.nlayers,
-            atm_min_pressure=cfg.ptop,
-            atm_max_pressure=cfg.pbot)
+            nlayers=cfg.nlayers)
+        rtcall.build()
+        rtcall.model()
                                             
     fit.save(fit.cfg.outdir)
         
