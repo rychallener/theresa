@@ -7,8 +7,9 @@ import mc3
 import pickle
 import starry
 import shutil
-import numpy as np
+import taurex
 import subprocess
+import numpy as np
 import matplotlib.pyplot as plt
 
 # Directory structure
@@ -48,20 +49,20 @@ def main(cfile):
     # Not added to fit obj because they aren't pickleable
     print("Initializing star and planet objects.")
     star = starry.Primary(starry.Map(ydeg=1, amp=1),
-                          m   =cfg.cfg.getfloat('Star', 'm'),
-                          r   =cfg.cfg.getfloat('Star', 'r'),
-                          prot=cfg.cfg.getfloat('Star', 'prot'))
+                          m   =cfg.star.m,
+                          r   =cfg.star.r,
+                          prot=cfg.star.prot)
 
     planet = starry.kepler.Secondary(starry.Map(ydeg=cfg.lmax),
-                                     m    =cfg.cfg.getfloat('Planet', 'm'),
-                                     r    =cfg.cfg.getfloat('Planet', 'r'),
-                                     porb =cfg.cfg.getfloat('Planet', 'porb'),
-                                     prot =cfg.cfg.getfloat('Planet', 'prot'),
-                                     Omega=cfg.cfg.getfloat('Planet', 'Omega'),
-                                     ecc  =cfg.cfg.getfloat('Planet', 'ecc'),
-                                     w    =cfg.cfg.getfloat('Planet', 'w'),
-                                     t0   =cfg.cfg.getfloat('Planet', 't0'),
-                                     inc  =cfg.cfg.getfloat('Planet', 'inc'))
+                                     m    =cfg.planet.m,
+                                     r    =cfg.planet.r,
+                                     porb =cfg.planet.porb,
+                                     prot =cfg.planet.prot,
+                                     Omega=cfg.planet.Omega,
+                                     ecc  =cfg.planet.ecc,
+                                     w    =cfg.planet.w,
+                                     t0   =cfg.planet.t0,
+                                     inc  =cfg.planet.inc)
 
     system = starry.System(star, planet)
     
@@ -127,9 +128,7 @@ def main(cfile):
     print("Computing total flux and brightness temperature maps.")
     fmaps, tmaps = eigen.mkmaps(planet, fit.eigeny, fit.bestp, npar,
                                 cfg.ncurves, fit.wl,
-                                cfg.cfg.getfloat('Star', 'r'),
-                                cfg.cfg.getfloat('Planet', 'r'),
-                                cfg.cfg.getfloat('Star', 't'))
+                                cfg.star.r, cfg.planet.r, cfg.star.t)
     
     if cfg.mkplots:
         plots.pltmaps(tmaps, fit.wl, cfg.outdir, proj='rect')
@@ -140,10 +139,9 @@ def main(cfile):
     r, p, temp, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
                                         cfg.nlayers,
                                         cfg.ptop, cfg.pbot, cfg.temp,
-                                        cfg.cfg.getfloat('Planet', 'm'),
-                                        cfg.cfg.getfloat('Planet', 'r'),
-                                        cfg.cfg.getfloat('Planet', 'p0'),
-                                        cfg.elemfile, cfg.outdir)
+                                        cfg.planet.m, cfg.planet.r,
+                                        cfg.planet.p0, cfg.elemfile,
+                                        cfg.outdir)
 
     print("Generating spectrum.")
     if cfg.rtfunc == 'transit':
@@ -168,6 +166,13 @@ def main(cfile):
         wl, flux = np.loadtxt(os.path.join(cfg.outdir,
                                            cfg.cfg.get('transit', 'outspec')),
                               unpack=True)
+
+    # elif cfg.rtfunc == 'taurex':
+    #     rtplan = taurex.data.planet.Planet(
+    #     rtstar = taurex.data.stellar.star.Star()
+    #     rtchem = taurex.data.profiles.chemistry.chemistry.Chemistry()
+    #     rtcall = taurex.model.EmissionModel(
+                                            
         
     fit.save(fit.cfg.outdir)
         

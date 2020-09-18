@@ -26,6 +26,7 @@ class Fit:
         self.cfg.cfile = cfile
         self.cfg.cfg   = config
 
+        # General options
         self.cfg.lmax     = self.cfg.cfg.getint(    'General', 'lmax')
         self.cfg.outdir   = self.cfg.cfg.get(       'General', 'outdir')
         self.cfg.mkplots  = self.cfg.cfg.getboolean('General', 'mkplots')
@@ -55,6 +56,24 @@ class Fit:
         self.cfg.elemfile = self.cfg.cfg.get('General', 'elemfile')
 
         self.cfg.posflux = self.cfg.cfg.getboolean('General', 'posflux')
+
+        # Star options
+        self.cfg.star.m    = self.cfg.cfg.getfloat('Star', 'm')
+        self.cfg.star.r    = self.cfg.cfg.getfloat('Star', 'r')
+        self.cfg.star.prot = self.cfg.cfg.getfloat('Star', 'prot')
+        self.cfg.star.t    = self.cfg.cfg.getfloat('Star', 't')
+
+        # Planet options
+        self.cfg.planet.m     = self.cfg.cfg.getfloat('Planet', 'm')
+        self.cfg.planet.r     = self.cfg.cfg.getfloat('Planet', 'r')
+        self.cfg.planet.p0    = self.cfg.cfg.getfloat('Planet', 'p0')
+        self.cfg.planet.porb  = self.cfg.cfg.getfloat('Planet', 'porb')
+        self.cfg.planet.prot  = self.cfg.cfg.getfloat('Planet', 'prot')
+        self.cfg.planet.Omega = self.cfg.cfg.getfloat('Planet', 'Omega')
+        self.cfg.planet.ecc   = self.cfg.cfg.getfloat('Planet', 'ecc')
+        self.cfg.planet.inc   = self.cfg.cfg.getfloat('Planet', 'inc')
+        self.cfg.planet.w     = self.cfg.cfg.getfloat('Planet', 'w')
+        self.cfg.planet.t0    = self.cfg.cfg.getfloat('Planet', 't0')
         
     def read_data(self):
         self.t    = np.loadtxt(self.cfg.timefile)
