@@ -4,6 +4,7 @@ import numpy as np
 import pickle
 import configparser as cp
 import configclass as cc
+import scipy.constants as sc
 
 class Fit:
     """
@@ -62,6 +63,8 @@ class Fit:
         self.cfg.star.r    = self.cfg.cfg.getfloat('Star', 'r')
         self.cfg.star.prot = self.cfg.cfg.getfloat('Star', 'prot')
         self.cfg.star.t    = self.cfg.cfg.getfloat('Star', 't')
+        self.cfg.star.d    = self.cfg.cfg.getfloat('Star', 'd')
+        self.cfg.star.z    = self.cfg.cfg.getfloat('Star', 'z')
 
         # Planet options
         self.cfg.planet.m     = self.cfg.cfg.getfloat('Planet', 'm')
@@ -74,6 +77,8 @@ class Fit:
         self.cfg.planet.inc   = self.cfg.cfg.getfloat('Planet', 'inc')
         self.cfg.planet.w     = self.cfg.cfg.getfloat('Planet', 'w')
         self.cfg.planet.t0    = self.cfg.cfg.getfloat('Planet', 't0')
+        self.cfg.planet.a     = self.cfg.cfg.getfloat('Planet', 'a')
+        self.cfg.planet.b     = self.cfg.cfg.getfloat('Planet', 'b')
         
     def read_data(self):
         self.t    = np.loadtxt(self.cfg.timefile)

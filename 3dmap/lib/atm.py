@@ -87,7 +87,7 @@ def atminit(atmtype, atmfile, nlayers, ptop, pbot, t, mp, rp, refpress,
         atmsave(r, p, t, abn, spec, outdir, atmfile)
         return r, p, t, abn, spec
 
-    p = np.logspace(pbot, ptop, nlayers)
+    p = np.logspace(np.log10(pbot), np.log10(ptop), nlayers)
 
     # Equilibrium atmosphere
     if atmtype == 'eq':

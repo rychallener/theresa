@@ -7,10 +7,16 @@ import mc3
 import pickle
 import starry
 import shutil
-import taurex
 import subprocess
 import numpy as np
 import matplotlib.pyplot as plt
+
+# Taurex imports
+import taurex
+from taurex import chemistry
+from taurex import planet
+from taurex import stellar
+from taurex import model
 
 # Directory structure
 maindir    = os.path.dirname(os.path.realpath(__file__))
@@ -27,7 +33,8 @@ import eigen
 import model
 import plots
 import mkcfg
-import fitclass as fc
+import constants as c
+import fitclass  as fc
 
 starry.config.quiet = True
 
@@ -167,13 +174,35 @@ def main(cfile):
                                            cfg.cfg.get('transit', 'outspec')),
                               unpack=True)
 
-    # elif cfg.rtfunc == 'taurex':
-    #     rtplan = taurex.data.planet.Planet(
-    #     rtstar = taurex.data.stellar.star.Star()
-    #     rtchem = taurex.data.profiles.chemistry.chemistry.Chemistry()
-    #     rtcall = taurex.model.EmissionModel(
+    elif cfg.rtfunc == 'taurex':
+        rtplan = taurex.planet.Planet(
+            planet_mass=cfg.planet.m*c.Msun/c.Mjup,
+            planet_radius=cfg.planet.r*c.Rsun/c.Rjup,
+            planet_distance=cfg.planet.a,
+            impact_param=cfg.planet.b,
+            orbital_period=cfg.planet.porb,
+            transit_time=cfg.planet.t0)
+        rtstar = taurex.stellar.Star(
+            temperature=cfg.star.t,
+            radius=cfg.star.r,
+            distance=cfg.star.d,
+            metallicity=cfg.star.z)
+        rtchem = taurex.chemistry.TaurexChemistry()
+        for i in range(len(spec)):
+            if spec[i] not in ['H2', 'He']:
+                gas = taurex.chemistry.Gas(spec[i], spec[i])
+                gas._mixProfile = abn[:,i]
+                rtchem.addGas(gas)
+        rtcall = taurex.model.EmissionModel(
+            planet=rtplan,
+            star=rtstar,
+            pressure_profile=p,
+            temperature_profile=temp,
+            chemistry=rtchem,
+            nlayers=cfg.nlayers,
+            atm_min_pressure=cfg.ptop,
+            atm_max_pressure=cfg.pbot)
                                             
-        
     fit.save(fit.cfg.outdir)
         
 if __name__ == "__main__":
