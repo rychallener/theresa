@@ -19,6 +19,9 @@ from taurex import stellar
 from taurex import model
 from taurex import pressure
 from taurex import temperature
+from taurex import cache
+from taurex import contributions
+from taurex import optimize
 # This import is explicit because it's not included in taurex.temperature. Bug?
 from taurex.data.profiles.temperature.temparray import TemperatureArray
 
@@ -38,8 +41,9 @@ import eigen
 import model
 import plots
 import mkcfg
-import constants as c
-import fitclass  as fc
+import constants   as c
+import fitclass    as fc
+import taurexclass as trc
 
 starry.config.quiet = True
 
@@ -180,6 +184,14 @@ def main(cfile):
                               unpack=True)
 
     elif cfg.rtfunc == 'taurex':
+        # Note: must do these things in the right order
+        taurex.cache.OpacityCache().clear_cache()
+        taurex.cache.OpacityCache().set_opacity_path(cfg.cfg.get('taurex',
+                                                                 'csxdir'))
+        taurex.cache.CIACache().set_cia_path(cfg.cfg.get('taurex',
+                                                         'ciadir'))
+        rtt = TemperatureArray(
+            tp_array=temp)
         rtplan = taurex.planet.Planet(
             planet_mass=cfg.planet.m*c.Msun/c.Mjup,
             planet_radius=cfg.planet.r*c.Rsun/c.Rjup,
@@ -195,25 +207,28 @@ def main(cfile):
         rtchem = taurex.chemistry.TaurexChemistry()
         for i in range(len(spec)):
             if spec[i] not in ['H2', 'He']:
-                gas = taurex.chemistry.Gas(spec[i], spec[i])
-                gas.mixProfile = abn[:,i]
+                gas = trc.ArrayGas(spec[i], abn[:,i])
                 rtchem.addGas(gas)
         rtp = taurex.pressure.SimplePressureProfile(
             nlayers=cfg.nlayers,
             atm_min_pressure=cfg.ptop * 1e5,
             atm_max_pressure=cfg.pbot * 1e5)
-        rtt = TemperatureArray(
-            tp_array=temp)
-        rtcall = taurex.model.EmissionModel(
+        rt = taurex.model.EmissionModel(
             planet=rtplan,
             star=rtstar,
             pressure_profile=rtp,
             temperature_profile=rtt,
             chemistry=rtchem,
             nlayers=cfg.nlayers)
-        rtcall.build()
-        rtcall.model()
-                                            
+        rt.add_contribution(taurex.contributions.AbsorptionContribution())
+        rt.add_contribution(taurex.contributions.CIAContribution())
+        rt.build()
+        wn, flux, tau, ex = rt.model()
+
+        # rtopt = taurex.optimized.nestle.NestleOptimizer()
+        # rtopt.set_model(rt)
+        # rtopt.set_observed(
+        
     fit.save(fit.cfg.outdir)
         
 if __name__ == "__main__":

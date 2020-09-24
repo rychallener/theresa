@@ -44,6 +44,12 @@ def fit_2d_wl(params, ecurves, t, wl, y00, sflux, ncurves, intens):
                                   t, y00, sflux, ncurves, intens)
 
     return f
+
+def fit_spec(params):
+    """
+    Fit a single spectrum.
+    """
+    pass
                                         
     
     
