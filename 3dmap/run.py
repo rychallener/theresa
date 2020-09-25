@@ -21,7 +21,7 @@ from taurex import pressure
 from taurex import temperature
 from taurex import cache
 from taurex import contributions
-from taurex import optimize
+from taurex import optimizer
 # This import is explicit because it's not included in taurex.temperature. Bug?
 from taurex.data.profiles.temperature.temparray import TemperatureArray
 
@@ -78,7 +78,8 @@ def main(cfile):
                                      ecc  =cfg.planet.ecc,
                                      w    =cfg.planet.w,
                                      t0   =cfg.planet.t0,
-                                     inc  =cfg.planet.inc)
+                                     inc  =cfg.planet.inc,
+                                     theta0=180)
 
     system = starry.System(star, planet)
     
@@ -152,6 +153,11 @@ def main(cfile):
                       cfg.outdir)
 
     print("Initializing atmosphere.")
+    pmaps = np.array([1e-3, 1e0])
+    temp3d = atm.tgrid(cfg.nlayers, cfg.res, tmaps, pmaps, cfg.pbot,
+                       cfg.ptop, kind='linear', bounds_error=False,
+                       fill_value='extrapolate')
+    
     r, p, temp, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
                                         cfg.nlayers,
                                         cfg.ptop, cfg.pbot, cfg.temp,

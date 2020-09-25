@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
+  - astropy=4.0.1.post1=py38h1e0a361_0
   - attrs=19.3.0=py_0
   - bzip2=1.0.8=h516909a_2
   - c-ares=1.16.1=h516909a_0
@@ -70,9 +71,10 @@ dependencies:
   - zstd=1.4.5=h6597ccf_2
   - pip:
     - arviz==0.9.0
-    - astropy==4.0.1.post1
     - backcall==0.2.0
     - cftime==1.2.1
+    - configobj==5.0.6
+    - cython==0.29.21
     - decorator==4.4.2
     - exoplanet==0.3.2
     - fastprogress==0.2.6
@@ -80,8 +82,12 @@ dependencies:
     - ipython==7.17.0
     - ipython-genutils==0.2.0
     - jedi==0.17.2
+    - llvmlite==0.34.0
     - mc3==3.0.2
+    - nestle==0.2.0
     - netcdf4==1.5.4
+    - numba==0.51.2
+    - numexpr==2.7.1
     - pandas==1.1.0
     - parso==0.7.1
     - patsy==0.5.1
@@ -95,9 +101,12 @@ dependencies:
     - pytz==2020.1
     - setuptools-scm==4.1.2
     - starry==1.0.0
+    - tabulate==0.8.7
+    - taurex==3.0.3b0
     - theano==1.0.5
     - traitlets==4.3.3
     - typing-extensions==3.7.4.2
     - wcwidth==0.2.5
     - xarray==0.16.0
-prefix: /home/ryan/miniconda3/envs/3dmap
+prefix: /home/rchallen/anaconda3/envs/3dmap
+

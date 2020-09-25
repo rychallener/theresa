@@ -4,6 +4,7 @@ import numpy as np
 import scipy as sp
 import scipy.constants as sc
 import constants as c
+import scipy.interpolate as spi
 
 libdir = os.path.dirname(os.path.realpath(__file__))
 moddir = os.path.join(libdir, 'modules')
@@ -373,9 +374,28 @@ def calcrad(p, t, mu, r0, mp, p0):
     return r
         
 
-    
-    
-        
+def tgrid(nlayers, res, tmaps, pmaps, pbot, ptop, kind='linear',
+          bounds_error=None, fill_value=np.nan):
+    """
+    Make a 3d grid of temperatures, based on supplied temperature maps
+    place at the supplied pressures. Dimensions are (nlayers, res,
+    res).
+
+    """
+    temp3d = np.zeros((nlayers, res, res))
+
+    logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
+
+    for i in range(res):
+        for j in range(res):
+            interp = spi.interp1d(np.log10(pmaps), tmaps[:,i,j],
+                                  kind=kind,
+                                  bounds_error=bounds_error,
+                                  fill_value=fill_value)
+            
+            temp3d[:,i,j] = interp(logp1d)
+
+    return temp3d
 
     
     

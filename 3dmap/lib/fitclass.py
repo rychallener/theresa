@@ -45,6 +45,7 @@ class Fit:
         self.cfg.atmtype = self.cfg.cfg.get(     'General', 'atmtype')
         self.cfg.atmfile = self.cfg.cfg.get(     'General', 'atmfile')
         self.cfg.nlayers = self.cfg.cfg.getint(  'General', 'nlayers')
+        self.cfg.res     = self.cfg.cfg.getint(  'General', 'res')
         self.cfg.ptop    = self.cfg.cfg.getfloat('General', 'ptop')
         self.cfg.pbot    = self.cfg.cfg.getfloat('General', 'pbot')
         self.cfg.temp    = self.cfg.cfg.getfloat('General', 'temp')
