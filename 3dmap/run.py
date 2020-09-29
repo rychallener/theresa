@@ -145,7 +145,8 @@ def main(cfile):
     print("Computing total flux and brightness temperature maps.")
     fmaps, tmaps = eigen.mkmaps(planet, fit.eigeny, fit.bestp, npar,
                                 cfg.ncurves, fit.wl,
-                                cfg.star.r, cfg.planet.r, cfg.star.t)
+                                cfg.star.r, cfg.planet.r, cfg.star.t,
+                                res=cfg.res)
     
     if cfg.mkplots:
         plots.pltmaps(tmaps, fit.wl, cfg.outdir, proj='rect')
@@ -154,16 +155,15 @@ def main(cfile):
 
     print("Initializing atmosphere.")
     pmaps = np.array([1e-3, 1e0])
-    temp3d = atm.tgrid(cfg.nlayers, cfg.res, tmaps, pmaps, cfg.pbot,
+    tgrid, p = atm.tgrid(cfg.nlayers, cfg.res, tmaps, pmaps, cfg.pbot,
                        cfg.ptop, kind='linear', bounds_error=False,
                        fill_value='extrapolate')
     
-    r, p, temp, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
-                                        cfg.nlayers,
-                                        cfg.ptop, cfg.pbot, cfg.temp,
-                                        cfg.planet.m, cfg.planet.r,
-                                        cfg.planet.p0, cfg.elemfile,
-                                        cfg.outdir)
+    r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
+                                  p, tgrid,
+                                  cfg.planet.m, cfg.planet.r,
+                                  cfg.planet.p0, cfg.elemfile,
+                                  cfg.outdir)
 
     print("Generating spectrum.")
     if cfg.rtfunc == 'transit':
@@ -190,51 +190,58 @@ def main(cfile):
                               unpack=True)
 
     elif cfg.rtfunc == 'taurex':
+        fit.wngrid = np.arange(cfg.cfg.getfloat('taurex', 'wnlow'),
+                               cfg.cfg.getfloat('taurex', 'wnhigh'),
+                               cfg.cfg.getfloat('taurex', 'wndelt'))
+
         # Note: must do these things in the right order
         taurex.cache.OpacityCache().clear_cache()
         taurex.cache.OpacityCache().set_opacity_path(cfg.cfg.get('taurex',
                                                                  'csxdir'))
         taurex.cache.CIACache().set_cia_path(cfg.cfg.get('taurex',
                                                          'ciadir'))
-        rtt = TemperatureArray(
-            tp_array=temp)
-        rtplan = taurex.planet.Planet(
-            planet_mass=cfg.planet.m*c.Msun/c.Mjup,
-            planet_radius=cfg.planet.r*c.Rsun/c.Rjup,
-            planet_distance=cfg.planet.a,
-            impact_param=cfg.planet.b,
-            orbital_period=cfg.planet.porb,
-            transit_time=cfg.planet.t0)
-        rtstar = taurex.stellar.Star(
-            temperature=cfg.star.t,
-            radius=cfg.star.r,
-            distance=cfg.star.d,
-            metallicity=cfg.star.z)
-        rtchem = taurex.chemistry.TaurexChemistry()
-        for i in range(len(spec)):
-            if spec[i] not in ['H2', 'He']:
-                gas = trc.ArrayGas(spec[i], abn[:,i])
-                rtchem.addGas(gas)
-        rtp = taurex.pressure.SimplePressureProfile(
-            nlayers=cfg.nlayers,
-            atm_min_pressure=cfg.ptop * 1e5,
-            atm_max_pressure=cfg.pbot * 1e5)
-        rt = taurex.model.EmissionModel(
-            planet=rtplan,
-            star=rtstar,
-            pressure_profile=rtp,
-            temperature_profile=rtt,
-            chemistry=rtchem,
-            nlayers=cfg.nlayers)
-        rt.add_contribution(taurex.contributions.AbsorptionContribution())
-        rt.add_contribution(taurex.contributions.CIAContribution())
-        rt.build()
-        wn, flux, tau, ex = rt.model()
 
-        # rtopt = taurex.optimized.nestle.NestleOptimizer()
-        # rtopt.set_model(rt)
-        # rtopt.set_observed(
-        
+        for i in range(cfg.res):
+            for j in range(cfg.res):
+                rtt = TemperatureArray(
+                    tp_array=tgrid[:,i,j])
+                rtplan = taurex.planet.Planet(
+                    planet_mass=cfg.planet.m*c.Msun/c.Mjup,
+                    planet_radius=cfg.planet.r*c.Rsun/c.Rjup,
+                    planet_distance=cfg.planet.a,
+                    impact_param=cfg.planet.b,
+                    orbital_period=cfg.planet.porb,
+                    transit_time=cfg.planet.t0)
+                rtstar = taurex.stellar.Star(
+                    temperature=cfg.star.t,
+                    radius=cfg.star.r,
+                    distance=cfg.star.d,
+                    metallicity=cfg.star.z)
+                rtchem = taurex.chemistry.TaurexChemistry()
+                for k in range(len(spec)):
+                    if spec[k] not in ['H2', 'He']:
+                        gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
+                        rtchem.addGas(gas)
+                rtp = taurex.pressure.SimplePressureProfile(
+                    nlayers=cfg.nlayers,
+                    atm_min_pressure=cfg.ptop * 1e5,
+                    atm_max_pressure=cfg.pbot * 1e5)
+                rt = taurex.model.EmissionModel(
+                    planet=rtplan,
+                    star=rtstar,
+                    pressure_profile=rtp,
+                    temperature_profile=rtt,
+                    chemistry=rtchem,
+                    nlayers=cfg.nlayers)
+                rt.add_contribution(taurex.contributions.AbsorptionContribution())
+                rt.add_contribution(taurex.contributions.CIAContribution())
+                rt.build()
+                if i == 0 and j == 0:
+                    fit.flux = np.zeros((len(rt.nativeWavenumberGrid),
+                                        cfg.res, cfg.res))
+                wn, fit.flux[:,i,j], tau, ex = rt.model()
+
+
     fit.save(fit.cfg.outdir)
         
 if __name__ == "__main__":

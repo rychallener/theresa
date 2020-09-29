@@ -13,7 +13,7 @@ ratedir = os.path.join(moddir, 'rate')
 sys.path.append(ratedir)
 import rate
 
-def atminit(atmtype, atmfile, nlayers, ptop, pbot, t, mp, rp, refpress,
+def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
             elemfile, outdir):
     """
     Initializes atmospheres of various types.
@@ -29,19 +29,11 @@ def atminit(atmtype, atmfile, nlayers, ptop, pbot, t, mp, rp, refpress,
         file exists, it will be read and returned instead of creating
         a new atmosphere.
 
-    nlayers: int
-        Number of layers in the atmosphere. Will be evenly spaced
-        in log(pressure)
+    p: 1D array
+        Pressure layers of the atmosphere
 
-    ptop: float
-        Pressure at the top of the atmosphere in log space. E.g.,
-        -5 corresponds to a top pressure of 1e-5 bars.
-
-    pbot: float
-        Same as pbot, for the bottom of the atmosphere.
-
-    t: 1D array
-        Temperature array, of size nlayers
+    t: 3D array
+        Temperature array, of size (nlayers, res, res)
     
     mp: float
         Mass of the planet, in solar masses
@@ -68,15 +60,10 @@ def atminit(atmtype, atmfile, nlayers, ptop, pbot, t, mp, rp, refpress,
     p: 1D array
         Pressure at each layer of the atmosphere.
 
-    t: 1D array
-        Temperature at each layer of the atmosphere.
-
     abn: 2D array
         Abundance (mixing ratio) of each species in the atmosphere.
         Rows are atmosphere layers and columns are species abundances.
     """
-    if type(t) == float or type(t) == int:
-        t = np.ones(nlayers) * t
 
     # Convert planet mass and radius to Jupiter
     rp *= c.Rsun / c.Rjup
@@ -86,22 +73,28 @@ def atminit(atmtype, atmfile, nlayers, ptop, pbot, t, mp, rp, refpress,
         print("Using atmosphere " + atm)
         r, p, t, abn, spec = atmload(atmfile)
         atmsave(r, p, t, abn, spec, outdir, atmfile)
-        return r, p, t, abn, spec
+        return r, p, abn, spec
 
-    p = np.logspace(np.log10(pbot), np.log10(ptop), nlayers)
+    nlayers, res, res = t.shape
 
+    mu = np.zeros(t.shape)
+    r  = np.zeros(t.shape)
+    
     # Equilibrium atmosphere
     if atmtype == 'eq':
         robj = rate.Rate(C=2.5e-4, N=1.0e-4, O=5.0e-4, fHe=0.0851)
-        abn  = robj.solve(t, p).T
-        spec = robj.species 
-
-    mu = calcmu(elemfile, abn, spec)
-
-    r  = calcrad(p, t, mu, rp, mp, refpress)
-        
-    atmsave(r, p, t, abn, spec, outdir, atmfile)
-    return r, p, t, abn, spec
+        spec = robj.species
+        nspec = len(spec)
+        abn = np.zeros((nspec, nlayers, res, res))
+        for i in range(res):
+            for j in range(res):
+                print(i, j)
+                abn[:,:,i,j] = robj.solve(t[:,i,j], p)
+                mu[   :,i,j] = calcmu(elemfile, abn[:,:,i,j], spec)
+                r[    :,i,j] = calcrad(p, t[:,i,j], mu[:,i,j],
+                                       rp, mp, refpress)
+                
+    return r, p, abn, spec
 
 def atmsave(r, p, t, abn, spec, outdir, atmfile):
     """
@@ -246,7 +239,7 @@ def calcmu(elemfile, abn, spec):
     name = elemarr['name']
     mass = elemarr['mass'] 
 
-    nlayer, nspec = abn.shape
+    nspec, nlayer = abn.shape
 
     mu = np.zeros(nlayer)
 
@@ -259,7 +252,7 @@ def calcmu(elemfile, abn, spec):
             specweight[i] += mass[elemidx] * specnum[j]
 
     for i in range(nlayer):
-        mu[i] = np.sum(specweight * abn[i])
+        mu[i] = np.sum(specweight * abn[:,i])
 
     return mu
 
@@ -395,7 +388,7 @@ def tgrid(nlayers, res, tmaps, pmaps, pbot, ptop, kind='linear',
             
             temp3d[:,i,j] = interp(logp1d)
 
-    return temp3d
+    return temp3d, 10**logp1d
 
     
     
