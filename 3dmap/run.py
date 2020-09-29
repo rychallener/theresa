@@ -226,20 +226,24 @@ def main(cfile):
                     nlayers=cfg.nlayers,
                     atm_min_pressure=cfg.ptop * 1e5,
                     atm_max_pressure=cfg.pbot * 1e5)
-                rt = taurex.model.EmissionModel(
+                rt = trc.EmissionModel3D(
                     planet=rtplan,
                     star=rtstar,
                     pressure_profile=rtp,
                     temperature_profile=rtt,
                     chemistry=rtchem,
-                    nlayers=cfg.nlayers)
+                    nlayers=cfg.nlayers,
+                    latmin=-np.pi/2.,
+                    latmax=np.pi/2.,
+                    lonmin=0,
+                    lonmax=2*np.pi)
                 rt.add_contribution(taurex.contributions.AbsorptionContribution())
                 rt.add_contribution(taurex.contributions.CIAContribution())
                 rt.build()
                 if i == 0 and j == 0:
                     fit.flux = np.zeros((len(rt.nativeWavenumberGrid),
                                         cfg.res, cfg.res))
-                wn, fit.flux[:,i,j], tau, ex = rt.model()
+                fit.wn, fit.flux[:,i,j], tau, ex = rt.model()
 
 
     fit.save(fit.cfg.outdir)
