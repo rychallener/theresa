@@ -25,6 +25,10 @@ from taurex import optimizer
 # This import is explicit because it's not included in taurex.temperature. Bug?
 from taurex.data.profiles.temperature.temparray import TemperatureArray
 
+# Taurex is a bit...talkative
+import taurex.log
+taurex.log.disableLogging()
+
 
 # Directory structure
 maindir    = os.path.dirname(os.path.realpath(__file__))
@@ -147,7 +151,18 @@ def main(cfile):
                                 cfg.ncurves, fit.wl,
                                 cfg.star.r, cfg.planet.r, cfg.star.t,
                                 res=cfg.res)
+
+    print("Calculating latitude and longitude of planetary grid.")
+    fit.lat, fit.lon = [a.eval() for a in \
+                        planet.map.get_latlon_grid(res=cfg.res,
+                                                   projection='rect')]
+
+    fit.lat *= c.deg2rad
+    fit.lon *= c.deg2rad
     
+    fit.dlat = fit.lat[1][0] - fit.lat[0][0]
+    fit.dlon = fit.lon[0][1] - fit.lon[0][0]
+
     if cfg.mkplots:
         plots.pltmaps(tmaps, fit.wl, cfg.outdir, proj='rect')
         plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, fit.wl,
@@ -233,10 +248,10 @@ def main(cfile):
                     temperature_profile=rtt,
                     chemistry=rtchem,
                     nlayers=cfg.nlayers,
-                    latmin=-np.pi/2.,
-                    latmax=np.pi/2.,
-                    lonmin=0,
-                    lonmax=2*np.pi)
+                    latmin=fit.lat[i,j],
+                    latmax=fit.lat[i,j] + fit.dlat,
+                    lonmin=fit.lon[i,j],
+                    lonmax=fit.lon[i,j] + fit.dlon)
                 rt.add_contribution(taurex.contributions.AbsorptionContribution())
                 rt.add_contribution(taurex.contributions.CIAContribution())
                 rt.build()

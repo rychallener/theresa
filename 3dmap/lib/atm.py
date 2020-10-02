@@ -88,7 +88,6 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
         abn = np.zeros((nspec, nlayers, res, res))
         for i in range(res):
             for j in range(res):
-                print(i, j)
                 abn[:,:,i,j] = robj.solve(t[:,i,j], p)
                 mu[   :,i,j] = calcmu(elemfile, abn[:,:,i,j], spec)
                 r[    :,i,j] = calcrad(p, t[:,i,j], mu[:,i,j],

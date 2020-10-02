@@ -1,3 +1,5 @@
+import numpy as np
+
 # Some useful constants
 
 # http://nssdc.gsfc.nasa.gov/planetary/factsheet/jupiterfact.html
@@ -9,3 +11,7 @@ Rjup = 7.1492e7   # m (equatorial)
 # Retrieved September 11, 2020
 Msun = 1.9885e30 # kg
 Rsun = 6.957e8   # m (volumetric mean)
+
+# Unit conversions
+deg2rad = np.pi / 180.
+rad2deg = 180. / np.pi

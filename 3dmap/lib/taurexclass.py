@@ -67,7 +67,6 @@ class EmissionModel3D(taurex.model.EmissionModel):
         # integral r**2 sin(theta) dtheta dphi
         planet_area = -1 * planet_radius**2  * (phimax - phimin) * \
             (np.cos(thetamax) - np.cos(thetamin))
-        print(planet_area)
 
         star_area = 4 * np.pi * star_radius **2
 
