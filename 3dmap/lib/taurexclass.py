@@ -79,7 +79,6 @@ class EmissionModel3D(taurex.model.EmissionModel):
         vis = np.cos(np.mean((self.latmin, self.latmax))) * \
               np.cos(np.mean((phimin,   phimax  )))
 
-        print(phimin * 180/np.pi, phimax*180/np.pi, vis)
         grid_flux *= vis
 
         return grid_flux

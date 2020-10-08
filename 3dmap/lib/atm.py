@@ -386,6 +386,9 @@ def tgrid(nlayers, res, tmaps, pmaps, pbot, ptop, kind='linear',
                                   fill_value=fill_value)
             
             temp3d[:,i,j] = interp(logp1d)
+            if np.sum(np.isnan(temp3d[:,i,j])) > 0:               
+                print(i,j)
+                print(tmaps[:,i,j])
 
     return temp3d, 10**logp1d
 

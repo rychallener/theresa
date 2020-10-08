@@ -45,6 +45,7 @@ import eigen
 import model
 import plots
 import mkcfg
+import utils
 import constants   as c
 import fitclass    as fc
 import taurexclass as trc
@@ -94,9 +95,19 @@ def main(cfile):
     fit.eigeny, fit.evalues, fit.evectors, fit.ecurves, fit.lcs = \
         eigen.mkcurves(system, fit.t, cfg.lmax)
 
-    print("Computing location of minimum and maximum of each eigenmap.")
-    fit.mmlat, fit.mmlon, fit.mmint = eigen.emapminmax(planet, fit.eigeny,
-                                                       cfg.ncurves)
+    print("Calculating minimum and maximum observed longitudes.")
+    fit.minvislon, fit.maxvislon = utils.vislon(planet, fit)
+    print("Minimum Longitude: {:6.2f}".format(fit.minvislon))
+    print("Maximum Longitude: {:6.2f}".format(fit.maxvislon))
+
+    print("Calculating latitude and longitude of planetary grid.")
+    fit.lat, fit.lon = [a.eval() for a in \
+                        planet.map.get_latlon_grid(res=cfg.res,
+                                                   projection='rect')]
+
+    print("Calculating intensities of visible grid cells of each eigenmap.")
+    fit.intens, fit.vislat, fit.vislon = eigen.intensities(planet, fit)
+    print(fit.intens.shape)
     
     if not os.path.isdir(cfg.outdir):
         os.mkdir(cfg.outdir)
@@ -111,7 +122,7 @@ def main(cfile):
 
     # Set up for MCMC
     if cfg.posflux:
-        intens = fit.mmint
+        intens = fit.intens
     else:
         intens = None
         
@@ -133,12 +144,6 @@ def main(cfile):
     mc3out = mc3.fit(data=mc3data, uncert=mc3unc, func=model.fit_2d_wl,
                      params=params, indparams=indparams, pstep=pstep,
                      leastsq=cfg.leastsq)
-    
-    # mc3out = mc3.sample(data=mc3data, uncert=mc3unc, func=model.fit_2d_wl,
-    #                     params=params, indparams=indparams, pstep=pstep,
-    #                     sampler='snooker', nsamples=cfg.nsamples,
-    #                     burnin=cfg.burnin, ncpu=cfg.ncpu, savefile=mc3npz,
-    #                     plots=True, leastsq=cfg.leastsq)
 
     fit.bestfit = mc3out['best_model']
     fit.bestp   = mc3out['bestp']
@@ -146,16 +151,21 @@ def main(cfile):
     print("Best-fit parameters:")
     print(fit.bestp)
 
-    print("Computing total flux and brightness temperature maps.")
-    fmaps, tmaps = eigen.mkmaps(planet, fit.eigeny, fit.bestp, npar,
-                                cfg.ncurves, fit.wl,
-                                cfg.star.r, cfg.planet.r, cfg.star.t,
-                                res=cfg.res)
+    print("Checking critical locations:")
+    for j in range(len(fit.wl)):
+        print("  Wl: {} um".format(fit.wl[j]))
+        for i in range(fit.intens.shape[1]):
+            check = np.sum(fit.intens[:,i] *
+                           fit.bestp[j*npar:j*npar+cfg.ncurves]) + \
+                           fit.bestp[j*npar+cfg.ncurves] / np.pi
+            msg = "    Lat: {:+07.2f}, Lon: {:+07.2f}, Flux: {:+013.10f}"
+            print(msg.format(fit.vislat[i], fit.vislon[i], check))
 
-    print("Calculating latitude and longitude of planetary grid.")
-    fit.lat, fit.lon = [a.eval() for a in \
-                        planet.map.get_latlon_grid(res=cfg.res,
-                                                   projection='rect')]
+    print("Computing total flux and brightness temperature maps.")
+    fit.fmaps, fit.tmaps = eigen.mkmaps(planet, fit.eigeny, fit.bestp, npar,
+                                        cfg.ncurves, fit.wl,
+                                        cfg.star.r, cfg.planet.r, cfg.star.t,
+                                        res=cfg.res)
 
     fit.lat *= c.deg2rad
     fit.lon *= c.deg2rad
@@ -164,23 +174,11 @@ def main(cfile):
     fit.dlon = fit.lon[0][1] - fit.lon[0][0]
 
     if cfg.mkplots:
-        plots.pltmaps(tmaps, fit.wl, cfg.outdir, proj='rect')
+        plots.pltmaps(fit.tmaps, fit.wl, cfg.outdir, proj='rect')
         plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, fit.wl,
                       cfg.outdir)
 
-    print("Initializing atmosphere.")
-    pmaps = np.array([1e-3, 1e0])
-    tgrid, p = atm.tgrid(cfg.nlayers, cfg.res, tmaps, pmaps, cfg.pbot,
-                       cfg.ptop, kind='linear', bounds_error=False,
-                       fill_value='extrapolate')
-    
-    r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
-                                  p, tgrid,
-                                  cfg.planet.m, cfg.planet.r,
-                                  cfg.planet.p0, cfg.elemfile,
-                                  cfg.outdir)
-
-    print("Generating spectrum.")
+    print("Fitting spectrum.")
     if cfg.rtfunc == 'transit':
         tcfg = mkcfg.mktransit(cfile, cfg.outdir)
         rtcall = os.path.join(transitdir, 'transit', 'transit')
@@ -216,49 +214,17 @@ def main(cfile):
         taurex.cache.CIACache().set_cia_path(cfg.cfg.get('taurex',
                                                          'ciadir'))
 
-        for i in range(cfg.res):
-            for j in range(cfg.res):
-                rtt = TemperatureArray(
-                    tp_array=tgrid[:,i,j])
-                rtplan = taurex.planet.Planet(
-                    planet_mass=cfg.planet.m*c.Msun/c.Mjup,
-                    planet_radius=cfg.planet.r*c.Rsun/c.Rjup,
-                    planet_distance=cfg.planet.a,
-                    impact_param=cfg.planet.b,
-                    orbital_period=cfg.planet.porb,
-                    transit_time=cfg.planet.t0)
-                rtstar = taurex.stellar.Star(
-                    temperature=cfg.star.t,
-                    radius=cfg.star.r,
-                    distance=cfg.star.d,
-                    metallicity=cfg.star.z)
-                rtchem = taurex.chemistry.TaurexChemistry()
-                for k in range(len(spec)):
-                    if spec[k] not in ['H2', 'He']:
-                        gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
-                        rtchem.addGas(gas)
-                rtp = taurex.pressure.SimplePressureProfile(
-                    nlayers=cfg.nlayers,
-                    atm_min_pressure=cfg.ptop * 1e5,
-                    atm_max_pressure=cfg.pbot * 1e5)
-                rt = trc.EmissionModel3D(
-                    planet=rtplan,
-                    star=rtstar,
-                    pressure_profile=rtp,
-                    temperature_profile=rtt,
-                    chemistry=rtchem,
-                    nlayers=cfg.nlayers,
-                    latmin=fit.lat[i,j],
-                    latmax=fit.lat[i,j] + fit.dlat,
-                    lonmin=fit.lon[i,j],
-                    lonmax=fit.lon[i,j] + fit.dlon)
-                rt.add_contribution(taurex.contributions.AbsorptionContribution())
-                rt.add_contribution(taurex.contributions.CIAContribution())
-                rt.build()
-                if i == 0 and j == 0:
-                    fit.flux = np.zeros((len(rt.nativeWavenumberGrid),
-                                        cfg.res, cfg.res))
-                fit.wn, fit.flux[:,i,j], tau, ex = rt.model()
+        data   = np.array([0.00135, 0.00135])
+        uncert = fit.ferr[:,3000]
+        indparams = [fit]
+        params = np.array([1e-3, 1])
+        pstep  = np.ones(len(params)) * 1e-3
+        pmin   = np.ones(len(params)) * cfg.ptop
+        pmax   = np.ones(len(params)) * cfg.pbot
+
+        mc3.fit(data=data, uncert=uncert, func=model.fit_spec,
+                params=params, indparams=indparams, pstep=pstep,
+                pmin=pmin, pmax=pmax, leastsq=cfg.leastsq)
 
 
     fit.save(fit.cfg.outdir)

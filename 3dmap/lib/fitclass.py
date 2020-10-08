@@ -42,6 +42,8 @@ class Fit:
         self.cfg.ferrfile = self.cfg.cfg.get('General', 'ferrfile')
         self.cfg.wlfile   = self.cfg.cfg.get('General', 'wlfile')
 
+        self.cfg.filtfiles = self.cfg.cfg.get('General', 'filtfiles').split()
+
         self.cfg.atmtype = self.cfg.cfg.get(     'General', 'atmtype')
         self.cfg.atmfile = self.cfg.cfg.get(     'General', 'atmfile')
         self.cfg.nlayers = self.cfg.cfg.getint(  'General', 'nlayers')
@@ -53,7 +55,8 @@ class Fit:
         if self.cfg.leastsq == 'None' or self.cfg.leastsq == 'False':
             self.cfg.leastsq = None
 
-        self.cfg.rtfunc = self.cfg.cfg.get('General', 'rtfunc')
+        self.cfg.rtfunc  = self.cfg.cfg.get('General', 'rtfunc')
+        self.cfg.mapfunc = self.cfg.cfg.get('General', 'mapfunc')
 
         self.cfg.elemfile = self.cfg.cfg.get('General', 'elemfile')
 

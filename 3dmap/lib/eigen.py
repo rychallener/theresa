@@ -135,6 +135,8 @@ def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts,
     # Convert wl to m
     wl_m = wl * 1e-6
 
+    #lmax = np.int((nharm / 2 + 1)**0.5 - 1)
+
     for j in range(nwl):
         planet.map[1:,:] = 0
 
@@ -143,10 +145,11 @@ def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts,
 
         for i in range(ncurves):
             planet.map[1:,:] = eigeny[i,1:]
+            print(params[j*npar+i])
             fmaps[j] += params[j*npar+i] * planet.map.render(theta=180,
                                                              projection=proj,
                                                              res=res).eval()
-            
+
         # Convert to brightness temperatures
         # see Rauscher et al., 2018, Eq. 8
         ptemp = (sc.h * sc.c) / (wl_m[j] * sc.k)
@@ -198,7 +201,7 @@ def emapminmax(planet, eigeny, ncurves):
     lmax = np.int((nharm / 2 + 1)**0.5 - 1)
 
     # Find min/max locations of each eigenmap
-    for j in range(0, 2 * ncurves, 2):
+    for j in range(ncurves):
         planet.map[1:,:] = 0
 
         yi = 1
@@ -207,7 +210,7 @@ def emapminmax(planet, eigeny, ncurves):
                 planet.map[l, m] = eigeny[j,yi]
                 yi += 1
 
-        lat[j], lon[j], _ = [a.eval() for a in planet.map.minimize()]
+        lat[2*j], lon[2*j], _ = [a.eval() for a in planet.map.minimize()]
 
         yi = 1
         for l in range(1, lmax + 1):
@@ -215,13 +218,13 @@ def emapminmax(planet, eigeny, ncurves):
                 planet.map[l, m] = -1 * eigeny[j,yi]
                 yi += 1        
 
-        lat[j+1], lon[j+1], _ = [a.eval() for a in planet.map.minimize()]
+        lat[2*j+1], lon[2*j+1], _ = [a.eval() for a in planet.map.minimize()]
 
     # Compute intensity of each eigenmap at EVERY position
     for j in range(ncurves):
         planet.map[1:,:] = 0
 
-        yi = 0
+        yi = 1
         for l in range(1, lmax + 1):
             for m in range(-l, l + 1):
                 planet.map[l, m] = eigeny[j,yi]
@@ -231,3 +234,31 @@ def emapminmax(planet, eigeny, ncurves):
             intens[j,i] = planet.map.intensity(lat=lat[i], lon=lon[i]).eval()
             
     return lat, lon, intens
+
+def intensities(planet, fit):
+    wherevis = np.where((fit.lon >= fit.minvislon) &
+                        (fit.lon <= fit.maxvislon))
+
+    vislon = fit.lon[wherevis].flatten()
+    vislat = fit.lat[wherevis].flatten()
+
+    nloc = len(vislon)
+    
+    intens = np.zeros((fit.cfg.ncurves, nloc))
+
+    for j in range(nloc):
+        for k in range(fit.cfg.ncurves):
+            planet.map[1:,:] = 0
+            yi = 1
+            for l in range(1, fit.cfg.lmax + 1):
+                for m in range(-l, l + 1):
+                    planet.map[l,m] = fit.eigeny[k,yi]
+                    yi += 1
+
+            intens[k,j] = planet.map.intensity(lat=vislat[j],
+                                               lon=vislon[j]).eval()
+
+    return intens, vislat, vislon
+
+            
+            
