@@ -1,6 +1,7 @@
 import taurex
 from taurex import chemistry
 from taurex import model
+import constants as c
 import numpy as np
 
 class ArrayGas(taurex.chemistry.Gas):
@@ -48,10 +49,10 @@ class EmissionModel3D(taurex.model.EmissionModel):
                          atm_max_pressure,
                          ngauss)
 
-        self.latmin = latmin
-        self.latmax = latmax
-        self.lonmin = lonmin
-        self.lonmax = lonmax
+        self.latmin = latmin * c.deg2rad
+        self.latmax = latmax * c.deg2rad
+        self.lonmin = lonmin * c.deg2rad
+        self.lonmax = lonmax * c.deg2rad
 
     def compute_final_flux(self, f_total):
         # Catch for non-visible (far side) of the planet
@@ -74,11 +75,11 @@ class EmissionModel3D(taurex.model.EmissionModel):
 
         star_area = 2 * np.pi * star_radius **2
 
-        grid_flux = (f_total / star_sed) * (planet_area / star_area)
+        cell_flux = (f_total / star_sed) * (planet_area / star_area)
 
         vis = np.cos(np.mean((self.latmin, self.latmax))) * \
               np.cos(np.mean((phimin,   phimax  )))
 
-        grid_flux *= vis
+        cell_flux *= vis
 
-        return grid_flux
+        return cell_flux

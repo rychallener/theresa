@@ -145,7 +145,6 @@ def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts,
 
         for i in range(ncurves):
             planet.map[1:,:] = eigeny[i,1:]
-            print(params[j*npar+i])
             fmaps[j] += params[j*npar+i] * planet.map.render(theta=180,
                                                              projection=proj,
                                                              res=res).eval()

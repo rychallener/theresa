@@ -107,7 +107,6 @@ def main(cfile):
 
     print("Calculating intensities of visible grid cells of each eigenmap.")
     fit.intens, fit.vislat, fit.vislon = eigen.intensities(planet, fit)
-    print(fit.intens.shape)
     
     if not os.path.isdir(cfg.outdir):
         os.mkdir(cfg.outdir)
@@ -166,9 +165,6 @@ def main(cfile):
                                         cfg.ncurves, fit.wl,
                                         cfg.star.r, cfg.planet.r, cfg.star.t,
                                         res=cfg.res)
-
-    fit.lat *= c.deg2rad
-    fit.lon *= c.deg2rad
     
     fit.dlat = fit.lat[1][0] - fit.lat[0][0]
     fit.dlon = fit.lon[0][1] - fit.lon[0][0]
@@ -217,16 +213,25 @@ def main(cfile):
         data   = np.array([0.00135, 0.00135])
         uncert = fit.ferr[:,3000]
         indparams = [fit]
-        params = np.array([1e-3, 1])
+        params = np.array([-4., 1.])
         pstep  = np.ones(len(params)) * 1e-3
-        pmin   = np.ones(len(params)) * cfg.ptop
-        pmax   = np.ones(len(params)) * cfg.pbot
+        pmin   = np.ones(len(params)) * np.log10(cfg.ptop)
+        pmax   = np.ones(len(params)) * np.log10(cfg.pbot)
 
-        mc3.fit(data=data, uncert=uncert, func=model.fit_spec,
-                params=params, indparams=indparams, pstep=pstep,
-                pmin=pmin, pmax=pmax, leastsq=cfg.leastsq)
+        out = mc3.fit(data=data, uncert=uncert, func=model.fit_spec,
+                      params=params, indparams=indparams, pstep=pstep,
+                      pmin=pmin, pmax=pmax, leastsq=cfg.leastsq)
 
+        print(out)
 
+        out = mc3.sample(data=data, uncert=uncert, func=model.fit_spec,
+                         nsamples=cfg.nsamples, burnin=cfg.burnin,
+                         ncpu=cfg.ncpu, sampler='snooker', savefile=mc3npz,
+                         params=params, indparams=indparams, pstep=pstep,
+                         pmin=pmin, pmax=pmax, leastsq=cfg.leastsq)
+
+        print(out)
+        
     fit.save(fit.cfg.outdir)
         
 if __name__ == "__main__":

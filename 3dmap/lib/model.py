@@ -70,12 +70,15 @@ def fit_spec(params, fit):
     Fit a single spectrum.
     """
     cfg = fit.cfg
+
+    # Initialize to a list because we don't know the native wavenumber
+    # resolution a priori of creating the model
+    fluxgrid = []
     
     if cfg.mapfunc == 'constant':
         tgrid, p = atm.tgrid(cfg.nlayers, cfg.res, fit.tmaps,
-                             params, cfg.pbot, cfg.ptop,
-                             kind='linear', bounds_error=False,
-                             fill_value='extrapolate')
+                             10.**params, cfg.pbot, cfg.ptop,
+                             kind='linear', oob=cfg.oob)
 
         r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
                                       p, tgrid,
@@ -84,58 +87,69 @@ def fit_spec(params, fit):
                                       cfg.outdir)
     else:
         print("ERROR: Unrecognized/unimplemented map function.")
+
+    # Determine which grid cells to use
+    # Only considers longitudes currently
+    ilat, ilon = np.where((fit.lon > fit.minvislon) &
+                          (fit.lon < fit.maxvislon))
     
     if cfg.rtfunc == 'taurex':
-        for i in range(cfg.res):
-            for j in range(cfg.res):
-                rtt = TemperatureArray(
-                    tp_array=tgrid[:,i,j])
-                rtplan = taurex.planet.Planet(
-                    planet_mass=cfg.planet.m*c.Msun/c.Mjup,
-                    planet_radius=cfg.planet.r*c.Rsun/c.Rjup,
-                    planet_distance=cfg.planet.a,
-                    impact_param=cfg.planet.b,
-                    orbital_period=cfg.planet.porb,
-                    transit_time=cfg.planet.t0)
-                rtstar = taurex.stellar.Star(
-                    temperature=cfg.star.t,
-                    radius=cfg.star.r,
-                    distance=cfg.star.d,
-                    metallicity=cfg.star.z)
-                rtchem = taurex.chemistry.TaurexChemistry()
-                for k in range(len(spec)):
-                    if spec[k] not in ['H2', 'He']:
-                        gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
-                        rtchem.addGas(gas)
-                rtp = taurex.pressure.SimplePressureProfile(
-                    nlayers=cfg.nlayers,
-                    atm_min_pressure=cfg.ptop * 1e5,
-                    atm_max_pressure=cfg.pbot * 1e5)
-                rt = trc.EmissionModel3D(
-                    planet=rtplan,
-                    star=rtstar,
-                    pressure_profile=rtp,
-                    temperature_profile=rtt,
-                    chemistry=rtchem,
-                    nlayers=cfg.nlayers,
-                    latmin=fit.lat[i,j],
-                    latmax=fit.lat[i,j] + fit.dlat,
-                    lonmin=fit.lon[i,j],
-                    lonmax=fit.lon[i,j] + fit.dlon)
-                rt.add_contribution(taurex.contributions.AbsorptionContribution())
-                rt.add_contribution(taurex.contributions.CIAContribution())
-                rt.build()
-                if i == 0 and j == 0:
-                    flux = np.zeros((len(rt.nativeWavenumberGrid),
-                                     cfg.res, cfg.res))
-                wn, flux[:,i,j], tau, ex = rt.model()
+        # Latitudes (all visible) and Longitudes
+        for i, j in zip(ilat, ilon):
+            # Check for nonphysical atmosphere and return a bad fit
+            # if so
+            if not np.all(tgrid[:,i,j] >= 0):
+                msg = "WARNING: Nonphysical TP profile at Lat: {}, Lon: {}"
+                print(msg.format(fit.lat[i,j], fit.lon[i,j]))
+                return np.ones(len(cfg.filtfiles)) * -1
+            rtt = TemperatureArray(
+                tp_array=tgrid[:,i,j])
+            rtplan = taurex.planet.Planet(
+                planet_mass=cfg.planet.m*c.Msun/c.Mjup,
+                planet_radius=cfg.planet.r*c.Rsun/c.Rjup,
+                planet_distance=cfg.planet.a,
+                impact_param=cfg.planet.b,
+                orbital_period=cfg.planet.porb,
+                transit_time=cfg.planet.t0)
+            rtstar = taurex.stellar.Star(
+                temperature=cfg.star.t,
+                radius=cfg.star.r,
+                distance=cfg.star.d,
+                metallicity=cfg.star.z)
+            rtchem = taurex.chemistry.TaurexChemistry()
+            for k in range(len(spec)):
+                if spec[k] not in ['H2', 'He']:
+                    gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
+                    rtchem.addGas(gas)
+            rtp = taurex.pressure.SimplePressureProfile(
+                nlayers=cfg.nlayers,
+                atm_min_pressure=cfg.ptop * 1e5,
+                atm_max_pressure=cfg.pbot * 1e5)
+            rt = trc.EmissionModel3D(
+                planet=rtplan,
+                star=rtstar,
+                pressure_profile=rtp,
+                temperature_profile=rtt,
+                chemistry=rtchem,
+                nlayers=cfg.nlayers,
+                latmin=fit.lat[i,j],
+                latmax=fit.lat[i,j] + fit.dlat,
+                lonmin=fit.lon[i,j],
+                lonmax=fit.lon[i,j] + fit.dlon)
+            rt.add_contribution(taurex.contributions.AbsorptionContribution())
+            rt.add_contribution(taurex.contributions.CIAContribution())
+            rt.build()
 
-        totflux = np.sum(flux, axis=(1,2))
-
-        inttotflux = utils.specint(wn, totflux, cfg.filtfiles)
+            wn, flux, tau, ex = rt.model()
+            fluxgrid.append(flux)
+        fluxgrid = np.array(fluxgrid)
 
     else:
         print("ERROR: Unrecognized RT function.")
+
+    totflux = np.sum(fluxgrid, axis=0)
+
+    inttotflux = utils.specint(wn, totflux, cfg.filtfiles)
 
     return inttotflux
                                         

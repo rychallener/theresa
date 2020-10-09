@@ -350,7 +350,7 @@ def calcrad(p, t, mu, r0, mp, p0):
                 * (sc.Avogadro * sc.k * sgn * np.log(p0/p[i0]) / g0)
         g[i0] = g0 * r0**2 / r[i0]**2
     else:
-        r[i0] = rp
+        r[i0] = r0
         g[i0] = g0
 
     # Calculate out from r0
@@ -367,29 +367,33 @@ def calcrad(p, t, mu, r0, mp, p0):
         
 
 def tgrid(nlayers, res, tmaps, pmaps, pbot, ptop, kind='linear',
-          bounds_error=None, fill_value=np.nan):
+          oob='extrapolate'):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
     place at the supplied pressures. Dimensions are (nlayers, res,
     res).
 
     """
+    
     temp3d = np.zeros((nlayers, res, res))
 
     logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
 
     for i in range(res):
         for j in range(res):
+            if oob == 'extrapolate':
+                fill_value = 'extrapolate'
+            elif oob == 'iso':
+                imax = np.argsort(pmaps)[-1]
+                imin = np.argsort(pmaps)[0]
+                fill_value = (tmaps[:,i,j][imin], tmaps[:,i,j][imax])
             interp = spi.interp1d(np.log10(pmaps), tmaps[:,i,j],
                                   kind=kind,
-                                  bounds_error=bounds_error,
+                                  bounds_error=False,
                                   fill_value=fill_value)
             
             temp3d[:,i,j] = interp(logp1d)
-            if np.sum(np.isnan(temp3d[:,i,j])) > 0:               
-                print(i,j)
-                print(tmaps[:,i,j])
-
+            
     return temp3d, 10**logp1d
 
     
