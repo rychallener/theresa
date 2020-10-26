@@ -179,13 +179,23 @@ def fit_spec_all(params, fit, planet, system):
 
     fluxvtime = np.zeros((nfilt, nt))
 
+    theta0 = system.secondaries[0].theta0.eval()
+    prot   = system.secondaries[0].prot.eval()
+    t0     = system.secondaries[0].t0.eval()
+    rp     = system.secondaries[0].r.eval()
+    rs     = system.primary.r.eval()
+    
+    x, y, z = system.position(fit.t)
+    x, y = x.eval(), y.eval()
+
     # Calculate visibility of each grid cell based on observer LoS
     # (i.e., from observer PoV, where centlon is 100% visible)
     for it in range(nt):
         print("Time index: {}".format(it))
         tic2 = time.time()
-        vis = utils.visibility(fit.t[it], latgrid, longrid,
-                               fit.dlat, fit.dlon, planet, system)
+        vis = utils.visibility(fit.t[it], latgrid, longrid, fit.dlat,
+                               fit.dlon, theta0, prot, t0, rp, rs,
+                               x[:,it], y[:,it])
         print("For this index: {} seconds".format(time.time() - tic2))
 
         # Account for vis and sum over grid cells

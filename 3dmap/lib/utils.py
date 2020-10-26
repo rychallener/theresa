@@ -125,7 +125,8 @@ def filtmean(filterfiles):
 
     return wlmid
         
-def visibility(t, latgrid, longrid, dlat, dlon, planet, system):
+def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
+               rs, x, y):
     """
     Calculate the visibility of a grid of cells on a planet
     at a specific time. Returns a combined visibility based on the
@@ -140,13 +141,6 @@ def visibility(t, latgrid, longrid, dlat, dlon, planet, system):
     
     # Flag to do star visibility calculation (improves efficiency)
     dostar = True
-    
-    theta0 = planet.theta0.eval()
-    prot   = planet.prot.eval()
-    t0     = planet.t0.eval()
-
-    rs = system.bodies[0].r
-    rp = system.bodies[1].r
 
     # Central longitude (observer line-of-sight)
     centlon = theta0 - (t - t0) / prot * 360
@@ -160,18 +154,17 @@ def visibility(t, latgrid, longrid, dlat, dlon, planet, system):
     dlat *= np.pi / 180.
     dlon *= np.pi / 180.
     
-    x, y, z = system.position(t)
     xsep = x[0] - x[1]
     ysep = y[0] - y[1]
     d = np.sqrt(xsep**2 + ysep**2)
 
     # Visible fraction due to star        
     # No grid cells visible. Return 0s
-    if (d < rs - rp).eval():
+    if (d < rs - rp):
         return np.zeros(len(latgrid))
     
     # All grid cells visible. No need to do star calculation.
-    elif (d > rs + rp).eval():
+    elif (d > rs + rp):
         starvis[:] = 1.0
         dostar = False
     # Otherwise, time is during ingress/egress and we cannot simplify
@@ -208,7 +201,7 @@ def visibility(t, latgrid, longrid, dlat, dlon, planet, system):
             # Grid cell maybe only partially visible
             if dostar:
                 # Grid is "within" the star
-                if instar(x, y, rp, rs, thetamean, phimean).eval():
+                if instar(x, y, rp, rs, thetamean, phimean):
                     starvis[igrid] = 0.0
                 # Grid is not in the star
                 else:
