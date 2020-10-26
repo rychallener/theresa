@@ -66,6 +66,10 @@ def main(cfile):
     print("Reading the data.")
     fit.read_data()
 
+    print("Calculating mean filter wavelengths.")
+    fit.filtmean = utils.filtmean(fit.cfg.filtfiles)
+    print(fit.filtmean)
+
     # Create star, planet, and system objects
     # Not added to fit obj because they aren't pickleable
     print("Initializing star and planet objects.")
@@ -210,29 +214,36 @@ def main(cfile):
         taurex.cache.CIACache().set_cia_path(cfg.cfg.get('taurex',
                                                          'ciadir'))
 
-        data   = np.array([0.00135, 0.00135])
-        uncert = fit.ferr[:,3000]
+        fit.specdata   = np.array([0.0000751785, 0.0003288149, 0.0006528496,
+                                   0.0009597471, 0.00122394, 0.0014449986,
+                                   0.0016292151, 0.0017835234, 0.0019138817])
+        fit.specuncert = fit.ferr[:,3000]
         indparams = [fit]
-        params = np.array([-4., 1.])
+        params = np.array([1., 0., -1., -2., -3., -4., -5., -7., -8.])
         pstep  = np.ones(len(params)) * 1e-3
         pmin   = np.ones(len(params)) * np.log10(cfg.ptop)
         pmax   = np.ones(len(params)) * np.log10(cfg.pbot)
 
-        out = mc3.fit(data=data, uncert=uncert, func=model.fit_spec,
-                      params=params, indparams=indparams, pstep=pstep,
-                      pmin=pmin, pmax=pmax, leastsq=cfg.leastsq)
+        out = mc3.sample(data=fit.specdata, uncert=fit.specuncert,
+                         func=model.fit_spec, nsamples=cfg.nsamples,
+                         burnin=cfg.burnin, ncpu=cfg.ncpu,
+                         sampler='snooker', savefile=mc3npz,
+                         params=params, indparams=indparams,
+                         pstep=pstep, pmin=pmin, pmax=pmax,
+                         leastsq=cfg.leastsq, plots=cfg.mkplots)
 
-        print(out)
-
-        out = mc3.sample(data=data, uncert=uncert, func=model.fit_spec,
-                         nsamples=cfg.nsamples, burnin=cfg.burnin,
-                         ncpu=cfg.ncpu, sampler='snooker', savefile=mc3npz,
-                         params=params, indparams=indparams, pstep=pstep,
-                         pmin=pmin, pmax=pmax, leastsq=cfg.leastsq)
-
-        print(out)
+    fit.specbestp = out['bestp']
+    fit.specbestmodel = model.fit_spec(fit.specbestp, fit)
         
-    fit.save(fit.cfg.outdir)
+    plots.bestfitspec(fit)
+
+    fit.besttgrid, fit.p = atm.tgrid(cfg.nlayers, cfg.res, fit.tmaps,
+                                     10.**fit.specbestp, cfg.pbot,
+                                     cfg.ptop, oob=cfg.oob)
+
+    plots.bestfittgrid(fit)
+    
+    fit.save(cfg.outdir)
         
 if __name__ == "__main__":
     if len(sys.argv) < 2:

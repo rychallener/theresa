@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 # Lib imports
 import atm
@@ -74,6 +75,8 @@ def fit_spec(params, fit):
     # Initialize to a list because we don't know the native wavenumber
     # resolution a priori of creating the model
     fluxgrid = []
+    latgrid  = []
+    longrid  = []
     
     if cfg.mapfunc == 'constant':
         tgrid, p = atm.tgrid(cfg.nlayers, cfg.res, fit.tmaps,
@@ -90,8 +93,8 @@ def fit_spec(params, fit):
 
     # Determine which grid cells to use
     # Only considers longitudes currently
-    ilat, ilon = np.where((fit.lon > fit.minvislon) &
-                          (fit.lon < fit.maxvislon))
+    ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
+                          (fit.lon - fit.dlon / 2. < fit.maxvislon))
     
     if cfg.rtfunc == 'taurex':
         # Latitudes (all visible) and Longitudes
@@ -132,26 +135,68 @@ def fit_spec(params, fit):
                 temperature_profile=rtt,
                 chemistry=rtchem,
                 nlayers=cfg.nlayers,
-                latmin=fit.lat[i,j],
-                latmax=fit.lat[i,j] + fit.dlat,
-                lonmin=fit.lon[i,j],
-                lonmax=fit.lon[i,j] + fit.dlon)
+                latmin=fit.lat[i,j] - fit.dlat / 2.,
+                latmax=fit.lat[i,j] + fit.dlat / 2.,
+                lonmin=fit.lon[i,j] - fit.dlon / 2.,
+                lonmax=fit.lon[i,j] + fit.dlon / 2.)
             rt.add_contribution(taurex.contributions.AbsorptionContribution())
             rt.add_contribution(taurex.contributions.CIAContribution())
             rt.build()
 
             wn, flux, tau, ex = rt.model()
             fluxgrid.append(flux)
+            latgrid.append(fit.lat[i,j])
+            longrid.append(fit.lon[i,j])
+            
         fluxgrid = np.array(fluxgrid)
+        latgrid  = np.array(latgrid)
+        longrid  = np.array(longrid)
 
     else:
         print("ERROR: Unrecognized RT function.")
 
-    totflux = np.sum(fluxgrid, axis=0)
-
-    inttotflux = utils.specint(wn, totflux, cfg.filtfiles)
-
-    return inttotflux
+    return fluxgrid, wn, latgrid, longrid
                                         
-    
+def fit_spec_all(params, fit, planet, system):
+    tic = time.time()
+    # Calculate grid of spectra without visibility correction
+    fluxgrid, wn, latgrid, longrid = fit_spec(params, fit)
+    print("Spectrum generation: {} seconds".format(time.time() - tic))
+    tic = time.time()
+
+    latgrid *= np.pi / 180.
+    longrid *= np.pi / 180.
+
+    nt    = len(fit.t)
+    ngrid = len(latgrid)
+    nfilt = len(fit.cfg.filtfiles)
+
+    # Integrate to filters
+    intfluxgrid = np.zeros((ngrid, nfilt))
+
+    for i in range(ngrid):
+        intfluxgrid[i] = utils.specint(wn, fluxgrid[i], fit.cfg.filtfiles)
+
+    fluxvtime = np.zeros((nfilt, nt))
+
+    # Calculate visibility of each grid cell based on observer LoS
+    # (i.e., from observer PoV, where centlon is 100% visible)
+    for it in range(nt):
+        print("Time index: {}".format(it))
+        tic2 = time.time()
+        vis = utils.visibility(fit.t[it], latgrid, longrid,
+                               fit.dlat, fit.dlon, planet, system)
+        print("For this index: {} seconds".format(time.time() - tic2))
+
+        # Account for vis and sum over grid cells
+        for igrid in range(ngrid):
+            fluxvtime[:,it] += intfluxgrid[igrid] * vis[igrid]
+
+    print("Visibility calculation: {} seconds".format(time.time() - tic))
+    return fluxvtime
+                        
+                    
+                
+        
+
     

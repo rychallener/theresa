@@ -20,7 +20,7 @@ class ArrayGas(taurex.chemistry.Gas):
 class EmissionModel3D(taurex.model.EmissionModel):
     """
     A Tau-REx model that computes eclipse depth from a single
-    grid element on the planet.
+    grid element on the planet. Does NOT include visibility considerations.
 
     It would be faster, though more difficult, to overload path_integral.
     """
@@ -64,10 +64,14 @@ class EmissionModel3D(taurex.model.EmissionModel):
         star_radius = self._star.radius
         planet_radius = self._planet.fullRadius
 
-        phimin   = np.max((self.lonmin, -np.pi / 2))
-        phimax   = np.min((self.lonmax,  np.pi / 2))
+        #phimin   = np.max((self.lonmin,              -np.pi / 2))
+        #phimax   = np.min((self.lonmax,               np.pi / 2))
+        #thetamin = np.max((self.latmin + np.pi / 2.,  0))
+        #thetamax = np.min((self.latmax + np.pi / 2.,  np.pi))
+        phimin   = self.lonmin
+        phimax   = self.lonmax
         thetamin = self.latmin + np.pi / 2.
-        thetamax = self.latmax + np.pi / 2. 
+        thetamax = self.latmax + np.pi / 2.
 
         # integral r**2 sin(theta) dtheta dphi
         planet_area = -1 * planet_radius**2  * (phimax - phimin) * \
@@ -76,10 +80,5 @@ class EmissionModel3D(taurex.model.EmissionModel):
         star_area = 2 * np.pi * star_radius **2
 
         cell_flux = (f_total / star_sed) * (planet_area / star_area)
-
-        vis = np.cos(np.mean((self.latmin, self.latmax))) * \
-              np.cos(np.mean((phimin,   phimax  )))
-
-        cell_flux *= vis
 
         return cell_flux

@@ -164,6 +164,38 @@ def bestfit(t, model, data, unc, wl, outdir):
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'bestfit-lcs.png'))
     plt.close(fig)
-    
 
-    
+def bestfitspec(fit):
+    fig, ax = plt.subplots()
+
+    ax.errorbar(fit.filtmean, fit.specdata, fit.specuncert)
+    ax.scatter(fit.filtmean, fit.specbestmodel)
+    ax.set_ylabel('Fs/Fp')
+    ax.set_xlabel('Wavelength (um)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-spec.png'))
+    plt.close(fig)
+
+def bestfittgrid(fit):
+    fig, ax = plt.subplots()
+
+    for i in range(fit.cfg.res):
+        for j in range(fit.cfg.res):
+            lat = fit.lat[i,j]
+            lon = fit.lon[i,j]
+            label = "Lat: {:.1f}, Lon: {:.1f}".format(lat, lon)
+            if ((lon + fit.dlon < fit.minvislon) or
+                (lon - fit.dlon > fit.maxvislon)):
+                linestyle = '--'
+            else:
+                linestyle = '-'
+                ax.semilogy(fit.besttgrid[:,i,j], fit.p, label=label,
+                            linestyle=linestyle)
+
+    ax.invert_yaxis()
+    ax.legend(ncol=2, fontsize=6)
+    ax.set_xlabel("Temperature (K)")
+    ax.set_ylabel("Pressure (bars)")
+    plt.tight_layout()
+    plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-tp.png'))
+    plt.close(fig)
