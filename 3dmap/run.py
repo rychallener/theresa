@@ -91,7 +91,11 @@ def main(cfile):
                                      theta0=180)
 
     system = starry.System(star, planet)
-    
+
+    print("Computing planet and star positions at observation times.")
+    fit.x, fit.y, fit.z = [a.eval() for a in system.position(fit.t)]
+
+    print("Calculating uniform-map planet and star fluxes.")
     fit.sflux, fit.pflux_y00 = [a.eval() for a in  \
                                 system.flux(fit.t, total=False)]
 
