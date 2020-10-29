@@ -158,6 +158,23 @@ def main(cfile):
     print("Best-fit parameters:")
     print(fit.bestp)
 
+    print("Calculating planet visibility with time.")
+    nt, nlat, nlon = len(fit.t), len(fit.lat), len(fit.lon)
+    fit.vis = np.zeros((nt, nlat, nlon))
+    for it in range(len(fit.t)):
+        print(it)
+        fit.vis[it] = utils.visibility(fit.t[it],
+                                       np.deg2rad(fit.lat),
+                                       np.deg2rad(fit.lon),
+                                       np.deg2rad(fit.dlat),
+                                       np.deg2rad(fit.dlon),
+                                       np.deg2rad(180.),
+                                       cfg.planet.prot,
+                                       cfg.planet.t0,
+                                       cfg.planet.r,
+                                       cfg.star.r,
+                                       fit.x[:,it], fit.y[:,it])
+
     print("Checking critical locations:")
     for j in range(len(fit.wl)):
         print("  Wl: {} um".format(fit.wl[j]))
@@ -218,23 +235,19 @@ def main(cfile):
         taurex.cache.CIACache().set_cia_path(cfg.cfg.get('taurex',
                                                          'ciadir'))
 
-        fit.specdata   = np.array([0.0000751785, 0.0003288149, 0.0006528496,
-                                   0.0009597471, 0.00122394, 0.0014449986,
-                                   0.0016292151, 0.0017835234, 0.0019138817])
-        fit.specuncert = fit.ferr[:,3000]
-        indparams = [fit]
+        indparams = [fit, system]
         params = np.array([1., 0., -1., -2., -3., -4., -5., -7., -8.])
         pstep  = np.ones(len(params)) * 1e-3
         pmin   = np.ones(len(params)) * np.log10(cfg.ptop)
         pmax   = np.ones(len(params)) * np.log10(cfg.pbot)
 
-        out = mc3.sample(data=fit.specdata, uncert=fit.specuncert,
-                         func=model.fit_spec, nsamples=cfg.nsamples,
+        out = mc3.sample(data=fit.flux.flatten(), uncert=fit.ferr.flatten(),
+                         func=model.sysflux, nsamples=cfg.nsamples,
                          burnin=cfg.burnin, ncpu=cfg.ncpu,
                          sampler='snooker', savefile=mc3npz,
                          params=params, indparams=indparams,
                          pstep=pstep, pmin=pmin, pmax=pmax,
-                         leastsq=cfg.leastsq, plots=cfg.mkplots)
+                         leastsq=None, plots=cfg.mkplots)
 
     fit.specbestp = out['bestp']
     fit.specbestmodel = model.fit_spec(fit.specbestp, fit)

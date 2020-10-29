@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import theano
+import time
 import scipy.interpolate as spi
 
 def specint(wn, spec, filtfiles):
@@ -132,27 +133,21 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
     at a specific time. Returns a combined visibility based on the
     observer's line-of-sight and the effect of the star.
     """
-    if len(latgrid) != len(longrid):
-        print("Numbers of latitudes and longitudes do not match.")
+    if latgrid.shape != longrid.shape:
+        print("Number of latitudes and longitudes do not match.")
         raise Exception
 
-    losvis  = np.zeros(len(latgrid))
-    starvis = np.zeros(len(latgrid))
+    losvis  = np.zeros(latgrid.shape)
+    starvis = np.zeros(latgrid.shape)
     
     # Flag to do star visibility calculation (improves efficiency)
     dostar = True
 
     # Central longitude (observer line-of-sight)
-    centlon = theta0 - (t - t0) / prot * 360
+    centlon = theta0 - (t - t0) / prot * 2 * np.pi
 
     # Convert relative to substellar point
-    centlon = (centlon + 180) % 360 - 180
-
-    # Convert to radians
-    centlon *= np.pi / 180.
-
-    dlat *= np.pi / 180.
-    dlon *= np.pi / 180.
+    centlon = (centlon + np.pi) % (2 * np.pi) - np.pi
     
     xsep = x[0] - x[1]
     ysep = y[0] - y[1]
@@ -161,57 +156,85 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
     # Visible fraction due to star        
     # No grid cells visible. Return 0s
     if (d < rs - rp):
-        return np.zeros(len(latgrid))
+        print("No cells visible.")
+        return np.zeros(latgrid.shape)
     
     # All grid cells visible. No need to do star calculation.
     elif (d > rs + rp):
-        starvis[:] = 1.0
-        dostar = False
+        print("All cells visible.")
+        starvis[:,:] = 1.0
+        dostar     = False
     # Otherwise, time is during ingress/egress and we cannot simplify
     # calculation
+    else:
+        print("Ingress/egress.")
 
-    for igrid, (lat, lon) in enumerate(zip(latgrid, longrid)):
-        # Angles wrt the observer
-        phi   = lon - centlon
-        theta = lat
-        phimin   = phi - dlon / 2.
-        phimax   = phi + dlon / 2.
-
-        thetamin = lat - dlat / 2.
-        thetamax = lat + dlat / 2.
-
-        # Cell is not visible at this time. No need to calculate further.
-        if (phimin > np.pi / 2.) or (phimax < -np.pi / 2.):
-            losvis[igrid] = 0
+    nlat, nlon = latgrid.shape
+    for i in range(nlat):
+        for j in range(nlon):
+            # Angles wrt the observer
+            lat = latgrid[i,j]
+            lon = longrid[i,j]
             
-        # Cell is visible at this time
-        else:
-            # Determine visible phi/theta range of the cell
-            phirng   = (np.max((phimin,   -np.pi / 2.)),
-                        np.min((phimax,    np.pi / 2.)))
-            thetarng = (np.max((thetamin, -np.pi / 2.)),
-                        np.min((thetamax,  np.pi / 2.)))
-            # Mean visible latitude/longitude
-            thetamean = np.mean(thetarng)
-            phimean   = np.mean(phirng)
+            phi   = lon - centlon
+            theta = lat
+            phimin   = phi - dlon / 2.
+            phimax   = phi + dlon / 2.
 
-            # Visibility based on LoS
-            losvis[igrid] = np.cos(thetamean) * np.cos(phimean)
+            thetamin = lat - dlat / 2.
+            thetamax = lat + dlat / 2.
 
-            # Grid cell maybe only partially visible
-            if dostar:
-                # Grid is "within" the star
-                if instar(x, y, rp, rs, thetamean, phimean):
-                    starvis[igrid] = 0.0
-                # Grid is not in the star
-                else:
-                    starvis[igrid] = 1.0
+            # Cell is not visible at this time. No need to calculate further.
+            if (phimin > np.pi / 2.) or (phimax < -np.pi / 2.):
+                losvis[i,j] = 0
+
+            # Cell is visible at this time
+            else:
+                # Determine visible phi/theta range of the cell
+                phirng   = (np.max((phimin,   -np.pi / 2.)),
+                            np.min((phimax,    np.pi / 2.)))
+                thetarng = (np.max((thetamin, -np.pi / 2.)),
+                            np.min((thetamax,  np.pi / 2.)))
+                # Mean visible latitude/longitude
+                thetamean = np.mean(thetarng)
+                phimean   = np.mean(phirng)
+
+                # Visibility based on LoS
+                losvis[i,j] = np.cos(thetamean) * np.cos(phimean)
+
+                # Grid cell maybe only partially visible
+                if dostar:
+                    # Grid is "within" the star
+                    if dgrid(x, y, rp, thetamean, phimean) < rs:
+                        starvis[i,j] = 0.0
+                    # Grid is not in the star
+                    else:
+                        starvis[i,j] = 1.0
 
     return starvis * losvis
 
-def instar(x, y, rp, rs, theta, phi):
+def dgrid(x, y, rp, theta, phi):
+    """
+    Calculates the projected distance between a latitude (theta) and a 
+    longitude (phi) on a planet with radius rp to a star. Projected
+    star position is (x[0], y[0]) and planet position is (x[1], y[1]).
+    """
     xgrid = x[1] + rp * np.cos(theta) * np.sin(phi)
     ygrid = y[1] + rp * np.sin(theta)
-    dgrid = np.sqrt((xgrid - x[0])**2 + (ygrid - y[0])**2)
-    return dgrid < rs
-                    
+    d = np.sqrt((xgrid - x[0])**2 + (ygrid - y[0])**2)
+    return d
+
+def t_dgrid():
+    """
+    Returns a theano function of dgrid(), with the same arguments.
+    """
+    print('Defining theano function.')
+    arg1 = theano.tensor.dvector('x')
+    arg2 = theano.tensor.dvector('y')
+    arg3 = theano.tensor.dscalar('rp')
+    arg4 = theano.tensor.dscalar('theta')
+    arg5 = theano.tensor.dscalar('phi')
+
+    f = theano.function([arg1, arg2, arg3, arg4, arg5],
+                        dgrid(arg1, arg2, arg3, arg4, arg5))    
+    return f

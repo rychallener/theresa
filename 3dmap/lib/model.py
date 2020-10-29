@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import theano
 
 # Lib imports
 import atm
@@ -66,17 +67,21 @@ def fit_2d_wl(params, ecurves, t, wl, y00, sflux, ncurves, intens):
 
     return f
 
-def fit_spec(params, fit):
+def specgrid(params, fit):
     """
-    Fit a single spectrum.
+    Calculate emission from each cell of a planetary grid, as a 
+    fraction of stellar flux, NOT
+    accounting for visibility. Observer is assumed to be looking
+    directly at each grid cell. For efficiency, never-visible cells
+    are not calculated. Function returns a spectrum of zeros for those
+    grid cells.
     """
     cfg = fit.cfg
 
     # Initialize to a list because we don't know the native wavenumber
     # resolution a priori of creating the model
-    fluxgrid = []
-    latgrid  = []
-    longrid  = []
+    nlat, nlon = fit.lat.shape
+    fluxgrid = np.empty((nlat, nlon), dtype=list)
     
     if cfg.mapfunc == 'constant':
         tgrid, p = atm.tgrid(cfg.nlayers, cfg.res, fit.tmaps,
@@ -93,10 +98,28 @@ def fit_spec(params, fit):
 
     # Determine which grid cells to use
     # Only considers longitudes currently
+    nlat, nlon = fit.lat.shape
     ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
                           (fit.lon - fit.dlon / 2. < fit.maxvislon))
     
     if cfg.rtfunc == 'taurex':
+        # Cell-independent Tau-REx objects
+        rtplan = taurex.planet.Planet(
+             planet_mass=cfg.planet.m*c.Msun/c.Mjup,
+             planet_radius=cfg.planet.r*c.Rsun/c.Rjup,
+             planet_distance=cfg.planet.a,
+             impact_param=cfg.planet.b,
+             orbital_period=cfg.planet.porb,
+             transit_time=cfg.planet.t0)
+        rtstar = taurex.stellar.Star(
+            temperature=cfg.star.t,
+            radius=cfg.star.r,
+            distance=cfg.star.d,
+            metallicity=cfg.star.z)
+        rtp = taurex.pressure.SimplePressureProfile(
+            nlayers=cfg.nlayers,
+            atm_min_pressure=cfg.ptop * 1e5,
+            atm_max_pressure=cfg.pbot * 1e5)
         # Latitudes (all visible) and Longitudes
         for i, j in zip(ilat, ilon):
             # Check for nonphysical atmosphere and return a bad fit
@@ -107,27 +130,11 @@ def fit_spec(params, fit):
                 return np.ones(len(cfg.filtfiles)) * -1
             rtt = TemperatureArray(
                 tp_array=tgrid[:,i,j])
-            rtplan = taurex.planet.Planet(
-                planet_mass=cfg.planet.m*c.Msun/c.Mjup,
-                planet_radius=cfg.planet.r*c.Rsun/c.Rjup,
-                planet_distance=cfg.planet.a,
-                impact_param=cfg.planet.b,
-                orbital_period=cfg.planet.porb,
-                transit_time=cfg.planet.t0)
-            rtstar = taurex.stellar.Star(
-                temperature=cfg.star.t,
-                radius=cfg.star.r,
-                distance=cfg.star.d,
-                metallicity=cfg.star.z)
             rtchem = taurex.chemistry.TaurexChemistry()
             for k in range(len(spec)):
                 if spec[k] not in ['H2', 'He']:
                     gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
                     rtchem.addGas(gas)
-            rtp = taurex.pressure.SimplePressureProfile(
-                nlayers=cfg.nlayers,
-                atm_min_pressure=cfg.ptop * 1e5,
-                atm_max_pressure=cfg.pbot * 1e5)
             rt = trc.EmissionModel3D(
                 planet=rtplan,
                 star=rtstar,
@@ -144,63 +151,62 @@ def fit_spec(params, fit):
             rt.build()
 
             wn, flux, tau, ex = rt.model()
-            fluxgrid.append(flux)
-            latgrid.append(fit.lat[i,j])
-            longrid.append(fit.lon[i,j])
-            
+            fluxgrid[i,j] = flux
+
+        # Fill in non-visible cells with zeros
+        # (np.where doesn't work because of broadcasting issues)
+        for i in range(nlat):
+            for j in range(nlon):
+                if type(fluxgrid[i,j]) == type(None):
+                    fluxgrid[i,j] = np.zeros(len(wn))
+
+        # Convert to 3d array (rather than 2d array of arrays)
         fluxgrid = np.array(fluxgrid)
-        latgrid  = np.array(latgrid)
-        longrid  = np.array(longrid)
 
     else:
         print("ERROR: Unrecognized RT function.")
 
-    return fluxgrid, wn, latgrid, longrid
+    return fluxgrid, wn
                                         
-def fit_spec_all(params, fit, planet, system):
+def specvtime(params, fit, system):
+    """
+    Calculate spectra emitted by each grid cell, integrate over filters,
+    account for line-of-sight and stellar visibility (as functiosn of time),
+    and sum over the grid cells. Returns an array of (nfilt, nt). Units
+    are fraction of stellar flux, Fp/Fs.
+    """
     tic = time.time()
     # Calculate grid of spectra without visibility correction
-    fluxgrid, wn, latgrid, longrid = fit_spec(params, fit)
+    fluxgrid, wn = specgrid(params, fit)
     print("Spectrum generation: {} seconds".format(time.time() - tic))
     tic = time.time()
 
-    latgrid *= np.pi / 180.
-    longrid *= np.pi / 180.
-
-    nt    = len(fit.t)
-    ngrid = len(latgrid)
+    nt         = len(fit.t)
+    nlat, nlon = fit.lat.shape
     nfilt = len(fit.cfg.filtfiles)
 
     # Integrate to filters
-    intfluxgrid = np.zeros((ngrid, nfilt))
+    intfluxgrid = np.zeros((nlat, nlon, nfilt))
 
-    for i in range(ngrid):
-        intfluxgrid[i] = utils.specint(wn, fluxgrid[i], fit.cfg.filtfiles)
+    for i in range(nlat):
+        for j in range(nlon):
+            intfluxgrid[i,j] = utils.specint(wn, fluxgrid[i,j],
+                                             fit.cfg.filtfiles)
 
     fluxvtime = np.zeros((nfilt, nt))
 
-    theta0 = system.secondaries[0].theta0.eval()
-    prot   = system.secondaries[0].prot.eval()
-    t0     = system.secondaries[0].t0.eval()
-    rp     = system.secondaries[0].r.eval()
-    rs     = system.primary.r.eval()
-
-    # Calculate visibility of each grid cell based on observer LoS
-    # (i.e., from observer PoV, where centlon is 100% visible)
+    # Account for vis and sum over grid cells
     for it in range(nt):
-        vis = utils.visibility(fit.t[it], latgrid, longrid, fit.dlat,
-                               fit.dlon, theta0, prot, t0, rp, rs,
-                               fit.x[:,it], fit.y[:,it])
-
-        # Account for vis and sum over grid cells
-        for igrid in range(ngrid):
-            fluxvtime[:,it] += intfluxgrid[igrid] * vis[igrid]
+        for ifilt in range(nfilt):
+            fluxvtime[ifilt,it] += np.sum(intfluxgrid[:,:,ifilt] * fit.vis[it])
 
     print("Visibility calculation: {} seconds".format(time.time() - tic))
     return fluxvtime
-                        
-                    
-                
-        
+
+def sysflux(params, fit, system):
+    # Calculate Fp/Fs
+    fpfs    = specvtime(params, fit, system)
+    sysflux = fpfs * fit.sflux + fit.sflux
+    return sysflux.flatten()
 
     
