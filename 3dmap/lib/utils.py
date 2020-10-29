@@ -2,9 +2,10 @@ import numpy as np
 import pickle
 import theano
 import time
+import constants as c
 import scipy.interpolate as spi
 
-def specint(wn, spec, filtfiles):
+def specint(wn, spec, filtwn_list, filttrans_list):
     """
     Integrate a spectrum over the given filters.
 
@@ -16,32 +17,29 @@ def specint(wn, spec, filtfiles):
     spec: 1D array
         Spectrum to be integrated
 
-    filtfiles: list
-        Paths to filter files, which should be 2 columns.
-        First column is wavelength (microns), and second column
-        is filter throughput.
+    filtwn_list: list
+        List of arrays of filter wavenumbers, in /cm.
+
+    filttrans_list: list
+        List of arrays of filter transmission. Same length as filtwn_list.
 
     Returns
     -------
     intspec: 1D array
         The spectrum integrated over each filter. 
     """
-    intspec = np.zeros(len(filtfiles)) 
+    if len(filtwn_list) != len(filttrans_list):
+        print("ERROR: list sizes do not match.")
+        raise Exception
     
-    for i, filtfile in enumerate(filtfiles):
-        filtwl, trans = np.loadtxt(filtfile, unpack=True)
-
-        um2cm = 1e-4
-        
-        filtwn = 1.0 / (filtwl * um2cm)
-
+    intspec = np.zeros(len(filtwn_list)) 
+    
+    for i, (filtwn, filttrans) in enumerate(zip(filtwn_list, filttrans_list)):
         # Sort ascending
         idx = np.argsort(filtwn)
-        filtwn = filtwn[idx]
-        trans  = trans[idx]
         
-        intfunc = spi.interp1d(filtwn, trans, bounds_error=False,
-                               fill_value=0)
+        intfunc = spi.interp1d(filtwn[idx], filttrans[idx],
+                               bounds_error=False, fill_value=0)
 
         # Interpolate transmission
         inttrans = intfunc(wn)
@@ -98,7 +96,7 @@ def vislon(planet, fit):
     return np.min(limb1.eval()), np.max(limb2.eval())
     
     
-def filtmean(filterfiles):
+def readfilters(filterfiles):
     """
     Reads filter files and determines the mean wavelength.
     
@@ -112,19 +110,25 @@ def filtmean(filterfiles):
     filtmid: 1D array
         Array of mean wavelengths
     """
+    filtwl_list    = []
+    filtwn_list    = []
+    filttrans_list = []
+    
     wnmid = np.zeros(len(filterfiles))
     for i, filterfile in enumerate(filterfiles):
         filtwl, trans = np.loadtxt(filterfile, unpack=True)
         
-        um2cm = 1e-4
-        
-        filtwn = 1.0 / (filtwl * um2cm)
+        filtwn = 1.0 / (filtwl * c.um2cm)
 
         wnmid[i] = np.sum(filtwn * trans) / np.sum(trans)
 
-    wlmid = 1 / (um2cm * wnmid)
+        filtwl_list.append(filtwl)
+        filtwn_list.append(filtwn)
+        filttrans_list.append(trans)
 
-    return wlmid
+    wlmid = 1 / (c.um2cm * wnmid)
+
+    return filtwl_list, filtwn_list, filttrans_list, wnmid, wlmid
         
 def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
                rs, x, y):
@@ -156,18 +160,14 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
     # Visible fraction due to star        
     # No grid cells visible. Return 0s
     if (d < rs - rp):
-        print("No cells visible.")
         return np.zeros(latgrid.shape)
     
     # All grid cells visible. No need to do star calculation.
     elif (d > rs + rp):
-        print("All cells visible.")
         starvis[:,:] = 1.0
         dostar     = False
     # Otherwise, time is during ingress/egress and we cannot simplify
     # calculation
-    else:
-        print("Ingress/egress.")
 
     nlat, nlon = latgrid.shape
     for i in range(nlat):

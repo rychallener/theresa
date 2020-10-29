@@ -191,7 +191,9 @@ def specvtime(params, fit, system):
     for i in range(nlat):
         for j in range(nlon):
             intfluxgrid[i,j] = utils.specint(wn, fluxgrid[i,j],
-                                             fit.cfg.filtfiles)
+                                             fit.filtwn, fit.filttrans)
+    print("Spectrum integration: {} seconds".format(time.time() - tic))
+    tic = time.time()
 
     fluxvtime = np.zeros((nfilt, nt))
 

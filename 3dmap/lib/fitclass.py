@@ -6,6 +6,8 @@ import configparser as cp
 import configclass as cc
 import scipy.constants as sc
 
+import utils
+
 class Fit:
     """
     A class to hold attributes and methods related to fitting a model
@@ -111,6 +113,9 @@ class Fit:
                   "of the ferr array.")
             sys.exit()
 
+    def read_filters(self):
+        self.filtwl, self.filtwn, self.filttrans, self.wnmid, self.wlmid = \
+            utils.readfilters(self.cfg.filtfiles)           
             
     def save(self, outdir, fname=None):
         # Note: starry objects are not pickleable, so they

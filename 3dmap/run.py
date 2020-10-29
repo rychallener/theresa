@@ -66,9 +66,10 @@ def main(cfile):
     print("Reading the data.")
     fit.read_data()
 
-    print("Calculating mean filter wavelengths.")
-    fit.filtmean = utils.filtmean(fit.cfg.filtfiles)
-    print(fit.filtmean)
+    print("Reading filters.")
+    fit.read_filters()
+    print("Filter mean wavelengths (um):")
+    print(fit.wlmid)
 
     # Create star, planet, and system objects
     # Not added to fit obj because they aren't pickleable
@@ -112,6 +113,9 @@ def main(cfile):
     fit.lat, fit.lon = [a.eval() for a in \
                         planet.map.get_latlon_grid(res=cfg.res,
                                                    projection='rect')]
+
+    fit.dlat = fit.lat[1][0] - fit.lat[0][0]
+    fit.dlon = fit.lon[0][1] - fit.lon[0][0]
 
     print("Calculating intensities of visible grid cells of each eigenmap.")
     fit.intens, fit.vislat, fit.vislon = eigen.intensities(planet, fit)
@@ -162,7 +166,6 @@ def main(cfile):
     nt, nlat, nlon = len(fit.t), len(fit.lat), len(fit.lon)
     fit.vis = np.zeros((nt, nlat, nlon))
     for it in range(len(fit.t)):
-        print(it)
         fit.vis[it] = utils.visibility(fit.t[it],
                                        np.deg2rad(fit.lat),
                                        np.deg2rad(fit.lon),
@@ -185,14 +188,12 @@ def main(cfile):
             msg = "    Lat: {:+07.2f}, Lon: {:+07.2f}, Flux: {:+013.10f}"
             print(msg.format(fit.vislat[i], fit.vislon[i], check))
 
-    print("Computing total flux and brightness temperature maps.")
+    print("Constructing total flux and brightness temperature maps " +
+          "from eigenmaps.")
     fit.fmaps, fit.tmaps = eigen.mkmaps(planet, fit.eigeny, fit.bestp, npar,
                                         cfg.ncurves, fit.wl,
                                         cfg.star.r, cfg.planet.r, cfg.star.t,
                                         res=cfg.res)
-    
-    fit.dlat = fit.lat[1][0] - fit.lat[0][0]
-    fit.dlon = fit.lon[0][1] - fit.lon[0][0]
 
     if cfg.mkplots:
         plots.pltmaps(fit.tmaps, fit.wl, cfg.outdir, proj='rect')

@@ -15,3 +15,6 @@ Rsun = 6.957e8   # m (volumetric mean)
 # Unit conversions
 deg2rad = np.pi / 180.
 rad2deg = 180. / np.pi
+
+um2cm = 1e-4
+cm2um = 1e4
