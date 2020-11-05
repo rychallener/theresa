@@ -55,9 +55,6 @@ class EmissionModel3D(taurex.model.EmissionModel):
         self.lonmax = lonmax * c.deg2rad
 
     def compute_final_flux(self, f_total):
-        # Catch for non-visible (far side) of the planet
-        if ((self.lonmin >= np.pi / 2) or (self.lonmax <= -np.pi / 2)):
-            return np.zeros(len(f_total))
         
         star_sed = self._star.spectralEmissionDensity
 
@@ -77,8 +74,23 @@ class EmissionModel3D(taurex.model.EmissionModel):
         planet_area = -1 * planet_radius**2  * (phimax - phimin) * \
             (np.cos(thetamax) - np.cos(thetamin))
 
-        star_area = 2 * np.pi * star_radius **2
+        star_area = np.pi * star_radius **2
 
         cell_flux = (f_total / star_sed) * (planet_area / star_area)
 
         return cell_flux
+
+# class NormalizedStar(taurex.stellar.Star):
+#     def __init__(self, temperature=5000, radius=1.0, metallicity=1.0,
+#                  mass=1.0, distance=1.0, magnitudeK=10.0):
+#         super().__init__(temperature=temperature, radius=radius,
+#                          distance=distance, magnitudeK=magnitudeK,
+#                          mass=mass, metallicity=metallicity)
+        
+#     def initialize(self, wngrid):
+#         """
+#         Overload intialize to set SED. Set to 1/PI for all wavelengths,
+#         so that the integrated flux is 1.
+#         """
+#         self.sed = np.ones(len(wngrid)) * 1 / np.pi
+                         
