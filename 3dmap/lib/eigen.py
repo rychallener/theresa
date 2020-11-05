@@ -245,17 +245,16 @@ def intensities(planet, fit):
     
     intens = np.zeros((fit.cfg.ncurves, nloc))
 
-    for j in range(nloc):
-        for k in range(fit.cfg.ncurves):
-            planet.map[1:,:] = 0
-            yi = 1
-            for l in range(1, fit.cfg.lmax + 1):
-                for m in range(-l, l + 1):
-                    planet.map[l,m] = fit.eigeny[k,yi]
-                    yi += 1
+    for k in range(fit.cfg.ncurves):
+        planet.map[1:,:] = 0
+        yi = 1
+        for l in range(1, fit.cfg.lmax + 1):
+            for m in range(-l, l + 1):
+                planet.map[l,m] = fit.eigeny[k,yi]
+                yi += 1
 
-            intens[k,j] = planet.map.intensity(lat=vislat[j],
-                                               lon=vislon[j]).eval()
+        intens[k] = planet.map.intensity(lat=vislat,
+                                         lon=vislon).eval()
 
     return intens, vislat, vislon
 
