@@ -52,7 +52,7 @@ import taurexclass as trc
 
 starry.config.quiet = True
 
-def main(cfile):
+def map2d(cfile):
     """
     One function to rule them all.
     """
@@ -74,24 +74,7 @@ def main(cfile):
     # Create star, planet, and system objects
     # Not added to fit obj because they aren't pickleable
     print("Initializing star and planet objects.")
-    star = starry.Primary(starry.Map(ydeg=1, amp=1),
-                          m   =cfg.star.m,
-                          r   =cfg.star.r,
-                          prot=cfg.star.prot)
-
-    planet = starry.kepler.Secondary(starry.Map(ydeg=cfg.lmax),
-                                     m    =cfg.planet.m,
-                                     r    =cfg.planet.r,
-                                     porb =cfg.planet.porb,
-                                     prot =cfg.planet.prot,
-                                     Omega=cfg.planet.Omega,
-                                     ecc  =cfg.planet.ecc,
-                                     w    =cfg.planet.w,
-                                     t0   =cfg.planet.t0,
-                                     inc  =cfg.planet.inc,
-                                     theta0=180)
-
-    system = starry.System(star, planet)
+    star, planet, system = utils.initsystem(fit)
 
     print("Computing planet and star positions at observation times.")
     fit.x, fit.y, fit.z = [a.eval() for a in system.position(fit.t)]
@@ -110,12 +93,22 @@ def main(cfile):
     print("Maximum Longitude: {:6.2f}".format(fit.maxvislon))
 
     print("Calculating latitude and longitude of planetary grid.")
-    fit.lat, fit.lon = [a.eval() for a in \
-                        planet.map.get_latlon_grid(res=cfg.res,
-                                                   projection='rect')]
+    # fit.lat, fit.lon = [a.eval() for a in \
+    #                     planet.map.get_latlon_grid(res=cfg.res,
+    #                                                projection='rect')] 
 
-    fit.dlat = fit.lat[1][0] - fit.lat[0][0]
-    fit.dlon = fit.lon[0][1] - fit.lon[0][0]
+    # fit.dlat = fit.lat[1][0] - fit.lat[0][0]
+    # fit.dlon = fit.lon[0][1] - fit.lon[0][0]
+
+    fit.dlat = 180. / cfg.res
+    fit.dlon = 360. / cfg.res
+    fit.lat, fit.lon = np.meshgrid(np.linspace(-90  + fit.dlat / 2.,
+                                                90  - fit.dlat / 2.,
+                                               cfg.res, endpoint=True),
+                                   np.linspace(-180 + fit.dlon / 2.,
+                                                180 - fit.dlon / 2.,
+                                               cfg.res, endpoint=True),
+                                   indexing='ij')
 
     print("Calculating intensities of visible grid cells of each eigenmap.")
     fit.intens, fit.vislat, fit.vislon = eigen.intensities(planet, fit)
@@ -146,8 +139,6 @@ def main(cfile):
     params[cfg.ncurves::npar] = 0.001
     pstep  = np.ones( npar * len(fit.wl)) * 0.01
 
-    mc3npz = os.path.join(cfg.outdir, 'mcmc.npz')
-
     mc3data = fit.flux.flatten()
     mc3unc  = fit.ferr.flatten()
 
@@ -161,6 +152,13 @@ def main(cfile):
 
     print("Best-fit parameters:")
     print(fit.bestp)
+
+    # Save stellar correction terms (we need them later)
+    # (there are ncurves+2 params per filter for each 2d fit,
+    # and the stellar correction is the last term for each filter,
+    # so we start from ncurves+2-1 (-1 for 0-start indexing)
+    # and jump by ncurves+2)
+    fit.scorr = fit.bestp[cfg.ncurves+1::cfg.ncurves+2]
 
     print("Calculating planet visibility with time.")
     nt, nlat, nlon = len(fit.t), len(fit.lat), len(fit.lon)
@@ -200,6 +198,10 @@ def main(cfile):
         plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, fit.wl,
                       cfg.outdir)
 
+    fit.save(cfg.outdir)
+
+def map3d(fit, system):
+    cfg = fit.cfg
     print("Fitting spectrum.")
     if cfg.rtfunc == 'transit':
         tcfg = mkcfg.mktransit(cfile, cfg.outdir)
@@ -229,6 +231,9 @@ def main(cfile):
                                cfg.cfg.getfloat('taurex', 'wnhigh'),
                                cfg.cfg.getfloat('taurex', 'wndelt'))
 
+        #fit.mols = cfg.cfg.get('taurex', 'mols')
+        fit.mols = ['H2O', 'CH4', 'CO', 'CO2']
+
         # Note: must do these things in the right order
         taurex.cache.OpacityCache().clear_cache()
         taurex.cache.OpacityCache().set_opacity_path(cfg.cfg.get('taurex',
@@ -241,6 +246,7 @@ def main(cfile):
         pstep  = np.ones(len(params)) * 1e-3
         pmin   = np.ones(len(params)) * np.log10(cfg.ptop)
         pmax   = np.ones(len(params)) * np.log10(cfg.pbot)
+        mc3npz = os.path.join(cfg.outdir, 'mcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(), uncert=fit.ferr.flatten(),
                          func=model.sysflux, nsamples=cfg.nsamples,
@@ -251,9 +257,14 @@ def main(cfile):
                          leastsq=None, plots=cfg.mkplots)
 
     fit.specbestp = out['bestp']
-    fit.specbestmodel = model.fit_spec(fit.specbestp, fit)
+
+    nfilt = len(cfg.filtfiles)
+    nt    = len(fit.t)
+    
+    fit.specbestmodel = model.sysflux(fit.specbestp, fit, system)
+    fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
         
-    plots.bestfitspec(fit)
+    plots.bestfitlcsspec(fit)
 
     fit.besttgrid, fit.p = atm.tgrid(cfg.nlayers, cfg.res, fit.tmaps,
                                      10.**fit.specbestp, cfg.pbot,
@@ -264,12 +275,24 @@ def main(cfile):
     fit.save(cfg.outdir)
         
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Provide configuration file as a command-line argument.")
+    if len(sys.argv) < 3:
+        print("ERROR: Call structure is run.py <mode> <configuration file>.")
         sys.exit()
     else:
-        cfile = sys.argv[1]
-    main(cfile)
+        mode  = sys.argv[1]
+        cfile = sys.argv[2]
+
+    if mode in ['2d', '2D']:
+        map2d(cfile)
+    elif mode in ['3d', '3D']:
+        fit = fc.Fit()
+        fit.read_config(cfile)
+        fit = fc.load(outdir=fit.cfg.outdir)
+        star, planet, system = utils.initsystem(fit)
+        map3d(fit, system)
+    else:
+        print("ERROR: Unrecognized mode. Options are <2d, 3d>.")
+        
     
         
 
