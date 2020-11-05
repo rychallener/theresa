@@ -4,6 +4,31 @@ import theano
 import time
 import constants as c
 import scipy.interpolate as spi
+import starry
+
+def initsystem(fit):
+    cfg = fit.cfg
+
+    star = starry.Primary(starry.Map(ydeg=1, amp=1),
+                          m   =cfg.star.m,
+                          r   =cfg.star.r,
+                          prot=cfg.star.prot)
+
+    planet = starry.kepler.Secondary(starry.Map(ydeg=cfg.lmax),
+                                     m    =cfg.planet.m,
+                                     r    =cfg.planet.r,
+                                     porb =cfg.planet.porb,
+                                     prot =cfg.planet.prot,
+                                     Omega=cfg.planet.Omega,
+                                     ecc  =cfg.planet.ecc,
+                                     w    =cfg.planet.w,
+                                     t0   =cfg.planet.t0,
+                                     inc  =cfg.planet.inc,
+                                     theta0=180)
+
+    system = starry.System(star, planet)
+
+    return star, planet, system
 
 def specint(wn, spec, filtwn_list, filttrans_list):
     """
