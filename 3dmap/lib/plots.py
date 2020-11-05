@@ -165,15 +165,19 @@ def bestfit(t, model, data, unc, wl, outdir):
     plt.savefig(os.path.join(outdir, 'bestfit-lcs.png'))
     plt.close(fig)
 
-def bestfitspec(fit):
+def bestfitlcsspec(fit):
     fig, ax = plt.subplots()
 
-    ax.errorbar(fit.filtmean, fit.specdata, fit.specuncert)
-    ax.scatter(fit.filtmean, fit.specbestmodel)
+    nfilt, nt = fit.specbestmodel.shape
+
+    for i in range(nfilt):
+        ax.scatter(fit.t, fit.flux[i], s=0.1, zorder=1)
+        ax.plot(fit.t, fit.specbestmodel[i], zorder=2)
+
     ax.set_ylabel('Fs/Fp')
     ax.set_xlabel('Wavelength (um)')
     plt.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-spec.png'))
+    plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-lcs-spec.png'))
     plt.close(fig)
 
 def bestfittgrid(fit):
