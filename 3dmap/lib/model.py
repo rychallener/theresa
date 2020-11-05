@@ -88,6 +88,8 @@ def specgrid(params, fit):
                              10.**params, cfg.pbot, cfg.ptop,
                              kind='linear', oob=cfg.oob)
 
+        #tgrid[:,:,:] = 1000.
+
         r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
                                       p, tgrid,
                                       cfg.planet.m, cfg.planet.r,
@@ -132,7 +134,8 @@ def specgrid(params, fit):
                 tp_array=tgrid[:,i,j])
             rtchem = taurex.chemistry.TaurexChemistry()
             for k in range(len(spec)):
-                if spec[k] not in ['H2', 'He']:
+                if (spec[k] not in ['H2', 'He']) and \
+                   (spec[k]     in fit.mols):
                     gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
                     rtchem.addGas(gas)
             rt = trc.EmissionModel3D(
@@ -148,9 +151,11 @@ def specgrid(params, fit):
                 lonmax=fit.lon[i,j] + fit.dlon / 2.)
             rt.add_contribution(taurex.contributions.AbsorptionContribution())
             rt.add_contribution(taurex.contributions.CIAContribution())
+
             rt.build()
 
-            wn, flux, tau, ex = rt.model()
+            wn, flux, tau, ex = rt.model(wngrid=fit.wngrid)
+
             fluxgrid[i,j] = flux
 
         # Fill in non-visible cells with zeros
@@ -208,7 +213,13 @@ def specvtime(params, fit, system):
 def sysflux(params, fit, system):
     # Calculate Fp/Fs
     fpfs    = specvtime(params, fit, system)
-    sysflux = fpfs * fit.sflux + fit.sflux
-    return sysflux.flatten()
+    nfilt, nt = fpfs.shape
+    systemflux = np.zeros((nfilt, nt))
+    # Account for stellar correction
+    # Transform fp/fs -> fp/(fs + corr) -> (fp + fs + corr)/(fs + corr)
+    for i in range(nfilt):
+        fpfscorr = fpfs[i] * fit.sflux / (fit.sflux + fit.scorr[i])
+        systemflux[i] = fpfscorr + 1
+    return systemflux.flatten()
 
     
