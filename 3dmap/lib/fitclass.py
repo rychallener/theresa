@@ -127,19 +127,29 @@ class Fit:
         with open(os.path.join(outdir, fname), 'wb') as f:
             pickle.dump(self, f)
 
-def load(filename):
+def load(outdir=None, filename=None):
     """
     Load a Fit object from file.
     
     Arguments
     ---------
+    outdir: string
+        Location of file to load. Default is an empty string (current
+        directory)
+
     filename: string
-        Path to the file to load
+        Name of the file to load. Default is 'fit.pkl'.
 
     Returns
     -------
     fit: Fit instance
         Fit object loaded from filename
     """
-    with open(filename, 'rb') as f:
+    if type(outdir) == type(None):
+        outdir = ''
+        
+    if type(filename) == type(None):
+        filename = 'fit.pkl'
+        
+    with open(os.path.join(outdir, filename), 'rb') as f:
         return pickle.load(f)
