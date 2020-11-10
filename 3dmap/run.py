@@ -116,14 +116,6 @@ def map2d(cfile):
     if not os.path.isdir(cfg.outdir):
         os.mkdir(cfg.outdir)
 
-    if cfg.mkplots:
-        print("Making plots.")
-        plots.circmaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves)
-        plots.rectmaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves)
-        plots.lightcurves(fit.t, fit.lcs, cfg.outdir)
-        plots.eigencurves(fit.t, fit.ecurves, cfg.outdir, ncurves=cfg.ncurves)
-        plots.ecurvepower(fit.evalues, cfg.outdir)
-
     # Set up for MCMC
     if cfg.posflux:
         intens = fit.intens
@@ -193,10 +185,21 @@ def map2d(cfile):
                                         cfg.star.r, cfg.planet.r, cfg.star.t,
                                         res=cfg.res)
 
-    if cfg.mkplots:
+    if cfg.plots:
+        print("Making plots.")
+        plots.circmaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves)
+        plots.rectmaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves)
+        plots.lightcurves(fit.t, fit.lcs, cfg.outdir)
+        plots.eigencurves(fit.t, fit.ecurves, cfg.outdir, ncurves=cfg.ncurves)
+        plots.ecurvepower(fit.evalues, cfg.outdir)
         plots.pltmaps(fit.tmaps, fit.wl, cfg.outdir, proj='rect')
         plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, fit.wl,
                       cfg.outdir)
+
+    if cfg.animations:
+        print("Making animations.")
+        #plots.visanimation(fit)
+        plots.fluxmapanimation(fit)
 
     fit.save(cfg.outdir)
 
@@ -231,9 +234,6 @@ def map3d(fit, system):
                                cfg.cfg.getfloat('taurex', 'wnhigh'),
                                cfg.cfg.getfloat('taurex', 'wndelt'))
 
-        #fit.mols = cfg.cfg.get('taurex', 'mols')
-        fit.mols = ['H2O', 'CH4', 'CO', 'CO2']
-
         # Note: must do these things in the right order
         taurex.cache.OpacityCache().clear_cache()
         taurex.cache.OpacityCache().set_opacity_path(cfg.cfg.get('taurex',
@@ -254,7 +254,7 @@ def map3d(fit, system):
                          sampler='snooker', savefile=mc3npz,
                          params=params, indparams=indparams,
                          pstep=pstep, pmin=pmin, pmax=pmax,
-                         leastsq=None, plots=cfg.mkplots)
+                         leastsq=None, plots=cfg.plots)
 
     fit.specbestp = out['bestp']
 
@@ -285,9 +285,15 @@ if __name__ == "__main__":
     if mode in ['2d', '2D']:
         map2d(cfile)
     elif mode in ['3d', '3D']:
+        # Read config to find location of output, load output,
+        # then read config again to get any changes from 2d run.
+        # Consider a more robust system (separate 2d and 3d sections
+        # of config?)
         fit = fc.Fit()
         fit.read_config(cfile)
         fit = fc.load(outdir=fit.cfg.outdir)
+        fit.read_config(cfile)
+        print(fit.cfg.cfg['taurex']['mols'])
         star, planet, system = utils.initsystem(fit)
         map3d(fit, system)
     else:

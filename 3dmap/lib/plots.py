@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 def circmaps(planet, eigeny, outdir, ncurves=None):    
     nharm, ny = eigeny.shape
@@ -202,4 +203,79 @@ def bestfittgrid(fit):
     ax.set_ylabel("Pressure (bars)")
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-tp.png'))
+    plt.close(fig)
+
+def visanimation(fit, fps=60, step=10):
+    fig = plt.figure()
+    ims = []
+
+    Writer = animation.writers['pillow']
+    writer = Writer(fps=fps)
+
+    plt.xlabel('Longitude (deg)')
+    plt.ylabel('Latitude (deg)')
+    plt.yticks(np.linspace( -90,  90, 13, endpoint=True))
+    plt.xticks(np.linspace(-180, 180, 13, endpoint=True))
+
+    nt = len(fit.t)
+
+    for i in range(0, nt, step):
+        im = plt.imshow(fit.vis[i], animated=True,
+                        vmax=np.max(fit.vis), vmin=np.min(fit.vis),
+                        extent=(-180, 180, -90, 90))
+        ims.append([im])
+
+    ani = animation.ArtistAnimation(fig, ims, interval=50,
+                                    blit=True, repeat_delay=1000)
+
+    ani.save(os.path.join(fit.cfg.outdir, 'vis.gif'), dpi=300, writer=writer)
+
+    plt.close(fig)
+
+def fluxmapanimation(fit, fps=60, step=10):
+    nmaps = len(fit.wlmid)
+
+    ncols = np.min((nmaps, 3))
+    nrows = nmaps // ncols + (nmaps % ncols != 0)
+
+    xsize = 7. / 3. * ncols
+    ysize = 7. / 3. / 2. * nrows
+
+    figsize = (xsize, ysize)
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
+                             sharey=True, squeeze=False, figsize=figsize)
+
+    vmax = np.max(fit.fmaps[~np.isnan(fit.fmaps)])
+    vmin = np.min(fit.fmaps[~np.isnan(fit.fmaps)])
+    
+    extent = (-180, 180, -90, 90)
+
+    all_ims   = []
+
+    Writer = animation.writers['pillow']
+    writer = Writer(fps=fps)
+    
+    for j in range(0, len(fit.t), step):
+        print(j)
+        frame_ims = []
+        for i in range(nmaps):
+            irow = i // ncols
+            icol = i %  ncols
+            ax = axes[irow,icol]
+            im = ax.imshow(fit.fmaps[i]*fit.vis[j],
+                           origin='lower', cmap='plasma',
+                           extent=extent,
+                           vmin=vmin, vmax=vmax)
+            #plt.colorbar(im, ax=ax)
+            ax.set_title('{:.1f} um'.format(fit.wlmid[i]))
+            frame_ims.append(im)
+            
+        all_ims.append(frame_ims)
+   
+    ani = animation.ArtistAnimation(fig, all_ims, interval=50,
+                                    blit=True, repeat_delay=1000)
+
+    ani.save(os.path.join(fit.cfg.outdir, 'fmaps.gif'), dpi=300, writer=writer)
+
     plt.close(fig)

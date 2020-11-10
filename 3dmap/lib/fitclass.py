@@ -30,14 +30,15 @@ class Fit:
         self.cfg.cfg   = config
 
         # General options
-        self.cfg.lmax     = self.cfg.cfg.getint(    'General', 'lmax')
-        self.cfg.outdir   = self.cfg.cfg.get(       'General', 'outdir')
-        self.cfg.mkplots  = self.cfg.cfg.getboolean('General', 'mkplots')
-        self.cfg.ncurves  = self.cfg.cfg.getint(    'General', 'ncurves')
-        self.cfg.ncpu     = self.cfg.cfg.getint(    'General', 'ncpu')
-        self.cfg.nsamples = self.cfg.cfg.getint(    'General', 'nsamples')
-        self.cfg.burnin   = self.cfg.cfg.getint(    'General', 'burnin')
-        self.cfg.leastsq  = self.cfg.cfg.get(       'General', 'leastsq')
+        self.cfg.lmax       = self.cfg.cfg.getint(    'General', 'lmax')
+        self.cfg.outdir     = self.cfg.cfg.get(       'General', 'outdir')
+        self.cfg.plots      = self.cfg.cfg.getboolean('General', 'plots')
+        self.cfg.animations = self.cfg.cfg.getboolean('General', 'animations')
+        self.cfg.ncurves    = self.cfg.cfg.getint(    'General', 'ncurves')
+        self.cfg.ncpu       = self.cfg.cfg.getint(    'General', 'ncpu')
+        self.cfg.nsamples   = self.cfg.cfg.getint(    'General', 'nsamples')
+        self.cfg.burnin     = self.cfg.cfg.getint(    'General', 'burnin')
+        self.cfg.leastsq    = self.cfg.cfg.get(       'General', 'leastsq')
 
         self.cfg.timefile = self.cfg.cfg.get('General', 'timefile')
         self.cfg.fluxfile = self.cfg.cfg.get('General', 'fluxfile')

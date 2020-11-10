@@ -135,7 +135,7 @@ def specgrid(params, fit):
             rtchem = taurex.chemistry.TaurexChemistry()
             for k in range(len(spec)):
                 if (spec[k] not in ['H2', 'He']) and \
-                   (spec[k]     in fit.mols):
+                   (spec[k]     in fit.cfg.cfg['taurex']['mols'].split()):
                     gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
                     rtchem.addGas(gas)
             rt = trc.EmissionModel3D(
