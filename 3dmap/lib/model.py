@@ -88,7 +88,7 @@ def specgrid(params, fit):
                              10.**params, cfg.pbot, cfg.ptop,
                              kind='linear', oob=cfg.oob)
 
-        #tgrid[:,:,:] = 1000.
+        tgrid[:,:,:] = 1000.
 
         r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
                                       p, tgrid,
@@ -160,13 +160,16 @@ def specgrid(params, fit):
 
         # Fill in non-visible cells with zeros
         # (np.where doesn't work because of broadcasting issues)
+        nwn = len(wn)
         for i in range(nlat):
             for j in range(nlon):
                 if type(fluxgrid[i,j]) == type(None):
-                    fluxgrid[i,j] = np.zeros(len(wn))
+                    fluxgrid[i,j] = np.zeros(nwn)
 
         # Convert to 3d array (rather than 2d array of arrays)
-        fluxgrid = np.array(fluxgrid)
+        fluxgrid = np.concatenate(np.concatenate(fluxgrid)).reshape(nlat,
+                                                                    nlon,
+                                                                    nwn)
 
     else:
         print("ERROR: Unrecognized RT function.")

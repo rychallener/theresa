@@ -183,7 +183,7 @@ def map2d(cfile):
     fit.fmaps, fit.tmaps = eigen.mkmaps(planet, fit.eigeny, fit.bestp, npar,
                                         cfg.ncurves, fit.wl,
                                         cfg.star.r, cfg.planet.r, cfg.star.t,
-                                        res=cfg.res)
+                                        fit.lat, fit.lon)
 
     if cfg.plots:
         print("Making plots.")

@@ -1,5 +1,6 @@
 import numpy as np
 import pca
+import utils
 import scipy.constants as sc
 
 def mkcurves(system, t, lmax):
@@ -76,8 +77,7 @@ def mkcurves(system, t, lmax):
 
     return eigeny, evalues, evectors, proj, lcs
 
-def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts,
-           proj='rect', res=300):
+def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts, lat, lon):
     """
     Calculate flux maps and brightness temperature maps from
     2D map fits.
@@ -115,22 +115,27 @@ def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts,
     ts: float
         Temperature of the star in Kelvin
 
-    res: int (optional)
-        Resolution of the maps along each dimension. Default is 300.
+    lat: 2d array
+        Latitudes of grid to calculate map
+
+    lon: 2d array
+        Longitudes of grid to calculate map
 
     Returns
     -------
     fmaps: 3D array
-        Array with shape (nwl, nres, nres) of planetary emission at
+        Array with shape (nwl, nlat, nlon) of planetary emission at
         each wavelength and location
 
     tmaps: 3D array
         Same as fmaps but for brightness temperature.
     """
     nwl = len(wl)
+
+    nlat, nlon = lat.shape
     
-    fmaps = np.zeros((nwl, res, res)) # flux maps
-    tmaps = np.zeros((nwl, res, res)) # temp maps
+    fmaps = np.zeros((nwl, nlat, nlon)) # flux maps
+    tmaps = np.zeros((nwl, nlat, nlon)) # temp maps
 
     # Convert wl to m
     wl_m = wl * 1e-6
@@ -140,14 +145,13 @@ def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts,
     for j in range(nwl):
         planet.map[1:,:] = 0
 
-        fmaps[j] = planet.map.render(theta=180, projection=proj,
-                                     res=res).eval() * params[j*npar+ncurves]
-
+        fmaps[j] = utils.mapintensity(planet.map, lat, lon,
+                                      params[j*npar+ncurves])
+        
         for i in range(ncurves):
             planet.map[1:,:] = eigeny[i,1:]
-            fmaps[j] += params[j*npar+i] * planet.map.render(theta=180,
-                                                             projection=proj,
-                                                             res=res).eval()
+            fmaps[j] += utils.mapintensity(planet.map, lat, lon,
+                                           params[j*npar+i])
 
         # Convert to brightness temperatures
         # see Rauscher et al., 2018, Eq. 8

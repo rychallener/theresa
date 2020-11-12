@@ -220,12 +220,19 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
                             np.min((phimax,    np.pi / 2.)))
                 thetarng = (np.max((thetamin, -np.pi / 2.)),
                             np.min((thetamax,  np.pi / 2.)))
+
+                # Area correction (some of cell might not be visible)
+                # This is ratio of partial cell to full cell
+                area_corr = np.diff(phirng) * np.diff(np.cos(thetarng)) / \
+                    (np.diff((phimax, phimin)) * \
+                     np.diff(np.cos((thetamax, thetamin))))
+
                 # Mean visible latitude/longitude
                 thetamean = np.mean(thetarng)
                 phimean   = np.mean(phirng)
 
                 # Visibility based on LoS
-                losvis[i,j] = np.cos(thetamean) * np.cos(phimean)
+                losvis[i,j] = np.cos(thetamean) * np.cos(phimean) * area_corr
 
                 # Grid cell maybe only partially visible
                 if dostar:
@@ -263,3 +270,12 @@ def t_dgrid():
     f = theano.function([arg1, arg2, arg3, arg4, arg5],
                         dgrid(arg1, arg2, arg3, arg4, arg5))    
     return f
+
+def mapintensity(map, lat, lon, amp):
+    """
+    Calculates a grid of intensities, multiplied by the amplitude given.
+    """
+    grid  = map.intensity(lat=lat.flatten(), lon=lon.flatten()).eval()
+    grid *= amp
+    grid  = grid.reshape(lat.shape)
+    return grid
