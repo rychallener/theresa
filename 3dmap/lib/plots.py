@@ -173,10 +173,12 @@ def bestfitlcsspec(fit):
 
     for i in range(nfilt):
         ax.scatter(fit.t, fit.flux[i], s=0.1, zorder=1)
-        ax.plot(fit.t, fit.specbestmodel[i], zorder=2)
+        ax.plot(fit.t, fit.specbestmodel[i],
+                label='{:.1f} um'.format(fit.wlmid[i]), zorder=2)
 
-    ax.set_ylabel('Fs/Fp')
-    ax.set_xlabel('Wavelength (um)')
+    plt.legend()
+    ax.set_ylabel(r'($F_s + F_p$)/$F_s$')
+    ax.set_xlabel('Time (days)')
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-lcs-spec.png'))
     plt.close(fig)
@@ -184,18 +186,33 @@ def bestfitlcsspec(fit):
 def bestfittgrid(fit):
     fig, ax = plt.subplots()
 
+    # Latitude index 
+    ieq = fit.cfg.res // 2
+
     for i in range(fit.cfg.res):
         for j in range(fit.cfg.res):
             lat = fit.lat[i,j]
             lon = fit.lon[i,j]
-            label = "Lat: {:.1f}, Lon: {:.1f}".format(lat, lon)
+            if i == ieq:
+                label = "Lat: {:.1f}, Lon: {:.1f}".format(lat, lon)
+                color = None
+                zorder = 2
+                alpha = 1.0
+            else:
+                label = None
+                color = 'gray'
+                zorder = 1
+                alpha = 0.5
+            
             if ((lon + fit.dlon < fit.minvislon) or
                 (lon - fit.dlon > fit.maxvislon)):
                 linestyle = '--'
             else:
                 linestyle = '-'
-                ax.semilogy(fit.besttgrid[:,i,j], fit.p, label=label,
-                            linestyle=linestyle)
+                
+            ax.semilogy(fit.besttgrid[:,i,j], fit.p, label=label,
+                        linestyle=linestyle, color=color, zorder=zorder,
+                        alpha=alpha)
 
     ax.invert_yaxis()
     ax.legend(ncol=2, fontsize=6)
@@ -257,7 +274,6 @@ def fluxmapanimation(fit, fps=60, step=10):
     writer = Writer(fps=fps)
     
     for j in range(0, len(fit.t), step):
-        print(j)
         frame_ims = []
         for i in range(nmaps):
             irow = i // ncols

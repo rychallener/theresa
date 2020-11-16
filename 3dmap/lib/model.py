@@ -88,8 +88,6 @@ def specgrid(params, fit):
                              10.**params, cfg.pbot, cfg.ptop,
                              kind='linear', oob=cfg.oob)
 
-        tgrid[:,:,:] = 1000.
-
         r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
                                       p, tgrid,
                                       cfg.planet.m, cfg.planet.r,

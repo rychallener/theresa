@@ -198,7 +198,7 @@ def map2d(cfile):
 
     if cfg.animations:
         print("Making animations.")
-        #plots.visanimation(fit)
+        plots.visanimation(fit)
         plots.fluxmapanimation(fit)
 
     fit.save(cfg.outdir)
@@ -242,7 +242,7 @@ def map3d(fit, system):
                                                          'ciadir'))
 
         indparams = [fit, system]
-        params = np.array([1., 0., -1., -2., -3., -4., -5., -7., -8.])
+        params = np.array([0.5, 0., -1., -1.5, -4., -2., -5., -5.5, -7.])
         pstep  = np.ones(len(params)) * 1e-3
         pmin   = np.ones(len(params)) * np.log10(cfg.ptop)
         pmax   = np.ones(len(params)) * np.log10(cfg.pbot)
@@ -293,7 +293,7 @@ if __name__ == "__main__":
         fit.read_config(cfile)
         fit = fc.load(outdir=fit.cfg.outdir)
         fit.read_config(cfile)
-        print(fit.cfg.cfg['taurex']['mols'])
+        #fit.read_data()
         star, planet, system = utils.initsystem(fit)
         map3d(fit, system)
     else:
