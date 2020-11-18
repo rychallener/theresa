@@ -216,16 +216,17 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
             # Cell is visible at this time
             else:
                 # Determine visible phi/theta range of the cell
-                phirng   = (np.max((phimin,   -np.pi / 2.)),
-                            np.min((phimax,    np.pi / 2.)))
-                thetarng = (np.max((thetamin, -np.pi / 2.)),
-                            np.min((thetamax,  np.pi / 2.)))
+                phirng   = np.array((np.max((phimin,   -np.pi / 2.)),
+                                    np.min((phimax,    np.pi / 2.))))
+                thetarng = np.array((np.max((thetamin, -np.pi / 2.)),
+                                     np.min((thetamax,  np.pi / 2.))))
 
                 # Area correction (some of cell might not be visible)
                 # This is ratio of partial cell to full cell
-                area_corr = np.diff(phirng) * np.diff(np.cos(thetarng)) / \
-                    (np.diff((phimax, phimin)) * \
-                     np.diff(np.cos((thetamax, thetamin))))
+                area_corr = np.diff(phirng) * \
+                    np.diff(np.cos(thetarng+np.pi/2)) / \
+                    np.diff((phimax, phimin)) / \
+                    np.diff(np.cos((thetamax+np.pi/2, thetamin+np.pi/2)))
 
                 # Mean visible latitude/longitude
                 thetamean = np.mean(thetarng)
