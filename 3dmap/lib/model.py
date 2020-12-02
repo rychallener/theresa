@@ -67,7 +67,7 @@ def fit_2d_wl(params, ecurves, t, wl, y00, sflux, ncurves, intens):
 
     return f
 
-def specgrid(params, fit):
+def specgrid(params, fit, return_tau=False):
     """
     Calculate emission from each cell of a planetary grid, as a 
     fraction of stellar flux, NOT
@@ -82,6 +82,8 @@ def specgrid(params, fit):
     # resolution a priori of creating the model
     nlat, nlon = fit.lat.shape
     fluxgrid = np.empty((nlat, nlon), dtype=list)
+    if return_tau:
+        taugrid = np.empty((nlat, nlon), dtype=list)
     
     if cfg.mapfunc == 'constant':
         tgrid, p = atm.tgrid(cfg.nlayers, cfg.res, fit.tmaps,
@@ -155,6 +157,8 @@ def specgrid(params, fit):
             wn, flux, tau, ex = rt.model(wngrid=fit.wngrid)
 
             fluxgrid[i,j] = flux
+            if return_tau:
+                taugrid[i,j] = tau
 
         # Fill in non-visible cells with zeros
         # (np.where doesn't work because of broadcasting issues)
@@ -163,6 +167,9 @@ def specgrid(params, fit):
             for j in range(nlon):
                 if type(fluxgrid[i,j]) == type(None):
                     fluxgrid[i,j] = np.zeros(nwn)
+                if return_tau:
+                    if type(taugrid[i,j]) == type(None):
+                        taugrid[i,j] = np.zeros((cfg.nlayers, nwn))
 
         # Convert to 3d array (rather than 2d array of arrays)
         fluxgrid = np.concatenate(np.concatenate(fluxgrid)).reshape(nlat,
@@ -172,6 +179,9 @@ def specgrid(params, fit):
     else:
         print("ERROR: Unrecognized RT function.")
 
+    if return_tau:
+        return fluxgrid, wn, taugrid
+    
     return fluxgrid, wn
                                         
 def specvtime(params, fit, system):

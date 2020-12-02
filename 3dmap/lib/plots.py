@@ -1,7 +1,10 @@
 import os
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+
+matplotlib.rcParams['axes.formatter.useoffset'] = False
 
 def circmaps(planet, eigeny, outdir, ncurves=None):    
     nharm, ny = eigeny.shape
@@ -145,40 +148,80 @@ def pltmaps(maps, wl, outdir, proj='rect'):
         im = ax.imshow(maps[i], origin='lower', cmap='plasma', extent=extent,
                        vmin=vmin, vmax=vmax)
         plt.colorbar(im, ax=ax)
-        ax.set_title('{} um'.format(wl[i]))
+        ax.set_title('{:.2f} um'.format(wl[i]))
 
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'bestfit-{}-maps.png'.format(proj)))
     plt.close(fig)
 
 def bestfit(t, model, data, unc, wl, outdir):
-    fig, ax = plt.subplots()
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    nfilt = len(wl)
+    nt = len(t)
+
+    hratios = np.zeros(nfilt+1)
+    hratios[0] = 0.5
+    hratios[1:] = 0.5 / nfilt
+    
+    gridspec_kw = {'height_ratios':hratios}
+    
+    fig, axes = plt.subplots(nrows=nfilt+1, ncols=1, sharex=True,
+                             gridspec_kw=gridspec_kw, figsize=(8,10))
 
     nt = len(t)
     
-    for i in range(len(wl)):
-        ax.plot(t, model[i*nt:(i+1)*nt], zorder=2)
-        ax.errorbar(t, data[i], unc[i], zorder=1)
+    for i in range(nfilt):
+        axes[0].plot(t, model[i*nt:(i+1)*nt], zorder=2, color=colors[i],
+                     label='{:.2f} um'.format(wl[i]))
+        axes[0].scatter(t, data[i], s=0.1, zorder=1, color=colors[i])
 
-    ax.set_xlabel('Time (days)')
-    ax.set_ylabel('Normalized Flux')
+    axes[0].legend()
+    axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
+
+    for i in range(nfilt):
+        axes[i+1].scatter(t, data[i] - model[i*nt:(i+1)*nt], s=0.1,
+                          color=colors[i])
+        axes[i+1].set_ylabel('Residuals')
+        axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
+        if i == nfilt-1:
+            axes[i+1].set_xlabel('Time (days)')
+
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'bestfit-lcs.png'))
     plt.close(fig)
 
 def bestfitlcsspec(fit):
-    fig, ax = plt.subplots()
-
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    
     nfilt, nt = fit.specbestmodel.shape
 
-    for i in range(nfilt):
-        ax.scatter(fit.t, fit.flux[i], s=0.1, zorder=1)
-        ax.plot(fit.t, fit.specbestmodel[i],
-                label='{:.1f} um'.format(fit.wlmid[i]), zorder=2)
+    hratios = np.zeros(nfilt+1)
+    hratios[0] = 0.5
+    hratios[1:] = 0.5 / nfilt
+    
+    gridspec_kw = {'height_ratios':hratios}
+    
+    fig, axes = plt.subplots(nrows=nfilt+1, ncols=1, sharex=True,
+                             gridspec_kw=gridspec_kw, figsize=(8,10))
 
-    plt.legend()
-    ax.set_ylabel(r'($F_s + F_p$)/$F_s$')
-    ax.set_xlabel('Time (days)')
+    for i in range(nfilt):
+        axes[0].scatter(fit.t, fit.flux[i], s=0.1, zorder=1,
+                        color=colors[i])
+        axes[0].plot(fit.t, fit.specbestmodel[i],
+                     label='{:.2f} um'.format(fit.wlmid[i]), zorder=2,
+                     color=colors[i])
+
+    axes[0].legend()
+    axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
+
+    for i in range(nfilt):
+        axes[i+1].scatter(fit.t, fit.flux[i] - fit.specbestmodel[i], s=0.1,
+                          color=colors[i])
+        axes[i+1].set_ylabel('Residuals')
+        axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
+        if i == nfilt-1:
+            axes[i+1].set_xlabel('Time (days)')
+
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-lcs-spec.png'))
     plt.close(fig)
@@ -284,7 +327,7 @@ def fluxmapanimation(fit, fps=60, step=10):
                            extent=extent,
                            vmin=vmin, vmax=vmax)
             #plt.colorbar(im, ax=ax)
-            ax.set_title('{:.1f} um'.format(fit.wlmid[i]))
+            ax.set_title('{:.2f} um'.format(fit.wlmid[i]))
             frame_ims.append(im)
             
         all_ims.append(frame_ims)
@@ -295,3 +338,61 @@ def fluxmapanimation(fit, fps=60, step=10):
     ani.save(os.path.join(fit.cfg.outdir, 'fmaps.gif'), dpi=300, writer=writer)
 
     plt.close(fig)
+
+
+def tau(fit, ilat=None, ilon=None):
+    fig, ax = plt.subplots()
+    
+    cfg = fit.cfg
+    
+    if type(ilat) == type(None):
+        ilat = cfg.res // 2
+    if type(ilon) == type(None):
+        ilon = cfg.res // 2
+        
+    nlat, nlon = fit.taugrid.shape
+    npress, nwn = fit.taugrid[0,0].shape
+    wn = fit.modelwngrid
+    wl = 10000 / fit.modelwngrid
+    p = fit.p
+
+    logp = np.log10(p)
+    maxlogp = np.max(logp)
+    minlogp = np.min(logp)
+
+    logwl = np.log10(wl)
+    maxlogwl = np.max(logwl)
+    minlogwl = np.min(logwl)
+
+    tau = fit.taugrid[ilat,ilon]
+    
+    plt.imshow(np.flip(tau), aspect='auto',
+               extent=(minlogwl, maxlogwl, maxlogp, minlogp),
+               cmap='magma')
+
+    yticks = plt.yticks()[0]
+    plt.yticks(yticks, [r"$10^{{{:.0f}}}$".format(y) for y in yticks])
+    plt.ylim((maxlogp, minlogp))
+
+    xticks = plt.xticks()[0]
+    plt.xticks(xticks, np.round(10.**xticks, 2))
+    plt.xlim((minlogwl, maxlogwl))
+
+    plt.xlabel('Wavelength (um)')
+    plt.ylabel('Pressure (bars)')
+
+    nfilt = len(fit.filtwl)
+    ax = plt.gca()
+    transform = matplotlib.transforms.blended_transform_factory(
+        ax.transData, ax.transAxes)
+    # Note: assumes all filters are normalized to 1, and plots them
+    # in the top tenth of the image.
+    for i in range(nfilt):
+        plt.plot(np.log10(fit.filtwl[i]), 1.0 - fit.filttrans[i]/10.,
+                 transform=transform, label='{:.2f} um'.format(fit.wlmid[i]),
+                 linestyle='--')
+
+    plt.legend(frameon=False)
+    plt.colorbar()
+    plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
+    plt.close()

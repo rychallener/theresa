@@ -141,9 +141,20 @@ def map2d(cfile):
 
     fit.bestfit = mc3out['best_model']
     fit.bestp   = mc3out['bestp']
+    fit.chisq2d = mc3out['best_chisq']
+
+    nfreep = np.sum(pstep > 0)
+    ndata  = mc3data.size
+    
+    fit.redchisq2d = fit.chisq2d / (ndata - nfreep)
+    fit.bic2d   = fit.chisq2d + nfreep * np.log(ndata)
 
     print("Best-fit parameters:")
     print(fit.bestp)
+
+    print("Chisq:         {}".format(fit.chisq2d))
+    print("Reduced Chisq: {}".format(fit.redchisq2d))
+    print("BIC:           {}".format(fit.bic2d))
 
     # Save stellar correction terms (we need them later)
     # (there are ncurves+2 params per filter for each 2d fit,
@@ -184,6 +195,12 @@ def map2d(cfile):
                                         cfg.ncurves, fit.wl,
                                         cfg.star.r, cfg.planet.r, cfg.star.t,
                                         fit.lat, fit.lon)
+
+    print("Temperature ranges of eigenmaps:")
+    for i in range(len(fit.wlmid)):
+        print("  {:.2f} um:".format(fit.wlmid[i]))
+        print("    Max: {:.2f} K".format(np.max(fit.tmaps[i])))
+        print("    Min: {:.2f} K".format(np.min(fit.tmaps[i])))
 
     if cfg.plots:
         print("Making plots.")
@@ -242,7 +259,7 @@ def map3d(fit, system):
                                                          'ciadir'))
 
         indparams = [fit, system]
-        params = np.array([0.5, 0., -1., -1.5, -4., -2., -5., -5.5, -7.])
+        params = np.array([1.09, -0.43, -0.14])
         pstep  = np.ones(len(params)) * 1e-3
         pmin   = np.ones(len(params)) * np.log10(cfg.ptop)
         pmax   = np.ones(len(params)) * np.log10(cfg.pbot)
@@ -260,17 +277,22 @@ def map3d(fit, system):
 
     nfilt = len(cfg.filtfiles)
     nt    = len(fit.t)
-    
+
+    print("Calculating best fit.")
+    fit.fluxgrid, fit.modelwngrid, fit.taugrid = model.specgrid(fit.specbestp,
+                                                                fit,
+                                                                True)
     fit.specbestmodel = model.sysflux(fit.specbestp, fit, system)
     fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
         
-    plots.bestfitlcsspec(fit)
 
     fit.besttgrid, fit.p = atm.tgrid(cfg.nlayers, cfg.res, fit.tmaps,
                                      10.**fit.specbestp, cfg.pbot,
                                      cfg.ptop, oob=cfg.oob)
 
+    plots.bestfitlcsspec(fit)
     plots.bestfittgrid(fit)
+    plots.tau(fit)
     
     fit.save(cfg.outdir)
         

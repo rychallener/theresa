@@ -217,7 +217,7 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
             else:
                 # Determine visible phi/theta range of the cell
                 phirng   = np.array((np.max((phimin,   -np.pi / 2.)),
-                                    np.min((phimax,    np.pi / 2.))))
+                                     np.min((phimax,    np.pi / 2.))))
                 thetarng = np.array((np.max((thetamin, -np.pi / 2.)),
                                      np.min((thetamax,  np.pi / 2.))))
 
