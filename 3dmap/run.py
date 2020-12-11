@@ -8,6 +8,7 @@ import pickle
 import starry
 import shutil
 import subprocess
+import progressbar
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -164,6 +165,7 @@ def map2d(cfile):
     fit.scorr = fit.bestp[cfg.ncurves+1::cfg.ncurves+2]
 
     print("Calculating planet visibility with time.")
+    pbar = progressbar.ProgressBar(max_value=len(fit.t)-1)
     nt, nlat, nlon = len(fit.t), len(fit.lat), len(fit.lon)
     fit.vis = np.zeros((nt, nlat, nlon))
     for it in range(len(fit.t)):
@@ -178,6 +180,7 @@ def map2d(cfile):
                                        cfg.planet.r,
                                        cfg.star.r,
                                        fit.x[:,it], fit.y[:,it])
+        pbar.update(it)
 
     print("Checking critical locations:")
     for j in range(len(fit.wl)):
