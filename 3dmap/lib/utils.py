@@ -161,6 +161,49 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
     Calculate the visibility of a grid of cells on a planet
     at a specific time. Returns a combined visibility based on the
     observer's line-of-sight and the effect of the star.
+
+    Arguments
+    ---------
+    t: float
+        Time to calculate visibility.
+    
+    latgrid: 2D array
+        Array of latitudes, in radians, from -pi/2 to pi/2.
+
+    longrid: 2D array
+        Array of longitudes, in radians, from -pi to pi.
+
+    dlat: float
+        Latitude resolution in radians.
+
+    dlon: float
+        Longitude resoltuion in radians.
+
+    theta0: float
+        Rotation at t0 in radians.
+
+    prot: float
+        Rotation period, the same units as t.
+
+    t0: float
+        Time of transit, same units as t.
+
+    rp: float
+        Planet radius in solar radii.
+
+    rs: float
+        Star radius in solar radii.
+
+    x: tuple
+        x position of (star, planet)
+
+    y: tuple
+        y position of (star, planet)
+
+    Returns
+    -------
+    vis: 2D array
+        Visibility of each grid cell. Same shape as latgrid and longrid.
     """
     if latgrid.shape != longrid.shape:
         print("Number of latitudes and longitudes do not match.")
