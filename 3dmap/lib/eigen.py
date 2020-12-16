@@ -237,8 +237,8 @@ def emapminmax(planet, eigeny, ncurves):
     return lat, lon, intens
 
 def intensities(planet, fit):
-    wherevis = np.where((fit.lon >= fit.minvislon) &
-                        (fit.lon <= fit.maxvislon))
+    wherevis = np.where((fit.lon + fit.dlon >= fit.minvislon) &
+                        (fit.lon - fit.dlon <= fit.maxvislon))
 
     vislon = fit.lon[wherevis].flatten()
     vislat = fit.lat[wherevis].flatten()
