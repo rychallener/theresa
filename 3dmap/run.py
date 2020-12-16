@@ -130,16 +130,34 @@ def map2d(cfile):
 
     params = np.zeros(npar * len(fit.wl))
     params[cfg.ncurves::npar] = 0.001
-    pstep  = np.ones( npar * len(fit.wl)) * 0.01
+    pstep  = np.ones( npar * len(fit.wl)) *  0.01
+    pmin   = np.ones( npar * len(fit.wl)) * -1.0
+    pmax   = np.ones( npar * len(fit.wl)) *  1.0
+    pstep[cfg.ncurves+1::npar] =  0.0 # step size for scorr
+    #pmin[cfg.ncurves+1::npar] = -0.001 # min for scorr
+    #pmax[cfg.ncurves+1::npar] =  0.001 # max for scorr
 
     mc3data = fit.flux.flatten()
     mc3unc  = fit.ferr.flatten()
+    mc3npz = os.path.join(cfg.outdir, '2dmcmc.npz')
 
     print("Optimizing 2D maps.")
     mc3out = mc3.fit(data=mc3data, uncert=mc3unc, func=model.fit_2d_wl,
                      params=params, indparams=indparams, pstep=pstep,
-                     leastsq=cfg.leastsq)
+                     leastsq=cfg.leastsq, pmin=pmin, pmax=pmax)
 
+    print("Running MCMC.")
+    mc3out = mc3.sample(data=mc3data, uncert=mc3unc,
+                        func=model.fit_2d_wl, nsamples=cfg.nsamples,
+                        burnin=cfg.burnin, ncpu=cfg.ncpu,
+                        sampler='snooker', savefile=mc3npz,
+                        params=params, indparams=indparams,
+                        pstep=pstep, leastsq=cfg.leastsq,
+                        plots=cfg.plots, pmin=pmin, pmax=pmax)
+
+    # MC3 doesn't clear its plots >:(
+    plt.close('all')
+    
     fit.bestfit = mc3out['best_model']
     fit.bestp   = mc3out['bestp']
     fit.chisq2d = mc3out['best_chisq']
@@ -162,7 +180,7 @@ def map2d(cfile):
     # and the stellar correction is the last term for each filter,
     # so we start from ncurves+2-1 (-1 for 0-start indexing)
     # and jump by ncurves+2)
-    fit.scorr = fit.bestp[cfg.ncurves+1::cfg.ncurves+2]
+    fit.scorr = fit.bestp[cfg.ncurves+1::npar]
 
     print("Calculating planet visibility with time.")
     pbar = progressbar.ProgressBar(max_value=len(fit.t)-1)
@@ -215,6 +233,7 @@ def map2d(cfile):
         plots.pltmaps(fit.tmaps, fit.wl, cfg.outdir, proj='rect')
         plots.bestfit(fit.t, fit.bestfit, fit.flux, fit.ferr, fit.wl,
                       cfg.outdir)
+        plots.ecurveweights(fit)
 
     if cfg.animations:
         print("Making animations.")
@@ -266,7 +285,7 @@ def map3d(fit, system):
         pstep  = np.ones(len(params)) * 1e-3
         pmin   = np.ones(len(params)) * np.log10(cfg.ptop)
         pmax   = np.ones(len(params)) * np.log10(cfg.pbot)
-        mc3npz = os.path.join(cfg.outdir, 'mcmc.npz')
+        mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(), uncert=fit.ferr.flatten(),
                          func=model.sysflux, nsamples=cfg.nsamples,

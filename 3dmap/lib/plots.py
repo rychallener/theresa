@@ -1,10 +1,10 @@
 import os
 import numpy as np
 import matplotlib
+matplotlib.rcParams['axes.formatter.useoffset'] = False
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-matplotlib.rcParams['axes.formatter.useoffset'] = False
 
 def circmaps(planet, eigeny, outdir, ncurves=None):    
     nharm, ny = eigeny.shape
@@ -86,6 +86,7 @@ def lightcurves(t, lcs, outdir):
     plt.legend(ncol=l, fontsize=6)
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'lightcurves.png'))
+    plt.close()
 
 def eigencurves(t, lcs, outdir, ncurves=None):
     if type(ncurves) == type(None):
@@ -102,19 +103,25 @@ def eigencurves(t, lcs, outdir, ncurves=None):
     plt.legend(fontsize=6)
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'eigencurves.png'))
+    plt.close()
     
 def ecurvepower(evalues, outdir):
     ncurves = len(evalues)
     num = np.arange(1, ncurves + 1)
 
-    fig, ax = plt.subplots()
+    fig, axes = plt.subplots(nrows=2)
     
-    plt.plot(num, evalues / np.sum(evalues), 'ob')
-    plt.xlabel('E-curve Number')
-    plt.ylabel('Normalized Power')
+    axes[0].plot(num, evalues / np.sum(evalues), 'ob')
+    axes[0].set_xlabel('E-curve Number')
+    axes[0].set_ylabel('Normalized Power')
+
+    axes[1].semilogy(num, evalues / np.sum(evalues), 'ob')
+    axes[1].set_xlabel('E-curve Number')
+    axes[1].set_ylabel('Normalized Power')
 
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'ecurvepower.png'))
+    plt.close(fig)
 
 def pltmaps(maps, wl, outdir, proj='rect'):
     nmaps = len(wl)
@@ -189,6 +196,25 @@ def bestfit(t, model, data, unc, wl, outdir):
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'bestfit-lcs.png'))
     plt.close(fig)
+
+def ecurveweights(fit):
+    nwl = len(fit.wlmid)
+    ncurves = fit.cfg.ncurves
+    npar = ncurves + 2
+
+    for i in range(nwl):
+        istart = i*npar
+        iend   = istart + ncurves
+        plt.plot(np.arange(ncurves) + 1, fit.bestp[istart:iend], 'o',
+                     label="{:.2f} um".format(fit.wlmid[i]))
+        plt.ylabel("E-curve weight")
+        plt.xlabel("E-curve number")
+        plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(fit.cfg.outdir, 'ecurveweight.png'))
+    plt.close()
+                  
 
 def bestfitlcsspec(fit):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']

@@ -140,8 +140,6 @@ def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts, lat, lon):
     # Convert wl to m
     wl_m = wl * 1e-6
 
-    #lmax = np.int((nharm / 2 + 1)**0.5 - 1)
-
     for j in range(nwl):
         planet.map[1:,:] = 0
 
