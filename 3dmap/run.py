@@ -233,6 +233,9 @@ def map2d(cfile):
         print("    Max: {:.2f} K".format(np.max(fit.maps[i].tmap)))
         print("    Min: {:.2f} K".format(np.min(fit.maps[i].tmap)))
 
+    # Make a single array of tmaps for convenience
+    fit.tmaps = np.array([m.tmap for m in fit.maps])
+
     if cfg.plots:
         print("Making plots.")
         plots.circmaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves)
