@@ -205,7 +205,8 @@ def ecurveweights(fit):
     for i in range(nwl):
         istart = i*npar
         iend   = istart + ncurves
-        plt.plot(np.arange(ncurves) + 1, fit.bestp[istart:iend], 'o',
+        plt.errorbar(np.arange(ncurves) + 1, fit.bestp[istart:iend],
+                     fit.stdp[istart:iend], fmt='o',
                      label="{:.2f} um".format(fit.wlmid[i]))
         plt.ylabel("E-curve weight")
         plt.xlabel("E-curve number")

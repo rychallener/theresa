@@ -160,6 +160,7 @@ def map2d(cfile):
     
     fit.bestfit = mc3out['best_model']
     fit.bestp   = mc3out['bestp']
+    fit.stdp    = mc3out['stdp']
     fit.chisq2d = mc3out['best_chisq']
 
     nfreep = np.sum(pstep > 0)
