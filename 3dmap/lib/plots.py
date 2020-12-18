@@ -123,8 +123,8 @@ def ecurvepower(evalues, outdir):
     plt.savefig(os.path.join(outdir, 'ecurvepower.png'))
     plt.close(fig)
 
-def pltmaps(maps, wl, outdir, proj='rect'):
-    nmaps = len(wl)
+def pltmaps(fit, proj='rect'):
+    nmaps = len(fit.wlmid)
 
     ncols = np.min((nmaps, 3))
     nrows = nmaps // ncols + (nmaps % ncols != 0)
@@ -140,8 +140,8 @@ def pltmaps(maps, wl, outdir, proj='rect'):
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
                              sharey=True, squeeze=False, figsize=figsize)
 
-    vmax = np.max(maps[~np.isnan(maps)])
-    vmin = np.min(maps[~np.isnan(maps)])
+    vmax = np.max([np.max(m.tmap[~np.isnan(m.tmap)]) for m in fit.maps])
+    vmin = np.min([np.min(m.tmap[~np.isnan(m.tmap)]) for m in fit.maps])
     
     if proj == 'rect':
         extent = (-180, 180, -90, 90)
@@ -152,18 +152,21 @@ def pltmaps(maps, wl, outdir, proj='rect'):
         irow = i // ncols
         icol = i %  ncols
         ax = axes[irow,icol]
-        im = ax.imshow(maps[i], origin='lower', cmap='plasma', extent=extent,
-                       vmin=vmin, vmax=vmax)
+        im = ax.imshow(fit.maps[i].tmap, origin='lower', cmap='plasma',
+                       extent=extent, vmin=vmin, vmax=vmax)
         plt.colorbar(im, ax=ax)
-        ax.set_title('{:.2f} um'.format(wl[i]))
+        ax.set_title('{:.2f} um'.format(fit.wlmid[i]))
 
     fig.tight_layout()
-    plt.savefig(os.path.join(outdir, 'bestfit-{}-maps.png'.format(proj)))
+    plt.savefig(os.path.join(fit.cfg.outdir,
+                             'bestfit-{}-maps.png'.format(proj)))
     plt.close(fig)
 
-def bestfit(t, model, data, unc, wl, outdir):
+def bestfit(fit):
+    t = fit.t
+    
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    nfilt = len(wl)
+    nfilt = len(fit.wlmid)
     nt = len(t)
 
     hratios = np.zeros(nfilt+1)
@@ -178,15 +181,15 @@ def bestfit(t, model, data, unc, wl, outdir):
     nt = len(t)
     
     for i in range(nfilt):
-        axes[0].plot(t, model[i*nt:(i+1)*nt], zorder=2, color=colors[i],
-                     label='{:.2f} um'.format(wl[i]))
-        axes[0].scatter(t, data[i], s=0.1, zorder=1, color=colors[i])
+        axes[0].plot(t, fit.maps[i].bestfit, zorder=2, color=colors[i],
+                     label='{:.2f} um'.format(fit.wlmid[i]))
+        axes[0].scatter(t, fit.flux[i], s=0.1, zorder=1, color=colors[i])
 
     axes[0].legend()
     axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
 
     for i in range(nfilt):
-        axes[i+1].scatter(t, data[i] - model[i*nt:(i+1)*nt], s=0.1,
+        axes[i+1].scatter(t, fit.flux[i] - fit.maps[i].bestfit, s=0.1,
                           color=colors[i])
         axes[i+1].set_ylabel('Residuals')
         axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
@@ -194,7 +197,7 @@ def bestfit(t, model, data, unc, wl, outdir):
             axes[i+1].set_xlabel('Time (days)')
 
     fig.tight_layout()
-    plt.savefig(os.path.join(outdir, 'bestfit-lcs.png'))
+    plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-lcs.png'))
     plt.close(fig)
 
 def ecurveweights(fit):
@@ -203,10 +206,9 @@ def ecurveweights(fit):
     npar = ncurves + 2
 
     for i in range(nwl):
-        istart = i*npar
-        iend   = istart + ncurves
-        plt.errorbar(np.arange(ncurves) + 1, fit.bestp[istart:iend],
-                     fit.stdp[istart:iend], fmt='o',
+        plt.errorbar(np.arange(ncurves) + 1,
+                     fit.maps[i].bestp[:ncurves],
+                     fit.maps[i].stdp[ :ncurves], fmt='o',
                      label="{:.2f} um".format(fit.wlmid[i]))
         plt.ylabel("E-curve weight")
         plt.xlabel("E-curve number")

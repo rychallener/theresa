@@ -77,10 +77,10 @@ def mkcurves(system, t, lmax):
 
     return eigeny, evalues, evectors, proj, lcs
 
-def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts, lat, lon):
+def mkmaps(planet, eigeny, params, ncurves, wl, rs, rp, ts, lat, lon):
     """
-    Calculate flux maps and brightness temperature maps from
-    2D map fits.
+    Calculate flux map and brightness temperature map from
+    a single 2D map fit.
 
     Arguments
     ---------
@@ -93,18 +93,13 @@ def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts, lat, lon):
         2D fit.
 
     params: 1D array
-        Weights for each of the eigenmaps. Array length should be 
-        (npar) * (number of wavelengths)
-
-    npar: int
-        Number of parameters in the fit per wavelength (e.g., a weight
-        for each eigenmap, a base brightness, and a stellar correction term)
+        Best-fitting parameters.
 
     ncurves: int
         Number of eigencurves (or eigenmaps) included in the total map.
 
     wl: 1D array
-        The wavelengths for each 2D map, in microns.
+        The wavelength of the 2D map, in microns.
 
     rs: float
         Radius of the star (same units as rp)
@@ -123,43 +118,38 @@ def mkmaps(planet, eigeny, params, npar, ncurves, wl, rs, rp, ts, lat, lon):
 
     Returns
     -------
-    fmaps: 3D array
-        Array with shape (nwl, nlat, nlon) of planetary emission at
+    fmap: 3D array
+        Array with shape (nlat, nlon) of planetary emission at
         each wavelength and location
 
-    tmaps: 3D array
-        Same as fmaps but for brightness temperature.
+    tmap: 3D array
+        Same as fmap but for brightness temperature.
     """
-    nwl = len(wl)
-
     nlat, nlon = lat.shape
     
-    fmaps = np.zeros((nwl, nlat, nlon)) # flux maps
-    tmaps = np.zeros((nwl, nlat, nlon)) # temp maps
+    fmap = np.zeros((nlat, nlon)) # flux maps
+    tmap = np.zeros((nlat, nlon)) # temp maps
 
     # Convert wl to m
     wl_m = wl * 1e-6
 
-    for j in range(nwl):
-        planet.map[1:,:] = 0
+    planet.map[1:,:] = 0
 
-        fmaps[j] = utils.mapintensity(planet.map, lat, lon,
-                                      params[j*npar+ncurves])
-        
-        for i in range(ncurves):
-            planet.map[1:,:] = eigeny[i,1:]
-            fmaps[j] += utils.mapintensity(planet.map, lat, lon,
-                                           params[j*npar+i])
+    fmap = utils.mapintensity(planet.map, lat, lon, params[ncurves])
 
-        # Convert to brightness temperatures
-        # see Rauscher et al., 2018, Eq. 8
-        ptemp = (sc.h * sc.c) / (wl_m[j] * sc.k)
-        sfact = 1 + params[j*npar+ncurves+1]
-        tmaps[j] = ptemp / np.log(1 + (rp / rs)**2 *
-                                  (np.exp(ptemp / ts) - 1) /
-                                  (np.pi * fmaps[j] * sfact))
+    for i in range(ncurves):
+        planet.map[1:,:] = eigeny[i,1:]
+        fmap += utils.mapintensity(planet.map, lat, lon, params[i])
 
-    return fmaps, tmaps
+    # Convert to brightness temperatures
+    # see Rauscher et al., 2018, Eq. 8
+    ptemp = (sc.h * sc.c) / (wl_m * sc.k)
+    sfact = 1 + params[ncurves+1]
+    tmap = ptemp / np.log(1 + (rp / rs)**2 *
+                          (np.exp(ptemp / ts) - 1) /
+                          (np.pi * fmap * sfact))
+
+    return fmap, tmap
 
 def emapminmax(planet, eigeny, ncurves):
     """

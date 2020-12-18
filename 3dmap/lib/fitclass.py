@@ -128,6 +128,12 @@ class Fit:
         with open(os.path.join(outdir, fname), 'wb') as f:
             pickle.dump(self, f)
 
+class Map:
+    '''
+    A class to hold results from a fit to a single wavelength (a 2d map).
+    '''
+    pass
+
 def load(outdir=None, filename=None):
     """
     Load a Fit object from file.
