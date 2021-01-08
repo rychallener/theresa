@@ -27,7 +27,7 @@ def circmaps(planet, eigeny, outdir, ncurves=None):
         fnum = str(j).zfill(fill)
         
         fig, ax = plt.subplots(1, figsize=(5,5))
-        ax.imshow(planet.map.render(theta=180).eval(),
+        ax.imshow(planet.map.render(theta=0).eval(),
                   origin="lower", cmap="plasma")
         ax.axis("off")
         plt.savefig(os.path.join(outdir, 'emap-ecl-{}.png'.format(fnum)))
@@ -53,7 +53,7 @@ def rectmaps(planet, eigeny, outdir, ncurves=None):
         fill = np.int(np.log10(ncurves)) + 1
         fnum = str(j).zfill(fill)    
         fig, ax = plt.subplots(1, figsize=(6,3))
-        ax.imshow(planet.map.render(theta=180, projection="rect").eval(),
+        ax.imshow(planet.map.render(theta=0, projection="rect").eval(),
                   origin="lower", cmap="plasma",
                   extent=(-180, 180, -90, 90))
         plt.savefig(os.path.join(outdir, 'emap-rect-{}.png'.format(fnum)))
@@ -205,14 +205,39 @@ def ecurveweights(fit):
     ncurves = fit.cfg.ncurves
     npar = ncurves + 2
 
+    maxweight = -np.inf
+    minweight =  np.inf
+
+    shifts = np.linspace(-0.2, 0.2, num=nwl, endpoint=True)
+
+    fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
+
     for i in range(nwl):
-        plt.errorbar(np.arange(ncurves) + 1,
-                     fit.maps[i].bestp[:ncurves],
-                     fit.maps[i].stdp[ :ncurves], fmt='o',
-                     label="{:.2f} um".format(fit.wlmid[i]))
-        plt.ylabel("E-curve weight")
-        plt.xlabel("E-curve number")
-        plt.legend()
+        weights = fit.maps[i].bestp[:ncurves]
+        uncs    = fit.maps[i].stdp[:ncurves]
+        axes[0].errorbar(np.arange(ncurves) + shifts[i] + 1,
+                         weights, uncs, fmt='o',
+                         label="{:.2f} um".format(fit.wlmid[i]))
+        axes[0].set_ylabel("E-curve weight")
+        maxweight = np.max((maxweight, np.max(weights)))
+        minweight = np.min((minweight, np.min(weights)))
+
+        axes[1].scatter(np.arange(ncurves) + shifts[i] + 1,
+                        np.abs(weights / uncs))
+        axes[1].set_ylabel("E-curve Significance")
+        axes[1].set_xlabel("E-curve number")
+        axes[1].set_yscale('log')
+
+    yrange = maxweight - minweight
+    axes[0].set_ylim((minweight - 0.1 * yrange,
+                      maxweight + 0.1 * yrange))
+        
+    axes[0].legend()
+
+    xlim = axes[1].get_xlim()
+    axes[1].hlines(3, 0, nwl*ncurves+1, linestyles='--', label=r'3$\sigma$')
+    axes[1].set_xlim(xlim)
+    axes[1].legend()
 
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'ecurveweight.png'))
