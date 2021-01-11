@@ -94,13 +94,6 @@ def map2d(cfile):
     print("Maximum Longitude: {:6.2f}".format(fit.maxvislon))
 
     print("Calculating latitude and longitude of planetary grid.")
-    # fit.lat, fit.lon = [a.eval() for a in \
-    #                     planet.map.get_latlon_grid(res=cfg.res,
-    #                                                projection='rect')] 
-
-    # fit.dlat = fit.lat[1][0] - fit.lat[0][0]
-    # fit.dlon = fit.lon[0][1] - fit.lon[0][0]
-
     fit.dlat = 180. / cfg.res
     fit.dlon = 360. / cfg.res
     fit.lat, fit.lon = np.meshgrid(np.linspace(-90  + fit.dlat / 2.,
@@ -142,17 +135,15 @@ def map2d(cfile):
         pmin   = np.ones(npar) * -1.0
         pmax   = np.ones(npar) *  1.0
         pstep[cfg.ncurves+1] =  0.0 # step size for scorr
-        #pmin[cfg.ncurves+1] = -0.001 # min for scorr
-        #pmax[cfg.ncurves+1] =  0.001 # max for scorr
 
         mc3data = fit.flux[i]
         mc3unc  = fit.ferr[i]
         mc3npz = os.path.join(cfg.outdir,
                               '2dmcmc-{:.2f}um.npz'.format(fit.wlmid[i]))
 
-        mc3out = mc3.fit(data=mc3data, uncert=mc3unc, func=model.fit_2d,
-                         params=params, indparams=indparams, pstep=pstep,
-                         leastsq=cfg.leastsq, pmin=pmin, pmax=pmax)
+        # mc3out = mc3.fit(data=mc3data, uncert=mc3unc, func=model.fit_2d,
+        #                  params=params, indparams=indparams, pstep=pstep,
+        #                  leastsq=cfg.leastsq, pmin=pmin, pmax=pmax)
 
         mc3out = mc3.sample(data=mc3data, uncert=mc3unc,
                             func=model.fit_2d, nsamples=cfg.nsamples,
@@ -170,11 +161,13 @@ def map2d(cfile):
         fit.maps[i].stdp    = mc3out['stdp']
         fit.maps[i].chisq   = mc3out['best_chisq']
 
-        nfreep = np.sum(pstep > 0)
-        ndata  = mc3data.size
+        fit.maps[i].nfreep = np.sum(pstep > 0)
+        fit.maps[i].ndata  = mc3data.size
 
-        fit.maps[i].redchisq = fit.maps[i].chisq / (ndata - nfreep)
-        fit.maps[i].bic      = fit.maps[i].chisq + nfreep * np.log(ndata)
+        fit.maps[i].redchisq = fit.maps[i].chisq / \
+            (fit.maps[i].ndata - fit.maps[i].nfreep)
+        fit.maps[i].bic      = fit.maps[i].chisq + \
+            fit.maps[i].nfreep * np.log(fit.maps[i].ndata)
 
         #print(  "Best-fit parameters:")
         #print(fit.bestp)
@@ -183,6 +176,15 @@ def map2d(cfile):
         print(  "Reduced Chisq: {}".format(fit.maps[i].redchisq))
         print(  "BIC:           {}".format(fit.maps[i].bic))
 
+    # Useful prints
+    fit.totchisq2d    = np.sum([m.chisq for m in fit.maps])
+    fit.totredchisq2d = fit.totchisq2d / \
+        (np.sum([(m.ndata - m.nfreep) for m in fit.maps]))
+    fit.totbic2d      = np.sum([m.bic for m in fit.maps])
+    print("Total Chisq:         {}".format(fit.totchisq2d))
+    print("Total Reduced Chisq: {}".format(fit.totredchisq2d))
+    print("Total BIC:           {}".format(fit.totbic2d))
+        
     # Save stellar correction terms (we need them later)
     fit.scorr = np.zeros(len(fit.wlmid))
     for i in range(len(fit.wlmid)):
@@ -206,7 +208,7 @@ def map2d(cfile):
                                        fit.x[:,it], fit.y[:,it])
         pbar.update(it)
 
-    print("Checking for negative fluxes:")
+    print("Checking for negative fluxes in visible cells:")
     for j in range(len(fit.wl)):
         print("  Wl: {:.2f} um".format(fit.wlmid[j]))
         for i in range(fit.intens.shape[1]):
@@ -230,8 +232,11 @@ def map2d(cfile):
     print("Temperature ranges of maps:")
     for i in range(len(fit.wlmid)):
         print("  {:.2f} um:".format(fit.wlmid[i]))
-        print("    Max: {:.2f} K".format(np.max(fit.maps[i].tmap)))
-        print("    Min: {:.2f} K".format(np.min(fit.maps[i].tmap)))
+        tmax = np.max(fit.maps[i].tmap[~np.isnan(fit.maps[i].tmap)])
+        tmin = np.min(fit.maps[i].tmap[~np.isnan(fit.maps[i].tmap)])
+        print("    Max: {:.2f} K".format(tmax))
+        print("    Min: {:.2f} K".format(tmin))
+        print("    Negative: {:f}".format(np.sum(np.isnan(fit.maps[i].tmap))))
 
     # Make a single array of tmaps for convenience
     fit.tmaps = np.array([m.tmap for m in fit.maps])
