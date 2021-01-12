@@ -240,6 +240,7 @@ def map2d(cfile):
 
     # Make a single array of tmaps for convenience
     fit.tmaps = np.array([m.tmap for m in fit.maps])
+    fit.fmaps = np.array([m.fmap for m in fit.maps])
 
     if cfg.plots:
         print("Making plots.")
