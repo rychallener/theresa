@@ -36,7 +36,6 @@ def emaps(planet, eigeny, outdir, ncurves=None, proj='ortho'):
 
         xloc = j %  ncols
         yloc = j // ncols
-        print(xloc, yloc)
         ax = axes[yloc, xloc]
         
         yi = 1
