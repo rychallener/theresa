@@ -244,8 +244,12 @@ def map2d(cfile):
 
     if cfg.plots:
         print("Making plots.")
-        plots.circmaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves)
-        plots.rectmaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves)
+        plots.emaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves,
+                    proj='ortho')
+        plots.emaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves,
+                    proj='rect')
+        plots.emaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves,
+                    proj='moll')
         plots.lightcurves(fit.t, fit.lcs, cfg.outdir)
         plots.eigencurves(fit.t, fit.ecurves, cfg.outdir, ncurves=cfg.ncurves)
         plots.ecurvepower(fit.evalues, cfg.outdir)

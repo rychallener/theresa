@@ -6,58 +6,65 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 
-def circmaps(planet, eigeny, outdir, ncurves=None):    
+def emaps(planet, eigeny, outdir, ncurves=None, proj='ortho'):
     nharm, ny = eigeny.shape
 
     if type(ncurves) == type(None):
         ncurves = nharm
 
+    if proj == 'ortho':
+        extent = (-90, 90, -90, 90)
+        fname = 'emaps-ecl.png'
+    elif proj == 'rect':
+        extent = (-180, 180, -90, 90)
+        fname = 'emaps-rect.png'
+    elif proj == 'moll':
+        extent = (-180, 180, -90, 90)
+        fname = 'emaps-moll.png'
+
     lmax = np.int((nharm / 2 + 1)**0.5 - 1)
 
+    ncols = np.min((ncurves, 3))
+    nrows = ncurves // ncols + (ncurves % ncols != 0)
+    npane = ncols * nrows
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False,
+                             sharex=True, sharey=True)
+    
     for j in range(ncurves):
         planet.map[1:,:] = 0
 
-        yi = 1
-        for l in range(1, lmax + 1):
-            for m in range(-l, l + 1):
-                planet.map[l, m] = eigeny[j, yi]
-                yi += 1
-
-        fill = np.int(np.log10(ncurves)) + 1
-        fnum = str(j).zfill(fill)
+        xloc = j %  ncols
+        yloc = j // ncols
+        print(xloc, yloc)
+        ax = axes[yloc, xloc]
         
-        fig, ax = plt.subplots(1, figsize=(5,5))
-        ax.imshow(planet.map.render(theta=0).eval(),
-                  origin="lower", cmap="plasma")
-        ax.axis("off")
-        plt.savefig(os.path.join(outdir, 'emap-ecl-{}.png'.format(fnum)))
-        plt.close(fig)
-
-def rectmaps(planet, eigeny, outdir, ncurves=None):
-    nharm, ny = eigeny.shape
-
-    if type(ncurves) == type(None):
-        ncurves = nharm
-    
-    lmax = np.int((nharm / 2 + 1)**0.5 - 1)
-    
-    for j in range(ncurves):
-        planet.map[1:,:] = 0
-
         yi = 1
         for l in range(1, lmax + 1):
             for m in range(-l, l + 1):
                 planet.map[l, m] = eigeny[j, yi]
                 yi += 1
+        
+        ax.imshow(planet.map.render(theta=0, projection=proj).eval(),
+                  origin="lower",
+                  cmap="plasma",
+                  extent=extent)
 
-        fill = np.int(np.log10(ncurves)) + 1
-        fnum = str(j).zfill(fill)    
-        fig, ax = plt.subplots(1, figsize=(6,3))
-        ax.imshow(planet.map.render(theta=0, projection="rect").eval(),
-                  origin="lower", cmap="plasma",
-                  extent=(-180, 180, -90, 90))
-        plt.savefig(os.path.join(outdir, 'emap-rect-{}.png'.format(fnum)))
-        plt.close(fig)
+        # Axes are wrong for non-rectangular projections
+        if proj == 'ortho' or proj == 'moll':
+            ax.axis('off')
+
+    # Empty subplots
+    for j in range(ncurves, npane):
+        xloc = j %  ncols
+        yloc = j // ncols
+        ax = axes[yloc, xloc]
+
+        ax.axis('off')
+
+    fig.tight_layout()
+    plt.savefig(os.path.join(outdir, fname))
+    plt.close(fig)
 
 def lightcurves(t, lcs, outdir):
     nharm, nt = lcs.shape
