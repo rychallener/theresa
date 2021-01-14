@@ -7,6 +7,12 @@ import scipy.interpolate as spi
 import starry
 
 def initsystem(fit):
+    '''
+    Uses a fit object to build the respective starry objects. Useful
+    because starry objects cannot be pickled. Returns a tuple of
+    (star, planet, system).
+    '''
+    
     cfg = fit.cfg
 
     star = starry.Primary(starry.Map(ydeg=1, amp=1),
