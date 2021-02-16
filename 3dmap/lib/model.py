@@ -1,6 +1,7 @@
 import numpy as np
 import time
 import theano
+from numba import jit
 
 # Lib imports
 import atm
@@ -22,21 +23,24 @@ from taurex import optimizer
 # This import is explicit because it's not included in taurex.temperature. Bug?
 from taurex.data.profiles.temperature.temparray import TemperatureArray
 
+@jit(nopython=True)
 def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens):
     """
     Basic 2D fitting routine for a single wavelength.
     """
     # Check for negative intensities
-    if type(intens) != type(None):
+    if intens is not None:
         nloc = intens.shape[1]
+        totint = np.zeros(nloc)
         for j in range(nloc):
             # Weighted eigenmap intensity
-            totint = np.sum(intens[:,j] * params[:ncurves])
+            totint[j] = np.sum(intens[:,j] * params[:ncurves])
             # Contribution from uniform map
-            totint += params[ncurves] / np.pi
-            if totint <= 0:
-                f = np.ones(len(t)) * -1
-                return f
+            totint[j] += params[ncurves] / np.pi
+        if np.any(totint <= 0):
+            #print("Negative at loc {}.".format(j))
+            f = np.ones(len(t)) * np.min(totint)
+            return f
 
     f = np.zeros(len(t))
 

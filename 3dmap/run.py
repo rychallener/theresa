@@ -53,6 +53,9 @@ import taurexclass as trc
 
 starry.config.quiet = True
 
+# Starry seems to have a lot of recursion
+sys.setrecursionlimit(10000)
+
 def map2d(cfile):
     """
     One function to rule them all.
@@ -86,7 +89,8 @@ def map2d(cfile):
 
     print("Running PCA to determine eigencurves.")
     fit.eigeny, fit.evalues, fit.evectors, fit.ecurves, fit.lcs = \
-        eigen.mkcurves(system, fit.t, cfg.lmax)
+        eigen.mkcurves(system, fit.t, cfg.lmax, fit.pflux_y00,
+                       ncurves=fit.cfg.ncurves, method=cfg.pca)
 
     print("Calculating minimum and maximum observed longitudes.")
     fit.minvislon, fit.maxvislon = utils.vislon(planet, fit)
@@ -134,7 +138,6 @@ def map2d(cfile):
         pstep  = np.ones(npar) *  0.01
         pmin   = np.ones(npar) * -1.0
         pmax   = np.ones(npar) *  1.0
-        pstep[cfg.ncurves+1] =  0.0 # step size for scorr
 
         mc3data = fit.flux[i]
         mc3unc  = fit.ferr[i]
@@ -151,7 +154,8 @@ def map2d(cfile):
                             sampler='snooker', savefile=mc3npz,
                             params=params, indparams=indparams,
                             pstep=pstep, leastsq=cfg.leastsq,
-                            plots=cfg.plots, pmin=pmin, pmax=pmax)
+                            plots=cfg.plots, pmin=pmin, pmax=pmax,
+                            thinning=10)
 
         # MC3 doesn't clear its plots >:(
         plt.close('all')
@@ -191,7 +195,7 @@ def map2d(cfile):
         fit.scorr[i] = fit.maps[i].bestp[cfg.ncurves+1]
 
     print("Calculating planet visibility with time.")
-    pbar = progressbar.ProgressBar(max_value=len(fit.t)-1)
+    pbar = progressbar.ProgressBar(max_value=len(fit.t))
     nt, nlat, nlon = len(fit.t), len(fit.lat), len(fit.lon)
     fit.vis = np.zeros((nt, nlat, nlon))
     for it in range(len(fit.t)):
@@ -206,7 +210,7 @@ def map2d(cfile):
                                        cfg.planet.r,
                                        cfg.star.r,
                                        fit.x[:,it], fit.y[:,it])
-        pbar.update(it)
+        pbar.update(it+1)
 
     print("Checking for negative fluxes in visible cells:")
     for j in range(len(fit.wl)):
@@ -244,12 +248,9 @@ def map2d(cfile):
 
     if cfg.plots:
         print("Making plots.")
-        plots.emaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves,
-                    proj='ortho')
-        plots.emaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves,
-                    proj='rect')
-        plots.emaps(planet, fit.eigeny, cfg.outdir, ncurves=cfg.ncurves,
-                    proj='moll')
+        plots.emaps(planet, fit.eigeny, cfg.outdir, proj='ortho')
+        plots.emaps(planet, fit.eigeny, cfg.outdir, proj='rect')
+        plots.emaps(planet, fit.eigeny, cfg.outdir, proj='moll')
         plots.lightcurves(fit.t, fit.lcs, cfg.outdir)
         plots.eigencurves(fit.t, fit.ecurves, cfg.outdir, ncurves=cfg.ncurves)
         plots.ecurvepower(fit.evalues, cfg.outdir)

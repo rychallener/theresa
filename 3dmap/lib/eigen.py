@@ -3,7 +3,7 @@ import pca
 import utils
 import scipy.constants as sc
 
-def mkcurves(system, t, lmax):
+def mkcurves(system, t, lmax, y00, ncurves=None, method='pca'):
     """
     Generates light curves from a star+planet system at times t,
     for positive and negative spherical harmonics with l up to lmax.
@@ -18,6 +18,9 @@ def mkcurves(system, t, lmax):
 
     lmax: integer
         Maximum l to use in spherical harmonic maps
+
+    y00: 1D array
+        Light curve of a normalized, uniform map
 
     Returns
     -------
@@ -37,7 +40,7 @@ def mkcurves(system, t, lmax):
     proj: 2D array
         nharm x nt array of the data projected in the new space (the PCA
         "eigencurves"). The imaginary part is discarded, if nonzero.
-    """
+    """    
     star   = system.bodies[0]
     planet = system.bodies[1]
 
@@ -56,21 +59,30 @@ def mkcurves(system, t, lmax):
             sflux, lcs[ind+1] = [a.eval() for a in system.flux(t, total=False)]
             planet.map[l, m] = 0.0
             ind += 2
+
+    # Subtact uniform map contribution (starry includes this in all
+    # light curves)
+    lcs -= y00
             
     # Run PCA to determine orthogonal light curves
-    evalues, evectors, proj = pca.pca(lcs)
+    if ncurves is None:
+        ncurves = nharm
+        
+    evalues, evectors, proj = pca.pca(lcs, method=method, ncomp=ncurves)
 
     # Discard imaginary part of eigencurves to appease numpy
     proj = np.real(proj)
 
-    # Convert orthogonal light curves into maps
-    eigeny = np.zeros((nharm, (lmax + 1)**2))
+    # Convert orthogonal light curves into maps        
+    eigeny = np.zeros((ncurves, (lmax + 1)**2))
     eigeny[:,0] = 1.0 # Y00 = 1 for all maps
-    for j in range(nharm):
+    for j in range(ncurves):
         yi  = 1
         shi = 0
         for l in range(1, lmax + 1):
             for m in range(-l, l + 1):
+                # (ok because evectors has only been sorted along
+                #  one dimension)
                 eigeny[j,yi] = evectors.T[j,shi] - evectors.T[j,shi+1]
                 yi  += 1
                 shi += 2
@@ -133,13 +145,20 @@ def mkmaps(planet, eigeny, params, ncurves, wl, rs, rp, ts, lat, lon):
     # Convert wl to m
     wl_m = wl * 1e-6
 
-    planet.map[1:,:] = 0
+    planet.map[1:,:] = 0.0
 
+    # Uniform map term
     fmap = utils.mapintensity(planet.map, lat, lon, params[ncurves])
 
+    # Combine scaled eigenmap Ylm terms
     for i in range(ncurves):
-        planet.map[1:,:] = eigeny[i,1:]
-        fmap += utils.mapintensity(planet.map, lat, lon, params[i])
+        planet.map[1:,:] += eigeny[i,1:] * params[i]
+
+    fmap += utils.mapintensity(planet.map, lat, lon, 1.0)
+
+    # Subtract extra Y00 map that starry always includes
+    planet.map[1:,:] = 0.0
+    fmap -= utils.mapintensity(planet.map, lat, lon, 1.0)
 
     # Convert to brightness temperatures
     # see Rauscher et al., 2018, Eq. 8
@@ -247,6 +266,9 @@ def intensities(planet, fit):
 
         intens[k] = planet.map.intensity(lat=vislat,
                                          lon=vislon).eval()
+        planet.map[1:,:] = 0
+        intens[k] -= planet.map.intensity(lat=vislat,
+                                          lon=vislon).eval()
 
     return intens, vislat, vislon
 

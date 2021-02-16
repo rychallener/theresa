@@ -6,11 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 
-def emaps(planet, eigeny, outdir, ncurves=None, proj='ortho'):
-    nharm, ny = eigeny.shape
-
-    if type(ncurves) == type(None):
-        ncurves = nharm
+def emaps(planet, eigeny, outdir, proj='ortho'):
+    ncurves, ny = eigeny.shape
 
     if proj == 'ortho':
         extent = (-90, 90, -90, 90)
@@ -22,10 +19,10 @@ def emaps(planet, eigeny, outdir, ncurves=None, proj='ortho'):
         extent = (-180, 180, -90, 90)
         fname = 'emaps-moll.png'
 
-    lmax = np.int((nharm / 2 + 1)**0.5 - 1)
+    lmax = np.int(ny**0.5 - 1)
 
-    ncols = np.min((ncurves, 3))
-    nrows = ncurves // ncols + (ncurves % ncols != 0)
+    ncols = np.int(np.sqrt(ncurves) // 1)
+    nrows = np.int(ncurves // ncols + (ncurves % ncols != 0))
     npane = ncols * nrows
 
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False,
@@ -132,7 +129,7 @@ def ecurvepower(evalues, outdir):
 def pltmaps(fit, proj='rect'):
     nmaps = len(fit.wlmid)
 
-    ncols = np.min((nmaps, 3))
+    ncols = np.int(np.sqrt(nmaps) // 1)
     nrows = nmaps // ncols + (nmaps % ncols != 0)
 
     xsize = 7. / 3. * ncols
@@ -141,10 +138,8 @@ def pltmaps(fit, proj='rect'):
     elif proj == 'ortho':
         ysize = 7. / 3. * nrows
 
-    figsize = (xsize, ysize)
-
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
-                             sharey=True, squeeze=False, figsize=figsize)
+                             sharey=True, squeeze=False)
 
     vmax = np.max([np.max(m.tmap[~np.isnan(m.tmap)]) for m in fit.maps])
     vmin = np.min([np.min(m.tmap[~np.isnan(m.tmap)]) for m in fit.maps])
@@ -214,7 +209,10 @@ def ecurveweights(fit):
     maxweight = -np.inf
     minweight =  np.inf
 
-    shifts = np.linspace(-0.2, 0.2, num=nwl, endpoint=True)
+    if nwl == 1:
+        shifts = [0]
+    else:
+        shifts = np.linspace(-0.2, 0.2, num=nwl, endpoint=True)
 
     fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
 

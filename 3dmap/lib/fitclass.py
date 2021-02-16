@@ -39,6 +39,7 @@ class Fit:
         self.cfg.nsamples   = self.cfg.cfg.getint(    'General', 'nsamples')
         self.cfg.burnin     = self.cfg.cfg.getint(    'General', 'burnin')
         self.cfg.leastsq    = self.cfg.cfg.get(       'General', 'leastsq')
+        self.cfg.pca        = self.cfg.cfg.get(       'General', 'pca')
 
         self.cfg.timefile = self.cfg.cfg.get('General', 'timefile')
         self.cfg.fluxfile = self.cfg.cfg.get('General', 'fluxfile')
@@ -89,10 +90,10 @@ class Fit:
         self.cfg.planet.b     = self.cfg.cfg.getfloat('Planet', 'b')
         
     def read_data(self):
-        self.t    = np.loadtxt(self.cfg.timefile)
-        self.flux = np.loadtxt(self.cfg.fluxfile).T
-        self.ferr = np.loadtxt(self.cfg.ferrfile).T
-        self.wl   = np.loadtxt(self.cfg.wlfile)
+        self.t    = np.loadtxt(self.cfg.timefile, ndmin=1)
+        self.flux = np.loadtxt(self.cfg.fluxfile, ndmin=2).T
+        self.ferr = np.loadtxt(self.cfg.ferrfile, ndmin=2).T
+        self.wl   = np.loadtxt(self.cfg.wlfile,   ndmin=1)
 
         if len(self.t) != self.flux.shape[1]:
             print("WARNING: Number of times does not match the size " +
