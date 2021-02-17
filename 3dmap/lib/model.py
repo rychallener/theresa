@@ -90,9 +90,9 @@ def specgrid(params, fit, return_tau=False):
         taugrid = np.empty((nlat, nlon), dtype=list)
     
     if cfg.mapfunc == 'constant':
-        tgrid, p = atm.tgrid(cfg.nlayers, cfg.res, fit.tmaps,
-                             10.**params, cfg.pbot, cfg.ptop,
-                             kind='linear', oob=cfg.oob)
+        tgrid, p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon,
+                             fit.tmaps, 10.**params, cfg.pbot,
+                             cfg.ptop, kind='linear', oob=cfg.oob)
 
         r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
                                       p, tgrid,

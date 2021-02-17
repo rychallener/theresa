@@ -75,7 +75,7 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
         atmsave(r, p, t, abn, spec, outdir, atmfile)
         return r, p, abn, spec
 
-    nlayers, res, res = t.shape
+    nlayers, nlat, nlon = t.shape
 
     mu = np.zeros(t.shape)
     r  = np.zeros(t.shape)
@@ -85,9 +85,9 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
         robj = rate.Rate(C=2.5e-4, N=1.0e-4, O=5.0e-4, fHe=0.0851)
         spec = robj.species
         nspec = len(spec)
-        abn = np.zeros((nspec, nlayers, res, res))
-        for i in range(res):
-            for j in range(res):
+        abn = np.zeros((nspec, nlayers, nlat, nlon))
+        for i in range(nlat):
+            for j in range(nlon):
                 abn[:,:,i,j] = robj.solve(t[:,i,j], p)
                 mu[   :,i,j] = calcmu(elemfile, abn[:,:,i,j], spec)
                 r[    :,i,j] = calcrad(p, t[:,i,j], mu[:,i,j],
@@ -366,21 +366,21 @@ def calcrad(p, t, mu, r0, mp, p0):
     return r
         
 
-def tgrid(nlayers, res, tmaps, pmaps, pbot, ptop, kind='linear',
+def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, kind='linear',
           oob='extrapolate'):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
-    place at the supplied pressures. Dimensions are (nlayers, res,
-    res).
+    place at the supplied pressures. Dimensions are (nlayers, nlat,
+    nlon).
 
     """
     
-    temp3d = np.zeros((nlayers, res, res))
+    temp3d = np.zeros((nlayers, nlat, nlon))
 
     logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
 
-    for i in range(res):
-        for j in range(res):
+    for i in range(nlat):
+        for j in range(nlon):
             if oob == 'extrapolate':
                 fill_value = 'extrapolate'
             elif oob == 'iso':

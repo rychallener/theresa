@@ -5,6 +5,7 @@ import time
 import constants as c
 import scipy.interpolate as spi
 import starry
+import progressbar
 
 def initsystem(fit):
     '''
@@ -329,3 +330,73 @@ def mapintensity(map, lat, lon, amp):
     grid *= amp
     grid  = grid.reshape(lat.shape)
     return grid
+
+def hotspotlon(fit, map, ncalc):
+    """
+    Calculates a distribution of hotspot offsets based on the MCMC
+    posterior distribution.
+
+    Note that this function assumes the first ncurves parameters
+    in the posterior are associated with eigencurves. This will not
+    be true if some eigencurves are skipped over, as MC3 does not
+    include fixed parameters in the posterior.
+
+    Inputs
+    ------
+    fit: Fit instance
+
+    map: Map instance (not starry Map)
+
+    ncalc: integer
+        Number of times to calculate the hotspot longitude. The MCMC
+        posterior will be thinned to this size.
+
+    Returns
+    -------
+    hslonbest: float
+        Best-fit hotspot longitude, in degrees.
+
+    hslonstd: float
+        Standard deviation of the hotspot longitude posterior distribution.
+    """
+    
+    post = map.post[map.zmask]
+
+    nsamp, nfree = post.shape
+    
+    hslon = np.zeros(ncalc)
+    thinning = nsamp // ncalc
+
+    # Note the maps created here do not include the correct uniform
+    # component because that does not affect the location of the
+    # hotspot. Also note that the eigenvalues are negated because
+    # we want to maximize, not minize, but starry only includes
+    # a minimize method.
+    ireset = 0
+    star, planet, system = initsystem(fit)
+    pbar = progressbar.ProgressBar(max_value=ncalc)
+    for i in range(0, ncalc):
+        if ireset == 10:
+            star, planet, system = initsystem(fit)
+            ireset = 0
+        ipost = i * thinning
+        planet.map[1:,:] = 0.0
+        for j in range(fit.cfg.ncurves):
+            planet.map[1:,:] += -1 * post[ipost,j] * fit.eigeny[j,1:]
+        lat, lon, _ = planet.map.minimize()
+        hslon[i] = lon.eval()
+        pbar.update(i+1)
+        ireset += 1
+
+    star, planet, system = initsystem(fit)
+    planet.map[1:,:] = 0.0
+    for j in range(fit.cfg.ncurves):
+        planet.map[1:,:] += -1 * map.bestp[j] * fit.eigeny[j,1:]
+    hslatbest, hslonbest, _ = planet.map.minimize()
+    hslonbest = hslonbest.eval()
+
+    hslonstd = np.std(hslon)
+
+    return hslonbest, hslonstd, hslon
+    
+    

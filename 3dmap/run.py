@@ -98,14 +98,14 @@ def map2d(cfile):
     print("Maximum Longitude: {:6.2f}".format(fit.maxvislon))
 
     print("Calculating latitude and longitude of planetary grid.")
-    fit.dlat = 180. / cfg.res
-    fit.dlon = 360. / cfg.res
+    fit.dlat = 180. / cfg.nlat
+    fit.dlon = 360. / cfg.nlon
     fit.lat, fit.lon = np.meshgrid(np.linspace(-90  + fit.dlat / 2.,
                                                 90  - fit.dlat / 2.,
-                                               cfg.res, endpoint=True),
+                                               cfg.nlat, endpoint=True),
                                    np.linspace(-180 + fit.dlon / 2.,
                                                 180 - fit.dlon / 2.,
-                                               cfg.res, endpoint=True),
+                                               cfg.nlon, endpoint=True),
                                    indexing='ij')
 
     print("Calculating intensities of visible grid cells of each eigenmap.")
@@ -164,6 +164,8 @@ def map2d(cfile):
         fit.maps[i].bestp   = mc3out['bestp']
         fit.maps[i].stdp    = mc3out['stdp']
         fit.maps[i].chisq   = mc3out['best_chisq']
+        fit.maps[i].post    = mc3out['posterior']
+        fit.maps[i].zmask   = mc3out['zmask']
 
         fit.maps[i].nfreep = np.sum(pstep > 0)
         fit.maps[i].ndata  = mc3data.size
@@ -173,12 +175,15 @@ def map2d(cfile):
         fit.maps[i].bic      = fit.maps[i].chisq + \
             fit.maps[i].nfreep * np.log(fit.maps[i].ndata)
 
-        #print(  "Best-fit parameters:")
-        #print(fit.bestp)
-
         print(  "Chisq:         {}".format(fit.maps[i].chisq))
         print(  "Reduced Chisq: {}".format(fit.maps[i].redchisq))
         print(  "BIC:           {}".format(fit.maps[i].bic))
+
+        fit.maps[i].hslonbest, fit.maps[i].hslonstd, fit.maps[i].hslonpost = \
+            utils.hotspotlon(fit, fit.maps[i], cfg.ncalc)
+
+        print(  "Hotspot Longitude: {} +/- {}".format(fit.maps[i].hslonbest,
+                                                      fit.maps[i].hslonstd))
 
     # Useful prints
     fit.totchisq2d    = np.sum([m.chisq for m in fit.maps])
@@ -196,8 +201,8 @@ def map2d(cfile):
 
     print("Calculating planet visibility with time.")
     pbar = progressbar.ProgressBar(max_value=len(fit.t))
-    nt, nlat, nlon = len(fit.t), len(fit.lat), len(fit.lon)
-    fit.vis = np.zeros((nt, nlat, nlon))
+    nt = len(fit.t)
+    fit.vis = np.zeros((nt, cfg.nlat, cfg.nlon))
     for it in range(len(fit.t)):
         fit.vis[it] = utils.visibility(fit.t[it],
                                        np.deg2rad(fit.lat),
@@ -310,7 +315,8 @@ def map3d(fit, system):
         pmax   = np.ones(len(params)) * np.log10(cfg.pbot)
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
-        out = mc3.sample(data=fit.flux.flatten(), uncert=fit.ferr.flatten(),
+        out = mc3.sample(data=fit.flux.flatten(),
+                         uncert=fit.ferr.flatten(),
                          func=model.sysflux, nsamples=cfg.nsamples,
                          burnin=cfg.burnin, ncpu=cfg.ncpu,
                          sampler='snooker', savefile=mc3npz,
@@ -331,9 +337,9 @@ def map3d(fit, system):
     fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
         
 
-    fit.besttgrid, fit.p = atm.tgrid(cfg.nlayers, cfg.res, fit.tmaps,
-                                     10.**fit.specbestp, cfg.pbot,
-                                     cfg.ptop, oob=cfg.oob)
+    fit.besttgrid, fit.p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon,
+                                     fit.tmaps, 10.**fit.specbestp,
+                                     cfg.pbot, cfg.ptop, oob=cfg.oob)
 
     plots.bestfitlcsspec(fit)
     plots.bestfittgrid(fit)

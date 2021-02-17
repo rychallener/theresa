@@ -40,6 +40,7 @@ class Fit:
         self.cfg.burnin     = self.cfg.cfg.getint(    'General', 'burnin')
         self.cfg.leastsq    = self.cfg.cfg.get(       'General', 'leastsq')
         self.cfg.pca        = self.cfg.cfg.get(       'General', 'pca')
+        self.cfg.ncalc      = self.cfg.cfg.getint(    'General', 'ncalc')
 
         self.cfg.timefile = self.cfg.cfg.get('General', 'timefile')
         self.cfg.fluxfile = self.cfg.cfg.get('General', 'fluxfile')
@@ -51,7 +52,8 @@ class Fit:
         self.cfg.atmtype = self.cfg.cfg.get(     'General', 'atmtype')
         self.cfg.atmfile = self.cfg.cfg.get(     'General', 'atmfile')
         self.cfg.nlayers = self.cfg.cfg.getint(  'General', 'nlayers')
-        self.cfg.res     = self.cfg.cfg.getint(  'General', 'res')
+        self.cfg.nlat    = self.cfg.cfg.getint(  'General', 'nlat')
+        self.cfg.nlon    = self.cfg.cfg.getint(  'General', 'nlon')
         self.cfg.ptop    = self.cfg.cfg.getfloat('General', 'ptop')
         self.cfg.pbot    = self.cfg.cfg.getfloat('General', 'pbot')
         self.cfg.temp    = self.cfg.cfg.getfloat('General', 'temp')

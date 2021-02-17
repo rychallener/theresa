@@ -288,10 +288,10 @@ def bestfittgrid(fit):
     fig, ax = plt.subplots()
 
     # Latitude index 
-    ieq = fit.cfg.res // 2
+    ieq = fit.cfg.nlat // 2
 
-    for i in range(fit.cfg.res):
-        for j in range(fit.cfg.res):
+    for i in range(fit.cfg.nlat):
+        for j in range(fit.cfg.nlon):
             lat = fit.lat[i,j]
             lon = fit.lon[i,j]
             if i == ieq:
@@ -404,9 +404,9 @@ def tau(fit, ilat=None, ilon=None):
     cfg = fit.cfg
     
     if type(ilat) == type(None):
-        ilat = cfg.res // 2
+        ilat = cfg.nlat // 2
     if type(ilon) == type(None):
-        ilon = cfg.res // 2
+        ilon = cfg.nlon // 2
         
     nlat, nlon = fit.taugrid.shape
     npress, nwn = fit.taugrid[0,0].shape
