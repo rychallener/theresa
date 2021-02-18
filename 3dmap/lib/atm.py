@@ -14,7 +14,7 @@ sys.path.append(ratedir)
 import rate
 
 def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
-            elemfile, outdir):
+            elemfile, outdir, ilat=None, ilon=None):
     """
     Initializes atmospheres of various types.
     
@@ -52,6 +52,14 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
     outdir: string
         Directory where atmospheric file will be written.
 
+    ilat: 2d array
+        Optional array of latitude indices where atmosphere should 
+        be evaluated.
+
+    ilon: 2d array
+        Optional array of longitude indices where atmosphere should
+        be evaluated.
+
     Returns
     -------
     r: 1D array
@@ -70,12 +78,17 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
     mp *= c.Msun / c.Mjup
 
     if os.path.isfile(atmfile):
-        print("Using atmosphere " + atm)
+        print("Using atmosphere " + atmfile)
         r, p, t, abn, spec = atmload(atmfile)
         atmsave(r, p, t, abn, spec, outdir, atmfile)
         return r, p, abn, spec
 
     nlayers, nlat, nlon = t.shape
+
+    if ilat is None:
+        ilat = np.repeat(np.arange(nlat), nlon)
+    if ilon is None:
+        ilon = np.repeat(np.arange(nlon), nlat)
 
     mu = np.zeros(t.shape)
     r  = np.zeros(t.shape)
@@ -86,13 +99,12 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
         spec = robj.species
         nspec = len(spec)
         abn = np.zeros((nspec, nlayers, nlat, nlon))
-        for i in range(nlat):
-            for j in range(nlon):
-                abn[:,:,i,j] = robj.solve(t[:,i,j], p)
-                mu[   :,i,j] = calcmu(elemfile, abn[:,:,i,j], spec)
-                r[    :,i,j] = calcrad(p, t[:,i,j], mu[:,i,j],
-                                       rp, mp, refpress)
-                
+        for i, j in zip(ilat, ilon):
+            abn[:,:,i,j] = robj.solve(t[:,i,j], p)
+            #mu[   :,i,j] = calcmu(elemfile, abn[:,:,i,j], spec)
+            #r[    :,i,j] = calcrad(p, t[:,i,j], mu[:,i,j],
+            #                       rp, mp, refpress)
+
     return r, p, abn, spec
 
 def atmsave(r, p, t, abn, spec, outdir, atmfile):

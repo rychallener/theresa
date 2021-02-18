@@ -82,13 +82,19 @@ def specgrid(params, fit, return_tau=False):
     """
     cfg = fit.cfg
 
+    # Determine which grid cells to use
+    # Only considers longitudes currently
+    nlat, nlon = fit.lat.shape
+    ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
+                          (fit.lon - fit.dlon / 2. < fit.maxvislon))
+
     # Initialize to a list because we don't know the native wavenumber
     # resolution a priori of creating the model
     nlat, nlon = fit.lat.shape
     fluxgrid = np.empty((nlat, nlon), dtype=list)
     if return_tau:
         taugrid = np.empty((nlat, nlon), dtype=list)
-    
+
     if cfg.mapfunc == 'constant':
         tgrid, p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon,
                              fit.tmaps, 10.**params, cfg.pbot,
@@ -98,15 +104,9 @@ def specgrid(params, fit, return_tau=False):
                                       p, tgrid,
                                       cfg.planet.m, cfg.planet.r,
                                       cfg.planet.p0, cfg.elemfile,
-                                      cfg.outdir)
+                                      cfg.outdir, ilat=ilat, ilon=ilon)
     else:
         print("ERROR: Unrecognized/unimplemented map function.")
-
-    # Determine which grid cells to use
-    # Only considers longitudes currently
-    nlat, nlon = fit.lat.shape
-    ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
-                          (fit.lon - fit.dlon / 2. < fit.maxvislon))
     
     if cfg.rtfunc == 'taurex':
         # Cell-independent Tau-REx objects
@@ -220,7 +220,7 @@ def specvtime(params, fit, system):
     # Account for vis and sum over grid cells
     for it in range(nt):
         for ifilt in range(nfilt):
-            fluxvtime[ifilt,it] += np.sum(intfluxgrid[:,:,ifilt] * fit.vis[it])
+            fluxvtime[ifilt,it] = np.sum(intfluxgrid[:,:,ifilt] * fit.vis[it])
 
     print("Visibility calculation: {} seconds".format(time.time() - tic))
     return fluxvtime
