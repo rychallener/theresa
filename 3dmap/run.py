@@ -180,7 +180,7 @@ def map2d(cfile):
         print(  "BIC:           {}".format(fit.maps[i].bic))
 
         fit.maps[i].hslonbest, fit.maps[i].hslonstd, fit.maps[i].hslonpost = \
-            utils.hotspotlon(fit, fit.maps[i], cfg.ncalc)
+            utils.hotspotlon_driver(fit, fit.maps[i])
 
         print(  "Hotspot Longitude: {} +/- {}".format(fit.maps[i].hslonbest,
                                                       fit.maps[i].hslonstd))
@@ -262,6 +262,7 @@ def map2d(cfile):
         plots.pltmaps(fit)
         plots.bestfit(fit)
         plots.ecurveweights(fit)
+        plots.hshist(fit)
 
     if cfg.animations:
         print("Making animations.")

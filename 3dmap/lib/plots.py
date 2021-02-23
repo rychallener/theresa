@@ -246,7 +246,24 @@ def ecurveweights(fit):
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'ecurveweight.png'))
     plt.close()
-                  
+
+def hshist(fit):
+    '''
+    Makes a plot of hotspot longitude posterior distribution
+    '''
+    nmaps = len(fit.maps)
+    fig, axes = plt.subplots(ncols=nmaps, sharey=True)
+
+    for i in range(nmaps):
+        ax = axes[i]
+        ax.hist(fit.maps[i].hslonpost)
+        ax.set_xlabel('Longitude (deg)')
+        if i == 0:
+            ax.set_ylabel('Samples')
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(fit.cfg.outdir, 'hotspot-hist.png'))
+    plt.close()
 
 def bestfitlcsspec(fit):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']

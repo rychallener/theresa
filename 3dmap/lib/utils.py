@@ -6,6 +6,8 @@ import constants as c
 import scipy.interpolate as spi
 import starry
 import progressbar
+import theano
+import theano.tensor as tt
 
 def initsystem(fit):
     '''
@@ -331,7 +333,7 @@ def mapintensity(map, lat, lon, amp):
     grid  = grid.reshape(lat.shape)
     return grid
 
-def hotspotlon(fit, map, ncalc):
+def hotspotlon_driver(fit, map):
     """
     Calculates a distribution of hotspot offsets based on the MCMC
     posterior distribution.
@@ -347,10 +349,6 @@ def hotspotlon(fit, map, ncalc):
 
     map: Map instance (not starry Map)
 
-    ncalc: integer
-        Number of times to calculate the hotspot longitude. The MCMC
-        posterior will be thinned to this size.
-
     Returns
     -------
     hslonbest: float
@@ -363,40 +361,50 @@ def hotspotlon(fit, map, ncalc):
     post = map.post[map.zmask]
 
     nsamp, nfree = post.shape
+
+    if fit.cfg.ncalc > nsamp:
+        print("Warning: ncalc reduced to match burned-in sample.")
+        fit.cfg.ncalc = nsamp
     
-    hslon = np.zeros(ncalc)
-    thinning = nsamp // ncalc
+    hslon = np.zeros(fit.cfg.ncalc)
+    hslat = np.zeros(fit.cfg.ncalc)
+    thinning = nsamp // fit.cfg.ncalc
+
+    bounds = (-45, 45),(fit.minvislon, fit.maxvislon)
+    smap = starry.Map(ydeg=fit.cfg.lmax)
+    # Function defined in this way to avoid passing non-numeric arguments
+    def hotspotlon(yval):       
+        smap[1:,:] = yval
+        lat, lon, val = smap.minimize(bounds=bounds)
+        return lat, lon, val
+
+    arg1 = tt.iscalar()
+    arg2 = tt.dvector()
+    t_hotspotlon = theano.function([arg2], hotspotlon(arg2))
 
     # Note the maps created here do not include the correct uniform
     # component because that does not affect the location of the
     # hotspot. Also note that the eigenvalues are negated because
     # we want to maximize, not minize, but starry only includes
     # a minimize method.
-    ireset = 0
-    star, planet, system = initsystem(fit)
-    pbar = progressbar.ProgressBar(max_value=ncalc)
-    for i in range(0, ncalc):
-        if ireset == 10:
-            star, planet, system = initsystem(fit)
-            ireset = 0
+    pbar = progressbar.ProgressBar(max_value=fit.cfg.ncalc)
+    for i in range(0, fit.cfg.ncalc):
         ipost = i * thinning
-        planet.map[1:,:] = 0.0
+        yval = np.zeros((fit.cfg.lmax+1)**2-1)
         for j in range(fit.cfg.ncurves):
-            planet.map[1:,:] += -1 * post[ipost,j] * fit.eigeny[j,1:]
-        lat, lon, _ = planet.map.minimize()
-        hslon[i] = lon.eval()
+            yval += -1 * post[ipost,j] * fit.eigeny[j,1:]
+
+        hslat[i], hslon[i], _ = t_hotspotlon(yval)
         pbar.update(i+1)
-        ireset += 1
 
     star, planet, system = initsystem(fit)
     planet.map[1:,:] = 0.0
     for j in range(fit.cfg.ncurves):
         planet.map[1:,:] += -1 * map.bestp[j] * fit.eigeny[j,1:]
-    hslatbest, hslonbest, _ = planet.map.minimize()
+    hslatbest, hslonbest, _ = planet.map.minimize(bounds=bounds)
     hslonbest = hslonbest.eval()
 
     hslonstd = np.std(hslon)
 
     return hslonbest, hslonstd, hslon
-    
-    
+
