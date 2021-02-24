@@ -333,9 +333,9 @@ def mapintensity(map, lat, lon, amp):
     grid  = grid.reshape(lat.shape)
     return grid
 
-def hotspotlon_driver(fit, map):
+def hotspotloc_driver(fit, map):
     """
-    Calculates a distribution of hotspot offsets based on the MCMC
+    Calculates a distribution of hotspot locations based on the MCMC
     posterior distribution.
 
     Note that this function assumes the first ncurves parameters
@@ -351,11 +351,15 @@ def hotspotlon_driver(fit, map):
 
     Returns
     -------
-    hslonbest: float
-        Best-fit hotspot longitude, in degrees.
+    hslocbest: tuple
+        Best-fit hotspot location (lat, lon), in degrees.
 
-    hslonstd: float
-        Standard deviation of the hotspot longitude posterior distribution.
+    hslocstd: tuple
+        Standard deviation of the hotspot location posterior distribution
+        as (lat, lon)
+
+    hspot: tuple
+        Marginalized posterior distributions of latitude and longitude
     """
     
     post = map.post[map.zmask]
@@ -371,16 +375,17 @@ def hotspotlon_driver(fit, map):
     thinning = nsamp // fit.cfg.ncalc
 
     bounds = (-45, 45),(fit.minvislon, fit.maxvislon)
+    #bounds = (-90,90),(-180, 180)
     smap = starry.Map(ydeg=fit.cfg.lmax)
     # Function defined in this way to avoid passing non-numeric arguments
-    def hotspotlon(yval):       
+    def hotspotloc(yval):       
         smap[1:,:] = yval
-        lat, lon, val = smap.minimize(bounds=bounds)
+        lat, lon, val = smap.minimize(ntries=3, bounds=bounds)
         return lat, lon, val
 
     arg1 = tt.iscalar()
     arg2 = tt.dvector()
-    t_hotspotlon = theano.function([arg2], hotspotlon(arg2))
+    t_hotspotloc = theano.function([arg2], hotspotloc(arg2))
 
     # Note the maps created here do not include the correct uniform
     # component because that does not affect the location of the
@@ -394,17 +399,19 @@ def hotspotlon_driver(fit, map):
         for j in range(fit.cfg.ncurves):
             yval += -1 * post[ipost,j] * fit.eigeny[j,1:]
 
-        hslat[i], hslon[i], _ = t_hotspotlon(yval)
+        hslat[i], hslon[i], _ = t_hotspotloc(yval)
         pbar.update(i+1)
 
     star, planet, system = initsystem(fit)
     planet.map[1:,:] = 0.0
     for j in range(fit.cfg.ncurves):
         planet.map[1:,:] += -1 * map.bestp[j] * fit.eigeny[j,1:]
-    hslatbest, hslonbest, _ = planet.map.minimize(bounds=bounds)
+    hslatbest, hslonbest, _ = planet.map.minimize(bounds=bounds, ntriest=3)
     hslonbest = hslonbest.eval()
+    hslatbest = hslatbest.eval()
 
     hslonstd = np.std(hslon)
+    hslatstd = np.std(hslat)
 
-    return hslonbest, hslonstd, hslon
+    return (hslatbest, hslonbest), (hslatstd, hslonstd), (hslat, hslon)
 

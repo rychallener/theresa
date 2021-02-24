@@ -249,15 +249,28 @@ def ecurveweights(fit):
 
 def hshist(fit):
     '''
-    Makes a plot of hotspot longitude posterior distribution
+    Makes a plot of hotspot location posterior distribution
     '''
     nmaps = len(fit.maps)
-    fig, axes = plt.subplots(ncols=nmaps, sharey=True)
+    fig, axes = plt.subplots(nrows=2, ncols=nmaps, sharey='row')
 
     for i in range(nmaps):
-        ax = axes[i]
-        ax.hist(fit.maps[i].hslonpost)
+        # Latitude
+        ax = axes[0][i]
+        ax.hist(fit.maps[0].hslocpost[0], bins=20)
+        ax.set_xlabel('Latitude (deg)')
+        ylim = ax.get_ylim()
+        ax.vlines(fit.maps[i].hslocbest[0], ylim[0], ylim[1], color='red')
+        ax.set_ylim(ylim)
+        if i == 0:
+            ax.set_ylabel('Samples')
+        # Longitude
+        ax = axes[1][i]
+        ax.hist(fit.maps[i].hslocpost[1], bins=20)
         ax.set_xlabel('Longitude (deg)')
+        ylim = ax.get_ylim()
+        ax.vlines(fit.maps[i].hslocbest[1], ylim[0], ylim[1], color='red')
+        ax.set_ylim(ylim)
         if i == 0:
             ax.set_ylabel('Samples')
 
