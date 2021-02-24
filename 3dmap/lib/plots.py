@@ -257,7 +257,7 @@ def hshist(fit):
     for i in range(nmaps):
         # Latitude
         ax = axes[0][i]
-        ax.hist(fit.maps[0].hslocpost[0], bins=20)
+        ax.hist(fit.maps[i].hslocpost[0], bins=20)
         ax.set_xlabel('Latitude (deg)')
         ylim = ax.get_ylim()
         ax.vlines(fit.maps[i].hslocbest[0], ylim[0], ylim[1], color='red')
