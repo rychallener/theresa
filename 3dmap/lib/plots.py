@@ -317,6 +317,11 @@ def bestfitlcsspec(fit):
 def bestfittgrid(fit):
     fig, ax = plt.subplots()
 
+    # Match colors to light curves
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    nmaps = len(fit.maps)
+
     # Latitude index 
     ieq = fit.cfg.nlat // 2
 
@@ -344,6 +349,9 @@ def bestfittgrid(fit):
             ax.semilogy(fit.besttgrid[:,i,j], fit.p, label=label,
                         linestyle=linestyle, color=color, zorder=zorder,
                         alpha=alpha)
+
+            ax.scatter(fit.tmaps[:,i,j], 10.**fit.specbestp,
+                       c=colors[:nmaps], marker='o', zorder=3)
 
     ax.invert_yaxis()
     ax.legend(ncol=2, fontsize=6)

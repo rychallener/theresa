@@ -95,18 +95,18 @@ def specgrid(params, fit, return_tau=False):
     if return_tau:
         taugrid = np.empty((nlat, nlon), dtype=list)
 
-    if cfg.mapfunc == 'constant':
-        tgrid, p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon,
-                             fit.tmaps, 10.**params, cfg.pbot,
-                             cfg.ptop, kind='linear', oob=cfg.oob)
+    pmaps = atm.pmaps(params, fit.tmaps, mapfunc=cfg.mapfunc)
+    tgrid, p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon, fit.tmaps,
+                         pmaps, cfg.pbot, cfg.ptop,
+                         interptype=cfg.interp, oob=cfg.oob)
 
-        r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile,
-                                      p, tgrid,
-                                      cfg.planet.m, cfg.planet.r,
-                                      cfg.planet.p0, cfg.elemfile,
-                                      cfg.outdir, ilat=ilat, ilon=ilon)
-    else:
-        print("ERROR: Unrecognized/unimplemented map function.")
+    r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile, p, tgrid,
+                                  cfg.planet.m, cfg.planet.r,
+                                  cfg.planet.p0, cfg.elemfile,
+                                  cfg.outdir, ilat=ilat,
+                                  ilon=ilon)
+
+    negativeT = False
     
     if cfg.rtfunc == 'taurex':
         # Cell-independent Tau-REx objects
@@ -133,7 +133,7 @@ def specgrid(params, fit, return_tau=False):
             if not np.all(tgrid[:,i,j] >= 0):
                 msg = "WARNING: Nonphysical TP profile at Lat: {}, Lon: {}"
                 print(msg.format(fit.lat[i,j], fit.lon[i,j]))
-                return np.ones(len(cfg.filtfiles)) * -1
+                negativeT = True
             rtt = TemperatureArray(
                 tp_array=tgrid[:,i,j])
             rtchem = taurex.chemistry.TaurexChemistry()
@@ -158,6 +158,13 @@ def specgrid(params, fit, return_tau=False):
 
             rt.build()
 
+            # If we have negative temperatures, don't run the model
+            # (it will fail). Return a bad fit instead. 
+            if negativeT:
+                fluxgrid = -1 * np.ones((nlat, nlon,
+                                         len(rt.nativeWavenumberGrid)))
+                return fluxgrid, rt.nativeWavenumberGrid
+            
             wn, flux, tau, ex = rt.model(wngrid=fit.wngrid)
 
             fluxgrid[i,j] = flux

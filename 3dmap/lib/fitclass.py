@@ -64,6 +64,7 @@ class Fit:
         self.cfg.rtfunc  = self.cfg.cfg.get('General', 'rtfunc')
         self.cfg.mapfunc = self.cfg.cfg.get('General', 'mapfunc')
         self.cfg.oob     = self.cfg.cfg.get('General', 'oob')
+        self.cfg.interp  = self.cfg.cfg.get('General', 'interp')
 
         self.cfg.elemfile = self.cfg.cfg.get('General', 'elemfile')
 

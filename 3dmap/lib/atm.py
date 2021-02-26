@@ -378,8 +378,8 @@ def calcrad(p, t, mu, r0, mp, p0):
     return r
         
 
-def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, kind='linear',
-          oob='extrapolate'):
+def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop,
+          interptype='linear', oob='extrapolate'):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
     place at the supplied pressures. Dimensions are (nlayers, nlat,
@@ -395,18 +395,33 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, kind='linear',
         for j in range(nlon):
             if oob == 'extrapolate':
                 fill_value = 'extrapolate'
-            elif oob == 'iso':
-                imax = np.argsort(pmaps)[-1]
-                imin = np.argsort(pmaps)[0]
+            elif oob == 'isothermal':
+                imax = np.argsort(pmaps[:,i,j])[-1]
+                imin = np.argsort(pmaps[:,i,j])[0]
                 fill_value = (tmaps[:,i,j][imin], tmaps[:,i,j][imax])
-            interp = spi.interp1d(np.log10(pmaps), tmaps[:,i,j],
-                                  kind=kind,
+            interp = spi.interp1d(np.log10(pmaps[:,i,j]),
+                                  tmaps[:,i,j], kind=interptype,
                                   bounds_error=False,
                                   fill_value=fill_value)
             
             temp3d[:,i,j] = interp(logp1d)
             
     return temp3d, 10**logp1d
+
+def pmaps(params, tmaps, mapfunc='isobaric'):
+    '''
+    Calculates pressures of tmaps using a variety of mapping functions.
+    '''
+    pmaps = np.zeros(tmaps.shape)
+    nmap, nlat, nlon = pmaps.shape
+    if mapfunc == 'isobaric':
+        for i in range(nmap):
+            pmaps[i] = 10.**params[i]
+    else:
+        print("WARNING: Unrecognized pmap model.")
+
+    return pmaps
+        
 
     
     

@@ -366,6 +366,9 @@ def hotspotloc_driver(fit, map):
 
     nsamp, nfree = post.shape
 
+    ntries     =  5
+    oversample =  1
+
     if fit.cfg.ncalc > nsamp:
         print("Warning: ncalc reduced to match burned-in sample.")
         fit.cfg.ncalc = nsamp
@@ -380,7 +383,8 @@ def hotspotloc_driver(fit, map):
     # Function defined in this way to avoid passing non-numeric arguments
     def hotspotloc(yval):       
         smap[1:,:] = yval
-        lat, lon, val = smap.minimize(ntries=3, bounds=bounds)
+        lat, lon, val = smap.minimize(oversample=oversample,
+                                      ntries=ntries, bounds=bounds)
         return lat, lon, val
 
     arg1 = tt.iscalar()
@@ -406,7 +410,9 @@ def hotspotloc_driver(fit, map):
     planet.map[1:,:] = 0.0
     for j in range(fit.cfg.ncurves):
         planet.map[1:,:] += -1 * map.bestp[j] * fit.eigeny[j,1:]
-    hslatbest, hslonbest, _ = planet.map.minimize(bounds=bounds, ntriest=3)
+    hslatbest, hslonbest, _ = planet.map.minimize(oversample=oversample,
+                                                  bounds=bounds,
+                                                  ntries=ntries)
     hslonbest = hslonbest.eval()
     hslatbest = hslatbest.eval()
 

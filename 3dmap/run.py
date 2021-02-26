@@ -338,13 +338,16 @@ def map3d(fit, system):
     fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
         
 
+    fit.pmaps = atm.pmaps(fit.specbestp, fit.tmaps, mapfunc=cfg.mapfunc)
     fit.besttgrid, fit.p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon,
-                                     fit.tmaps, 10.**fit.specbestp,
-                                     cfg.pbot, cfg.ptop, oob=cfg.oob)
+                                     fit.tmaps, fit.pmaps, cfg.pbot,
+                                     cfg.ptop, oob=cfg.oob,
+                                     interptype=cfg.interp)
 
-    plots.bestfitlcsspec(fit)
-    plots.bestfittgrid(fit)
-    plots.tau(fit)
+    if cfg.plots:
+        plots.bestfitlcsspec(fit)
+        plots.bestfittgrid(fit)
+        plots.tau(fit)
     
     fit.save(cfg.outdir)
         
