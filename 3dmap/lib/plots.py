@@ -350,7 +350,7 @@ def bestfittgrid(fit):
                         linestyle=linestyle, color=color, zorder=zorder,
                         alpha=alpha)
 
-            ax.scatter(fit.tmaps[:,i,j], 10.**fit.specbestp,
+            ax.scatter(fit.tmaps[:,i,j], fit.pmaps[:,i,j],
                        c=colors[:nmaps], marker='o', zorder=3)
 
     ax.invert_yaxis()

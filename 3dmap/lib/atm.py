@@ -90,7 +90,7 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
     if ilon is None:
         ilon = np.repeat(np.arange(nlon), nlat)
 
-    mu = np.zeros(t.shape)
+    #mu = np.zeros(t.shape)
     r  = np.zeros(t.shape)
     
     # Equilibrium atmosphere
@@ -408,15 +408,38 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop,
             
     return temp3d, 10**logp1d
 
-def pmaps(params, tmaps, mapfunc='isobaric'):
+def pmaps(params, fit):
     '''
     Calculates pressures of tmaps using a variety of mapping functions.
     '''
+    tmaps = fit.tmaps
+    lat   = fit.lat
+    lon   = fit.lon
+    dlat  = fit.dlat
+    dlon  = fit.dlon
+    mapfunc = fit.cfg.mapfunc
+    
     pmaps = np.zeros(tmaps.shape)
     nmap, nlat, nlon = pmaps.shape
-    if mapfunc == 'isobaric':
+    if   mapfunc == 'isobaric':
         for i in range(nmap):
             pmaps[i] = 10.**params[i]
+    elif mapfunc == 'sinusoidal':
+        npar = 4
+        for i in range(nmap):
+            ip = npar * i
+            pmaps[i] = 10.**params[ip] + \
+                10.**params[ip+1]*np.sin((lat-params[ip+3])*np.pi/180.) + \
+                10.**params[ip+2]*np.sin((lon-params[ip+3])*np.pi/180.)
+    elif mapfunc == 'flexible':
+        ilat, ilon = np.where((lon + dlon / 2. > fit.minvislon) &
+                              (lon - dlon / 2. < fit.maxvislon))
+        nvis = len(ilat)
+        for i in range(nmap):
+            ip = 0
+            for j, k in zip(ilat, ilon):
+                pmaps[i,j,k] = 10.**params[i*nvis+ip]
+                ip += 1
     else:
         print("WARNING: Unrecognized pmap model.")
 

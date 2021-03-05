@@ -310,10 +310,10 @@ def map3d(fit, system):
                                                          'ciadir'))
 
         indparams = [fit, system]
-        params = np.array([1.09, -0.43, -0.14])
-        pstep  = np.ones(len(params)) * 1e-3
-        pmin   = np.ones(len(params)) * np.log10(cfg.ptop)
-        pmax   = np.ones(len(params)) * np.log10(cfg.pbot)
+        params, pstep, pmin, pmax = model.get_par(fit)
+        #params = np.array([ 1.9889,  -1.5, -1.5, 30.0,
+        #                   -0.95352, -1.5, -1.5, 30.0,
+        #                   -1.4626,  -2.0, -2.0, 30.0])
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(),
@@ -338,7 +338,7 @@ def map3d(fit, system):
     fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
         
 
-    fit.pmaps = atm.pmaps(fit.specbestp, fit.tmaps, mapfunc=cfg.mapfunc)
+    fit.pmaps = atm.pmaps(fit.specbestp, fit)
     fit.besttgrid, fit.p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon,
                                      fit.tmaps, fit.pmaps, cfg.pbot,
                                      cfg.ptop, oob=cfg.oob,

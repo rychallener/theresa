@@ -95,7 +95,7 @@ def specgrid(params, fit, return_tau=False):
     if return_tau:
         taugrid = np.empty((nlat, nlon), dtype=list)
 
-    pmaps = atm.pmaps(params, fit.tmaps, mapfunc=cfg.mapfunc)
+    pmaps = atm.pmaps(params, fit)
     tgrid, p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon, fit.tmaps,
                          pmaps, cfg.pbot, cfg.ptop,
                          interptype=cfg.interp, oob=cfg.oob)
@@ -244,4 +244,42 @@ def sysflux(params, fit, system):
         systemflux[i] = fpfscorr + 1
     return systemflux.flatten()
 
+def get_par(fit):
+    '''
+    Returns sensible parameter settings for each model
+    '''
+    if fit.cfg.mapfunc == 'isobaric':
+        npar  = len(fit.maps)
+        par   = np.ones(npar)
+        pstep = np.ones(npar) * 1e-3
+        pmin  = np.ones(npar) * np.log10(fit.cfg.ptop)
+        pmax  = np.ones(npar) * np.log10(fit.cfg.pbot)
+    elif fit.cfg.mapfunc == 'sinusoidal':
+        # For a single wavelength
+        npar = 4
+        par   = np.array([1.0, -10.0, -10.0, 30.0])
+        pstep = np.ones(npar) * 1e-3
+        pmin  = np.array([np.log10(fit.cfg.ptop), -np.inf, -np.inf, -180.0])
+        pmax  = np.array([np.log10(fit.cfg.pbot),  np.inf,  np.inf,  180.0])
+        # Repeat for each wavelength
+        nwl = len(fit.maps)
+        par   = np.tile(par,   nwl)
+        pstep = np.tile(pstep, nwl)
+        pmin  = np.tile(pmin,  nwl)
+        pmax  = np.tile(pmax,  nwl)
+    elif fit.cfg.mapfunc == 'flexible':
+        ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
+                              (fit.lon - fit.dlon / 2. < fit.maxvislon))
+        nvislat = len(np.unique(ilat))
+        nvislon = len(np.unique(ilon))
+        npar = nvislat * nvislon * len(fit.maps)
+        par   = np.ones(npar)
+        pstep = np.ones(npar) * 1e-3
+        pmin  = np.ones(npar) * np.log10(fit.cfg.ptop)
+        pmax  = np.ones(npar) * np.log10(fit.cfg.pbot)
+    else:
+        print("Warning: Unrecognized mapping function.")
+
+    return par, pstep, pmin, pmax
+        
     
