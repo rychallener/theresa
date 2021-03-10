@@ -379,11 +379,11 @@ def calcrad(p, t, mu, r0, mp, p0):
         
 
 def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop,
-          interptype='linear', oob='extrapolate'):
+          interptype='linear', oob='extrapolate', smooth=None):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
     place at the supplied pressures. Dimensions are (nlayers, nlat,
-    nlon).
+    nlon). Will optionally smooth with a rolling average.
 
     """
     
@@ -405,6 +405,12 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop,
                                   fill_value=fill_value)
             
             temp3d[:,i,j] = interp(logp1d)
+
+            if smooth is not None:
+                T = temp3d[:,i,j]
+                Tsmooth = np.convolve(T, np.ones(smooth), 'valid') / smooth
+                nedge = np.int((len(T) - len(Tsmooth)) / 2)
+                temp3d[:,i,j][nedge:-nedge] = Tsmooth
             
     return temp3d, 10**logp1d
 

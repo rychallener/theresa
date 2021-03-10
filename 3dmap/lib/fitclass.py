@@ -65,6 +65,12 @@ class Fit:
         self.cfg.mapfunc = self.cfg.cfg.get('General', 'mapfunc')
         self.cfg.oob     = self.cfg.cfg.get('General', 'oob')
         self.cfg.interp  = self.cfg.cfg.get('General', 'interp')
+        self.cfg.smooth  = self.cfg.cfg.get('General', 'smooth')
+
+        if self.cfg.smooth == 'None':
+            self.cfg.smooth = None
+        else:
+            self.cfg.smooth = np.int(self.cfg.smooth)
 
         self.cfg.elemfile = self.cfg.cfg.get('General', 'elemfile')
 

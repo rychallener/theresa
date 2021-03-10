@@ -315,7 +315,7 @@ def bestfitlcsspec(fit):
     plt.close(fig)
 
 def bestfittgrid(fit):
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(6,8))
 
     # Match colors to light curves
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -351,7 +351,7 @@ def bestfittgrid(fit):
                         alpha=alpha)
 
             ax.scatter(fit.tmaps[:,i,j], fit.pmaps[:,i,j],
-                       c=colors[:nmaps], marker='o', zorder=3)
+                       c=colors[:nmaps], marker='o', zorder=3, s=4)
 
     ax.invert_yaxis()
     ax.legend(ncol=2, fontsize=6)

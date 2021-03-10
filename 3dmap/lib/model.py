@@ -98,7 +98,8 @@ def specgrid(params, fit, return_tau=False):
     pmaps = atm.pmaps(params, fit)
     tgrid, p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon, fit.tmaps,
                          pmaps, cfg.pbot, cfg.ptop,
-                         interptype=cfg.interp, oob=cfg.oob)
+                         interptype=cfg.interp, oob=cfg.oob,
+                         smooth=cfg.smooth)
 
     r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile, p, tgrid,
                                   cfg.planet.m, cfg.planet.r,
@@ -195,7 +196,7 @@ def specgrid(params, fit, return_tau=False):
     
     return fluxgrid, wn
                                         
-def specvtime(params, fit, system):
+def specvtime(params, fit):
     """
     Calculate spectra emitted by each grid cell, integrate over filters,
     account for line-of-sight and stellar visibility (as functiosn of time),
@@ -219,7 +220,7 @@ def specvtime(params, fit, system):
         for j in range(nlon):
             intfluxgrid[i,j] = utils.specint(wn, fluxgrid[i,j],
                                              fit.filtwn, fit.filttrans)
-    print("Spectrum integration: {} seconds".format(time.time() - tic))
+    #print("Spectrum integration: {} seconds".format(time.time() - tic))
     tic = time.time()
 
     fluxvtime = np.zeros((nfilt, nt))
@@ -229,12 +230,12 @@ def specvtime(params, fit, system):
         for ifilt in range(nfilt):
             fluxvtime[ifilt,it] = np.sum(intfluxgrid[:,:,ifilt] * fit.vis[it])
 
-    print("Visibility calculation: {} seconds".format(time.time() - tic))
+    #print("Visibility calculation: {} seconds".format(time.time() - tic))
     return fluxvtime
 
-def sysflux(params, fit, system):
+def sysflux(params, fit):
     # Calculate Fp/Fs
-    fpfs    = specvtime(params, fit, system)
+    fpfs    = specvtime(params, fit)
     nfilt, nt = fpfs.shape
     systemflux = np.zeros((nfilt, nt))
     # Account for stellar correction

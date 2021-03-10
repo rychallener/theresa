@@ -311,6 +311,7 @@ def map3d(fit, system):
 
         indparams = [fit, system]
         params, pstep, pmin, pmax = model.get_par(fit)
+        params = np.array([-1.9010, 1.1419, -1.8112])
         #params = np.array([ 1.9889,  -1.5, -1.5, 30.0,
         #                   -0.95352, -1.5, -1.5, 30.0,
         #                   -1.4626,  -2.0, -2.0, 30.0])
@@ -323,7 +324,7 @@ def map3d(fit, system):
                          sampler='snooker', savefile=mc3npz,
                          params=params, indparams=indparams,
                          pstep=pstep, pmin=pmin, pmax=pmax,
-                         leastsq=None, plots=cfg.plots)
+                         leastsq='trf', plots=cfg.plots)
 
     fit.specbestp = out['bestp']
 
