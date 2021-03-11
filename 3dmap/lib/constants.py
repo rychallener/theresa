@@ -5,7 +5,7 @@ import numpy as np
 # http://nssdc.gsfc.nasa.gov/planetary/factsheet/jupiterfact.html
 # Retrieved September 10, 2020
 Mjup = 1.89819e27 # kg
-Rjup = 7.1492e7   # m (equatorial)
+Rjup = 6.9911e7   # m (volumetric)
 
 # https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html
 # Retrieved September 11, 2020
