@@ -71,10 +71,9 @@ class EmissionModel3D(taurex.model.EmissionModel):
         thetamax = self.latmax + np.pi / 2.
 
         # integral r**2 sin(theta) dtheta dphi
-        planet_area = -1 * planet_radius**2  * (phimax - phimin) * \
-            (np.cos(thetamax) - np.cos(thetamin))
+        planet_area = np.pi * planet_radius ** 2
 
-        star_area = np.pi * star_radius **2
+        star_area = np.pi * star_radius ** 2
 
         cell_flux = (f_total / star_sed) * (planet_area / star_area)
 

@@ -167,9 +167,9 @@ def readfilters(filterfiles):
 def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
                rs, x, y):
     """
-    Calculate the visibility of a grid of cells on a planet
-    at a specific time. Returns a combined visibility based on the
-    observer's line-of-sight and the effect of the star.
+    Calculate the visibility of a grid of cells on a planet at a specific
+    time. Returns a combined visibility based on the observer's
+    line-of-sight, the area of the cells, and the effect of the star.
 
     Arguments
     ---------
@@ -213,6 +213,7 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
     -------
     vis: 2D array
         Visibility of each grid cell. Same shape as latgrid and longrid.
+
     """
     if latgrid.shape != longrid.shape:
         print("Number of latitudes and longitudes do not match.")
@@ -273,22 +274,29 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
                 thetarng = np.array((np.max((thetamin, -np.pi / 2.)),
                                      np.min((thetamax,  np.pi / 2.))))
 
-                # Area correction (some of cell might not be visible)
-                # This is ratio of partial cell to full cell
-                area_corr = np.diff(phirng) * \
-                    np.diff(np.cos(thetarng+np.pi/2)) / \
-                    np.diff((phimax, phimin)) / \
-                    np.diff(np.cos((thetamax+np.pi/2, thetamin+np.pi/2)))
-
-                # Mean visible latitude/longitude
-                thetamean = np.mean(thetarng)
-                phimean   = np.mean(phirng)
 
                 # Visibility based on LoS
-                losvis[i,j] = np.cos(thetamean) * np.cos(phimean) * area_corr
+                # This is the integral of
+                #
+                # A(theta, phi) V(theta, phi) dtheta dphi
+                #
+                # where
+                #
+                # A = r**2 cos(theta)
+                # V = cos(theta) cos(phi)
+                #
+                # Here we've normalized by pi*r**2, since
+                # visibility will be applied to Fp/Fs where planet
+                # size is already taken into account.
+                losvis[i,j] = (np.diff(thetarng/2) + \
+                               np.diff(np.sin(2*thetarng) / 4)) * \
+                    np.diff(np.sin(phirng)) / \
+                    np.pi
 
                 # Grid cell maybe only partially visible
                 if dostar:
+                    thetamean = np.mean(thetarng)
+                    phimean   = np.mean(phirng)
                     # Grid is "within" the star
                     if dgrid(x, y, rp, thetamean, phimean) < rs:
                         starvis[i,j] = 0.0

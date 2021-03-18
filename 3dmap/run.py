@@ -309,7 +309,7 @@ def map3d(fit, system):
         taurex.cache.CIACache().set_cia_path(cfg.cfg.get('taurex',
                                                          'ciadir'))
 
-        indparams = [fit, system]
+        indparams = [fit]
         params, pstep, pmin, pmax = model.get_par(fit)
         params = np.array([-1.9010, 1.1419, -1.8112])
         #params = np.array([ 1.9889,  -1.5, -1.5, 30.0,
@@ -324,7 +324,7 @@ def map3d(fit, system):
                          sampler='snooker', savefile=mc3npz,
                          params=params, indparams=indparams,
                          pstep=pstep, pmin=pmin, pmax=pmax,
-                         leastsq='trf', plots=cfg.plots)
+                         leastsq=None, plots=cfg.plots)
 
     fit.specbestp = out['bestp']
 
@@ -335,7 +335,7 @@ def map3d(fit, system):
     fit.fluxgrid, fit.modelwngrid, fit.taugrid = model.specgrid(fit.specbestp,
                                                                 fit,
                                                                 True)
-    fit.specbestmodel = model.sysflux(fit.specbestp, fit, system)
+    fit.specbestmodel = model.sysflux(fit.specbestp, fit)
     fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
         
 
