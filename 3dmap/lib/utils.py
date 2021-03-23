@@ -23,7 +23,7 @@ def initsystem(fit):
                           r   =cfg.star.r,
                           prot=cfg.star.prot)
 
-    planet = starry.kepler.Secondary(starry.Map(ydeg=cfg.lmax),
+    planet = starry.kepler.Secondary(starry.Map(ydeg=cfg.twod.lmax),
                                      m    =cfg.planet.m,
                                      r    =cfg.planet.r,
                                      porb =cfg.planet.porb,
@@ -377,17 +377,19 @@ def hotspotloc_driver(fit, map):
     ntries     =  5
     oversample =  1
 
-    if fit.cfg.ncalc > nsamp:
+    if fit.cfg.twod.ncalc > nsamp:
         print("Warning: ncalc reduced to match burned-in sample.")
-        fit.cfg.ncalc = nsamp
+        ncalc = nsamp
+    else:
+        ncalc = fit.cfg.twod.ncalc
     
-    hslon = np.zeros(fit.cfg.ncalc)
-    hslat = np.zeros(fit.cfg.ncalc)
-    thinning = nsamp // fit.cfg.ncalc
+    hslon = np.zeros(ncalc)
+    hslat = np.zeros(ncalc)
+    thinning = nsamp // ncalc
 
     bounds = (-45, 45),(fit.minvislon, fit.maxvislon)
     #bounds = (-90,90),(-180, 180)
-    smap = starry.Map(ydeg=fit.cfg.lmax)
+    smap = starry.Map(ydeg=fit.cfg.twod.lmax)
     # Function defined in this way to avoid passing non-numeric arguments
     def hotspotloc(yval):       
         smap[1:,:] = yval
@@ -404,11 +406,11 @@ def hotspotloc_driver(fit, map):
     # hotspot. Also note that the eigenvalues are negated because
     # we want to maximize, not minize, but starry only includes
     # a minimize method.
-    pbar = progressbar.ProgressBar(max_value=fit.cfg.ncalc)
-    for i in range(0, fit.cfg.ncalc):
+    pbar = progressbar.ProgressBar(max_value=ncalc)
+    for i in range(0, ncalc):
         ipost = i * thinning
-        yval = np.zeros((fit.cfg.lmax+1)**2-1)
-        for j in range(fit.cfg.ncurves):
+        yval = np.zeros((fit.cfg.twod.lmax+1)**2-1)
+        for j in range(fit.cfg.twod.ncurves):
             yval += -1 * post[ipost,j] * fit.eigeny[j,1:]
 
         hslat[i], hslon[i], _ = t_hotspotloc(yval)
@@ -416,7 +418,7 @@ def hotspotloc_driver(fit, map):
 
     star, planet, system = initsystem(fit)
     planet.map[1:,:] = 0.0
-    for j in range(fit.cfg.ncurves):
+    for j in range(fit.cfg.twod.ncurves):
         planet.map[1:,:] += -1 * map.bestp[j] * fit.eigeny[j,1:]
     hslatbest, hslonbest, _ = planet.map.minimize(oversample=oversample,
                                                   bounds=bounds,
