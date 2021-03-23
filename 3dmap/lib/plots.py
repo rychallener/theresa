@@ -1,7 +1,7 @@
 import os
 import numpy as np
-import matplotlib
-matplotlib.rcParams['axes.formatter.useoffset'] = False
+import matplotlib as mpl
+mpl.rcParams['axes.formatter.useoffset'] = False
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
@@ -479,7 +479,7 @@ def tau(fit, ilat=None, ilon=None):
 
     nfilt = len(fit.filtwl)
     ax = plt.gca()
-    transform = matplotlib.transforms.blended_transform_factory(
+    transform = mpl.transforms.blended_transform_factory(
         ax.transData, ax.transAxes)
     # Note: assumes all filters are normalized to 1, and plots them
     # in the top tenth of the image.
@@ -491,4 +491,27 @@ def tau(fit, ilat=None, ilon=None):
     plt.legend(frameon=False)
     plt.colorbar()
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
+    plt.close()
+
+def pmaps3d(fit):
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    
+    nmaps = fit.pmaps.shape[0]
+
+    tmax = np.max(fit.tmaps)
+    tmin = np.min(fit.tmaps)
+    for i in range(nmaps):
+        cm = mpl.cm.coolwarm((fit.tmaps[i] - tmin)/(tmax - tmin))
+        ax.plot_surface(fit.lat, fit.lon, fit.pmaps[i], facecolors=cm,
+                        linewidth=5, shade=False)
+        ax.plot_wireframe(fit.lat, fit.lon, fit.pmaps[i], linewidth=0.5,
+                          color=colors[i])
+
+    ax.invert_zaxis()
+    ax.set_xlabel('Latitude (deg)')
+    ax.set_ylabel('Longitude (deg)')
+    ax.set_zlabel('Pressure (bars)')
+    plt.savefig(os.path.join(fit.cfg.outdir, 'pmaps.png'))
     plt.close()
