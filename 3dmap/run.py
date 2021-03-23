@@ -89,8 +89,8 @@ def map2d(cfile):
 
     print("Running PCA to determine eigencurves.")
     fit.eigeny, fit.evalues, fit.evectors, fit.ecurves, fit.lcs = \
-        eigen.mkcurves(system, fit.t, cfg.lmax, fit.pflux_y00,
-                       ncurves=fit.cfg.ncurves, method=cfg.pca)
+        eigen.mkcurves(system, fit.t, cfg.twod.lmax, fit.pflux_y00,
+                       ncurves=fit.cfg.twod.ncurves, method=cfg.twod.pca)
 
     print("Calculating minimum and maximum observed longitudes.")
     fit.minvislon, fit.maxvislon = utils.vislon(planet, fit)
@@ -98,14 +98,14 @@ def map2d(cfile):
     print("Maximum Longitude: {:6.2f}".format(fit.maxvislon))
 
     print("Calculating latitude and longitude of planetary grid.")
-    fit.dlat = 180. / cfg.nlat
-    fit.dlon = 360. / cfg.nlon
+    fit.dlat = 180. / cfg.twod.nlat
+    fit.dlon = 360. / cfg.twod.nlon
     fit.lat, fit.lon = np.meshgrid(np.linspace(-90  + fit.dlat / 2.,
                                                 90  - fit.dlat / 2.,
-                                               cfg.nlat, endpoint=True),
+                                               cfg.twod.nlat, endpoint=True),
                                    np.linspace(-180 + fit.dlon / 2.,
                                                 180 - fit.dlon / 2.,
-                                               cfg.nlon, endpoint=True),
+                                               cfg.twod.nlon, endpoint=True),
                                    indexing='ij')
 
     print("Calculating intensities of visible grid cells of each eigenmap.")
@@ -118,15 +118,15 @@ def map2d(cfile):
     fit.maps = []
 
     # Set up for MCMC
-    if cfg.posflux:
+    if cfg.twod.posflux:
         intens = fit.intens
     else:
         intens = None
         
     indparams = (fit.ecurves, fit.t, fit.pflux_y00, fit.sflux,
-                 cfg.ncurves, intens)
+                 cfg.twod.ncurves, intens)
 
-    npar = cfg.ncurves + 2
+    npar = cfg.twod.ncurves + 2
 
     print("Optimizing 2D maps.")
     for i in range(len(fit.wlmid)):
@@ -134,7 +134,7 @@ def map2d(cfile):
         fit.maps.append(fc.Map())
 
         params = np.zeros(npar)
-        params[cfg.ncurves] = 0.001
+        params[cfg.twod.ncurves] = 0.001
         pstep  = np.ones(npar) *  0.01
         pmin   = np.ones(npar) * -1.0
         pmax   = np.ones(npar) *  1.0
@@ -146,15 +146,15 @@ def map2d(cfile):
 
         # mc3out = mc3.fit(data=mc3data, uncert=mc3unc, func=model.fit_2d,
         #                  params=params, indparams=indparams, pstep=pstep,
-        #                  leastsq=cfg.leastsq, pmin=pmin, pmax=pmax)
+        #                  leastsq=cfg.twod.leastsq, pmin=pmin, pmax=pmax)
 
         mc3out = mc3.sample(data=mc3data, uncert=mc3unc,
-                            func=model.fit_2d, nsamples=cfg.nsamples,
-                            burnin=cfg.burnin, ncpu=cfg.ncpu,
+                            func=model.fit_2d, nsamples=cfg.twod.nsamples,
+                            burnin=cfg.twod.burnin, ncpu=cfg.twod.ncpu,
                             sampler='snooker', savefile=mc3npz,
                             params=params, indparams=indparams,
-                            pstep=pstep, leastsq=cfg.leastsq,
-                            plots=cfg.plots, pmin=pmin, pmax=pmax,
+                            pstep=pstep, leastsq=cfg.twod.leastsq,
+                            plots=cfg.twod.plots, pmin=pmin, pmax=pmax,
                             thinning=10)
 
         # MC3 doesn't clear its plots >:(
@@ -197,12 +197,12 @@ def map2d(cfile):
     # Save stellar correction terms (we need them later)
     fit.scorr = np.zeros(len(fit.wlmid))
     for i in range(len(fit.wlmid)):
-        fit.scorr[i] = fit.maps[i].bestp[cfg.ncurves+1]
+        fit.scorr[i] = fit.maps[i].bestp[cfg.twod.ncurves+1]
 
     print("Calculating planet visibility with time.")
     pbar = progressbar.ProgressBar(max_value=len(fit.t))
     nt = len(fit.t)
-    fit.vis = np.zeros((nt, cfg.nlat, cfg.nlon))
+    fit.vis = np.zeros((nt, cfg.twod.nlat, cfg.twod.nlon))
     for it in range(len(fit.t)):
         fit.vis[it] = utils.visibility(fit.t[it],
                                        np.deg2rad(fit.lat),
@@ -222,8 +222,8 @@ def map2d(cfile):
         print("  Wl: {:.2f} um".format(fit.wlmid[j]))
         for i in range(fit.intens.shape[1]):
             check = np.sum(fit.intens[:,i] *
-                           fit.maps[j].bestp[:cfg.ncurves]) + \
-                           fit.maps[j].bestp[cfg.ncurves] / np.pi
+                           fit.maps[j].bestp[:cfg.twod.ncurves]) + \
+                           fit.maps[j].bestp[cfg.twod.ncurves] / np.pi
             if check <= 0.0:
                 msg = "    Lat: {:+07.2f}, Lon: {:+07.2f}, Flux: {:+013.10f}"
                 print(msg.format(fit.vislat[i], fit.vislon[i], check))
@@ -232,7 +232,7 @@ def map2d(cfile):
           "from eigenmaps.")
     for j in range(len(fit.wlmid)):
         fmap, tmap = eigen.mkmaps(planet, fit.eigeny,
-                                  fit.maps[j].bestp, cfg.ncurves,
+                                  fit.maps[j].bestp, cfg.twod.ncurves,
                                   fit.wlmid[j], cfg.star.r, cfg.planet.r,
                                   cfg.star.t, fit.lat, fit.lon)
         fit.maps[j].fmap = fmap
@@ -251,20 +251,21 @@ def map2d(cfile):
     fit.tmaps = np.array([m.tmap for m in fit.maps])
     fit.fmaps = np.array([m.fmap for m in fit.maps])
 
-    if cfg.plots:
+    if cfg.twod.plots:
         print("Making plots.")
         plots.emaps(planet, fit.eigeny, cfg.outdir, proj='ortho')
         plots.emaps(planet, fit.eigeny, cfg.outdir, proj='rect')
         plots.emaps(planet, fit.eigeny, cfg.outdir, proj='moll')
         plots.lightcurves(fit.t, fit.lcs, cfg.outdir)
-        plots.eigencurves(fit.t, fit.ecurves, cfg.outdir, ncurves=cfg.ncurves)
+        plots.eigencurves(fit.t, fit.ecurves, cfg.outdir,
+                          ncurves=cfg.twod.ncurves)
         plots.ecurvepower(fit.evalues, cfg.outdir)
         plots.pltmaps(fit)
         plots.bestfit(fit)
         plots.ecurveweights(fit)
         plots.hshist(fit)
 
-    if cfg.animations:
+    if cfg.twod.animations:
         print("Making animations.")
         plots.visanimation(fit)
         plots.fluxmapanimation(fit)
@@ -274,7 +275,7 @@ def map2d(cfile):
 def map3d(fit, system):
     cfg = fit.cfg
     print("Fitting spectrum.")
-    if cfg.rtfunc == 'transit':
+    if cfg.threed.rtfunc == 'transit':
         tcfg = mkcfg.mktransit(cfile, cfg.outdir)
         rtcall = os.path.join(transitdir, 'transit', 'transit')
         opacfile = cfg.cfg.get('transit', 'opacityfile')
@@ -297,7 +298,7 @@ def map3d(fit, system):
                                            cfg.cfg.get('transit', 'outspec')),
                               unpack=True)
 
-    elif cfg.rtfunc == 'taurex':
+    elif cfg.threed.rtfunc == 'taurex':
         fit.wngrid = np.arange(cfg.cfg.getfloat('taurex', 'wnlow'),
                                cfg.cfg.getfloat('taurex', 'wnhigh'),
                                cfg.cfg.getfloat('taurex', 'wndelt'))
@@ -319,16 +320,16 @@ def map3d(fit, system):
 
         out = mc3.sample(data=fit.flux.flatten(),
                          uncert=fit.ferr.flatten(),
-                         func=model.sysflux, nsamples=cfg.nsamples,
-                         burnin=cfg.burnin, ncpu=cfg.ncpu,
+                         func=model.sysflux, nsamples=cfg.threed.nsamples,
+                         burnin=cfg.threed.burnin, ncpu=cfg.threed.ncpu,
                          sampler='snooker', savefile=mc3npz,
                          params=params, indparams=indparams,
                          pstep=pstep, pmin=pmin, pmax=pmax,
-                         leastsq=None, plots=cfg.plots)
+                         leastsq=None, plots=cfg.threed.plots)
 
     fit.specbestp = out['bestp']
 
-    nfilt = len(cfg.filtfiles)
+    nfilt = len(cfg.twod.filtfiles)
     nt    = len(fit.t)
 
     print("Calculating best fit.")
@@ -340,12 +341,14 @@ def map3d(fit, system):
         
 
     fit.pmaps = atm.pmaps(fit.specbestp, fit)
-    fit.besttgrid, fit.p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon,
-                                     fit.tmaps, fit.pmaps, cfg.pbot,
-                                     cfg.ptop, oob=cfg.oob,
-                                     interptype=cfg.interp)
+    fit.besttgrid, fit.p = atm.tgrid(cfg.threed.nlayers,
+                                     cfg.twod.nlat, cfg.twod.nlon,
+                                     fit.tmaps, fit.pmaps,
+                                     cfg.threed.pbot, cfg.threed.ptop,
+                                     oob=cfg.threed.oob,
+                                     interptype=cfg.threed.interp)
 
-    if cfg.plots:
+    if cfg.threed.plots:
         plots.bestfitlcsspec(fit)
         plots.bestfittgrid(fit)
         plots.tau(fit)
