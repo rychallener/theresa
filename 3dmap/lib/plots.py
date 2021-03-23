@@ -203,7 +203,7 @@ def bestfit(fit):
 
 def ecurveweights(fit):
     nwl = len(fit.wlmid)
-    ncurves = fit.cfg.ncurves
+    ncurves = fit.cfg.twod.ncurves
     npar = ncurves + 2
 
     maxweight = -np.inf
@@ -323,10 +323,10 @@ def bestfittgrid(fit):
     nmaps = len(fit.maps)
 
     # Latitude index 
-    ieq = fit.cfg.nlat // 2
+    ieq = fit.cfg.twod.nlat // 2
 
-    for i in range(fit.cfg.nlat):
-        for j in range(fit.cfg.nlon):
+    for i in range(fit.cfg.twod.nlat):
+        for j in range(fit.cfg.twod.nlon):
             lat = fit.lat[i,j]
             lon = fit.lon[i,j]
             if i == ieq:
@@ -442,9 +442,9 @@ def tau(fit, ilat=None, ilon=None):
     cfg = fit.cfg
     
     if type(ilat) == type(None):
-        ilat = cfg.nlat // 2
+        ilat = cfg.twod.nlat // 2
     if type(ilon) == type(None):
-        ilon = cfg.nlon // 2
+        ilon = cfg.twod.nlon // 2
         
     nlat, nlon = fit.taugrid.shape
     npress, nwn = fit.taugrid[0,0].shape
