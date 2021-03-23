@@ -96,20 +96,21 @@ def specgrid(params, fit, return_tau=False):
         taugrid = np.empty((nlat, nlon), dtype=list)
 
     pmaps = atm.pmaps(params, fit)
-    tgrid, p = atm.tgrid(cfg.nlayers, cfg.nlat, cfg.nlon, fit.tmaps,
-                         pmaps, cfg.pbot, cfg.ptop,
-                         interptype=cfg.interp, oob=cfg.oob,
-                         smooth=cfg.smooth)
+    tgrid, p = atm.tgrid(cfg.threed.nlayers, cfg.twod.nlat,
+                         cfg.twod.nlon, fit.tmaps, pmaps,
+                         cfg.threed.pbot, cfg.threed.ptop,
+                         interptype=cfg.threed.interp,
+                         oob=cfg.threed.oob, smooth=cfg.threed.smooth)
 
-    r, p, abn, spec = atm.atminit(cfg.atmtype, cfg.atmfile, p, tgrid,
+    r, p, abn, spec = atm.atminit(cfg.threed.atmtype,
+                                  cfg.threed.atmfile, p, tgrid,
                                   cfg.planet.m, cfg.planet.r,
                                   cfg.planet.p0, cfg.elemfile,
-                                  cfg.outdir, ilat=ilat,
-                                  ilon=ilon)
+                                  cfg.outdir, ilat=ilat, ilon=ilon)
 
     negativeT = False
     
-    if cfg.rtfunc == 'taurex':
+    if cfg.threed.rtfunc == 'taurex':
         # Cell-independent Tau-REx objects
         rtplan = taurex.planet.Planet(
              planet_mass=cfg.planet.m*c.Msun/c.Mjup,
@@ -124,9 +125,9 @@ def specgrid(params, fit, return_tau=False):
             distance=cfg.star.d,
             metallicity=cfg.star.z)
         rtp = taurex.pressure.SimplePressureProfile(
-            nlayers=cfg.nlayers,
-            atm_min_pressure=cfg.ptop * 1e5,
-            atm_max_pressure=cfg.pbot * 1e5)
+            nlayers=cfg.threed.nlayers,
+            atm_min_pressure=cfg.threed.ptop * 1e5,
+            atm_max_pressure=cfg.threed.pbot * 1e5)
         # Latitudes (all visible) and Longitudes
         for i, j in zip(ilat, ilon):
             # Check for nonphysical atmosphere and return a bad fit
@@ -149,7 +150,7 @@ def specgrid(params, fit, return_tau=False):
                 pressure_profile=rtp,
                 temperature_profile=rtt,
                 chemistry=rtchem,
-                nlayers=cfg.nlayers,
+                nlayers=cfg.threed.nlayers,
                 latmin=fit.lat[i,j] - fit.dlat / 2.,
                 latmax=fit.lat[i,j] + fit.dlat / 2.,
                 lonmin=fit.lon[i,j] - fit.dlon / 2.,
@@ -181,7 +182,7 @@ def specgrid(params, fit, return_tau=False):
                     fluxgrid[i,j] = np.zeros(nwn)
                 if return_tau:
                     if type(taugrid[i,j]) == type(None):
-                        taugrid[i,j] = np.zeros((cfg.nlayers, nwn))
+                        taugrid[i,j] = np.zeros((cfg.threed.nlayers, nwn))
 
         # Convert to 3d array (rather than 2d array of arrays)
         fluxgrid = np.concatenate(np.concatenate(fluxgrid)).reshape(nlat,
@@ -211,7 +212,7 @@ def specvtime(params, fit):
 
     nt         = len(fit.t)
     nlat, nlon = fit.lat.shape
-    nfilt = len(fit.cfg.filtfiles)
+    nfilt = len(fit.cfg.twod.filtfiles)
 
     # Integrate to filters
     intfluxgrid = np.zeros((nlat, nlon, nfilt))
@@ -249,26 +250,28 @@ def get_par(fit):
     '''
     Returns sensible parameter settings for each model
     '''
-    if fit.cfg.mapfunc == 'isobaric':
+    if fit.cfg.threed.mapfunc == 'isobaric':
         npar  = len(fit.maps)
         par   = np.ones(npar)
         pstep = np.ones(npar) * 1e-3
-        pmin  = np.ones(npar) * np.log10(fit.cfg.ptop)
-        pmax  = np.ones(npar) * np.log10(fit.cfg.pbot)
-    elif fit.cfg.mapfunc == 'sinusoidal':
+        pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
+        pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
+    elif fit.cfg.threed.mapfunc == 'sinusoidal':
         # For a single wavelength
         npar = 4
         par   = np.array([1.0, -10.0, -10.0, 30.0])
         pstep = np.ones(npar) * 1e-3
-        pmin  = np.array([np.log10(fit.cfg.ptop), -np.inf, -np.inf, -180.0])
-        pmax  = np.array([np.log10(fit.cfg.pbot),  np.inf,  np.inf,  180.0])
+        pmin  = np.array([np.log10(fit.cfg.threed.ptop),
+                          -np.inf, -np.inf, -180.0])
+        pmax  = np.array([np.log10(fit.cfg.threed.pbot),
+                          np.inf,  np.inf,  180.0])
         # Repeat for each wavelength
         nwl = len(fit.maps)
         par   = np.tile(par,   nwl)
         pstep = np.tile(pstep, nwl)
         pmin  = np.tile(pmin,  nwl)
         pmax  = np.tile(pmax,  nwl)
-    elif fit.cfg.mapfunc == 'flexible':
+    elif fit.cfg.threed.mapfunc == 'flexible':
         ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
                               (fit.lon - fit.dlon / 2. < fit.maxvislon))
         nvislat = len(np.unique(ilat))
@@ -276,8 +279,8 @@ def get_par(fit):
         npar = nvislat * nvislon * len(fit.maps)
         par   = np.ones(npar)
         pstep = np.ones(npar) * 1e-3
-        pmin  = np.ones(npar) * np.log10(fit.cfg.ptop)
-        pmax  = np.ones(npar) * np.log10(fit.cfg.pbot)
+        pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
+        pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
     else:
         print("Warning: Unrecognized mapping function.")
 
