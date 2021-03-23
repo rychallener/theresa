@@ -423,7 +423,7 @@ def pmaps(params, fit):
     lon   = fit.lon
     dlat  = fit.dlat
     dlon  = fit.dlon
-    mapfunc = fit.cfg.mapfunc
+    mapfunc = fit.cfg.threed.mapfunc
     
     pmaps = np.zeros(tmaps.shape)
     nmap, nlat, nlon = pmaps.shape
