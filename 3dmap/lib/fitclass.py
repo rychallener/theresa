@@ -30,52 +30,70 @@ class Fit:
         self.cfg.cfg   = config
 
         # General options
-        self.cfg.lmax       = self.cfg.cfg.getint(    'General', 'lmax')
         self.cfg.outdir     = self.cfg.cfg.get(       'General', 'outdir')
-        self.cfg.plots      = self.cfg.cfg.getboolean('General', 'plots')
-        self.cfg.animations = self.cfg.cfg.getboolean('General', 'animations')
-        self.cfg.ncurves    = self.cfg.cfg.getint(    'General', 'ncurves')
-        self.cfg.ncpu       = self.cfg.cfg.getint(    'General', 'ncpu')
-        self.cfg.nsamples   = self.cfg.cfg.getint(    'General', 'nsamples')
-        self.cfg.burnin     = self.cfg.cfg.getint(    'General', 'burnin')
-        self.cfg.leastsq    = self.cfg.cfg.get(       'General', 'leastsq')
-        self.cfg.pca        = self.cfg.cfg.get(       'General', 'pca')
-        self.cfg.ncalc      = self.cfg.cfg.getint(    'General', 'ncalc')
-
-        self.cfg.timefile = self.cfg.cfg.get('General', 'timefile')
-        self.cfg.fluxfile = self.cfg.cfg.get('General', 'fluxfile')
-        self.cfg.ferrfile = self.cfg.cfg.get('General', 'ferrfile')
-        self.cfg.wlfile   = self.cfg.cfg.get('General', 'wlfile')
-
-        self.cfg.filtfiles = self.cfg.cfg.get('General', 'filtfiles').split()
-
-        self.cfg.atmtype = self.cfg.cfg.get(     'General', 'atmtype')
-        self.cfg.atmfile = self.cfg.cfg.get(     'General', 'atmfile')
-        self.cfg.nlayers = self.cfg.cfg.getint(  'General', 'nlayers')
-        self.cfg.nlat    = self.cfg.cfg.getint(  'General', 'nlat')
-        self.cfg.nlon    = self.cfg.cfg.getint(  'General', 'nlon')
-        self.cfg.ptop    = self.cfg.cfg.getfloat('General', 'ptop')
-        self.cfg.pbot    = self.cfg.cfg.getfloat('General', 'pbot')
-        self.cfg.temp    = self.cfg.cfg.getfloat('General', 'temp')
+       
+        # 2D options
+        self.cfg.twod.lmax       = self.cfg.cfg.getint('2D', 'lmax')
+        self.cfg.twod.ncurves    = self.cfg.cfg.getint('2D', 'ncurves')
+        self.cfg.twod.pca        = self.cfg.cfg.get(   '2D', 'pca')
+        self.cfg.twod.ncalc      = self.cfg.cfg.getint('2D', 'ncalc')
+        self.cfg.twod.ncpu       = self.cfg.cfg.getint('2D', 'ncpu')
+        self.cfg.twod.nsamples   = self.cfg.cfg.getint('2D', 'nsamples')
+        self.cfg.twod.burnin     = self.cfg.cfg.getint('2Dl', 'burnin')
         
-        if self.cfg.leastsq == 'None' or self.cfg.leastsq == 'False':
-            self.cfg.leastsq = None
+        
+        self.cfg.twod.posflux = self.cfg.cfg.getboolean('2D', 'posflux')
+        
+        self.cfg.twod.nlat    = self.cfg.cfg.getint('2D', 'nlat')
+        self.cfg.twod.nlon    = self.cfg.cfg.getint('2D', 'nlon')
 
-        self.cfg.rtfunc  = self.cfg.cfg.get('General', 'rtfunc')
-        self.cfg.mapfunc = self.cfg.cfg.get('General', 'mapfunc')
-        self.cfg.oob     = self.cfg.cfg.get('General', 'oob')
-        self.cfg.interp  = self.cfg.cfg.get('General', 'interp')
-        self.cfg.smooth  = self.cfg.cfg.get('General', 'smooth')
+        self.cfg.twod.timefile = self.cfg.cfg.get('2D', 'timefile')
+        self.cfg.twod.fluxfile = self.cfg.cfg.get('2D', 'fluxfile')
+        self.cfg.twod.ferrfile = self.cfg.cfg.get('2D', 'ferrfile')
+        self.cfg.twod.wlfile   = self.cfg.cfg.get('2D', 'wlfile')
 
-        if self.cfg.smooth == 'None':
-            self.cfg.smooth = None
+        self.cfg.twod.filtfiles = self.cfg.cfg.get('2D', 'filtfiles').split()
+
+        self.cfg.twod.plots      = self.cfg.cfg.getboolean('2D', 'plots')
+        self.cfg.twod.animations = self.cfg.cfg.getboolean('2D', 'animations')
+        
+        self.cfg.twod.leastsq = self.cfg.cfg.get('2D', 'leastsq')
+        if (self.cfg.twod.leastsq == 'None' or
+            self.cfg.twod.leastsq == 'False'):
+            self.cfg.twod.leastsq = None
+
+        # 3D options
+        self.cfg.threed.ncpu       = self.cfg.cfg.getint('3D', 'ncpu')
+        self.cfg.threed.nsamples   = self.cfg.cfg.getint('3D', 'nsamples')
+        self.cfg.threed.burnin     = self.cfg.cfg.getint('3D', 'burnin')
+        
+        self.cfg.threed.elemfile = self.cfg.cfg.get('3D', 'elemfile')
+        
+        self.cfg.threed.ptop    = self.cfg.cfg.getfloat('3D', 'ptop')
+        self.cfg.threed.pbot    = self.cfg.cfg.getfloat('3D', 'pbot')
+        self.cfg.threed.atmtype = self.cfg.cfg.get(     '3D', 'atmtype')
+        self.cfg.threed.atmfile = self.cfg.cfg.get(     '3D', 'atmfile')
+        self.cfg.threed.nlayers = self.cfg.cfg.getint(  '3D', 'nlayers')
+        
+        self.cfg.threed.rtfunc  = self.cfg.cfg.get('3D', 'rtfunc')
+        self.cfg.threed.mapfunc = self.cfg.cfg.get('3D', 'mapfunc')
+        self.cfg.threed.oob     = self.cfg.cfg.get('3D', 'oob')
+        self.cfg.threed.interp  = self.cfg.cfg.get('3D', 'interp')
+
+        self.cfg.threed.plots      = self.cfg.cfg.getboolean('3D', 'plots')
+        self.cfg.threed.animations = self.cfg.cfg.getboolean('3D', 'animations')
+
+        self.cfg.threed.leastsq = self.cfg.cfg.get('3D', 'leastsq')
+        if (self.cfg.threed.leastsq == 'None' or
+            self.cfg.threed.leastsq == 'False'):
+            self.cfg.threed.leastsq = None        
+        
+        self.cfg.threed.smooth  = self.cfg.cfg.get('3D', 'smooth')
+        if self.cfg.threed.smooth == 'None':
+            self.cfg.threed.smooth = None
         else:
-            self.cfg.smooth = np.int(self.cfg.smooth)
-
-        self.cfg.elemfile = self.cfg.cfg.get('General', 'elemfile')
-
-        self.cfg.posflux = self.cfg.cfg.getboolean('General', 'posflux')
-
+            self.cfg.threed.smooth = np.int(self.cfg.threed.smooth)
+       
         # Star options
         self.cfg.star.m    = self.cfg.cfg.getfloat('Star', 'm')
         self.cfg.star.r    = self.cfg.cfg.getfloat('Star', 'r')
@@ -99,10 +117,10 @@ class Fit:
         self.cfg.planet.b     = self.cfg.cfg.getfloat('Planet', 'b')
         
     def read_data(self):
-        self.t    = np.loadtxt(self.cfg.timefile, ndmin=1)
-        self.flux = np.loadtxt(self.cfg.fluxfile, ndmin=2).T
-        self.ferr = np.loadtxt(self.cfg.ferrfile, ndmin=2).T
-        self.wl   = np.loadtxt(self.cfg.wlfile,   ndmin=1)
+        self.t    = np.loadtxt(self.cfg.twod.timefile, ndmin=1)
+        self.flux = np.loadtxt(self.cfg.twod.fluxfile, ndmin=2).T
+        self.ferr = np.loadtxt(self.cfg.twod.ferrfile, ndmin=2).T
+        self.wl   = np.loadtxt(self.cfg.twod.wlfile,   ndmin=1)
 
         if len(self.t) != self.flux.shape[1]:
             print("WARNING: Number of times does not match the size " +
