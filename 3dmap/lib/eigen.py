@@ -254,12 +254,12 @@ def intensities(planet, fit):
 
     nloc = len(vislon)
     
-    intens = np.zeros((fit.cfg.ncurves, nloc))
+    intens = np.zeros((fit.cfg.twod.ncurves, nloc))
 
-    for k in range(fit.cfg.ncurves):
+    for k in range(fit.cfg.twod.ncurves):
         planet.map[1:,:] = 0
         yi = 1
-        for l in range(1, fit.cfg.lmax + 1):
+        for l in range(1, fit.cfg.twod.lmax + 1):
             for m in range(-l, l + 1):
                 planet.map[l,m] = fit.eigeny[k,yi]
                 yi += 1
