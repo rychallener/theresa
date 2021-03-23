@@ -311,10 +311,10 @@ def map3d(fit, system):
 
         indparams = [fit]
         params, pstep, pmin, pmax = model.get_par(fit)
-        params = np.array([-1.9010, 1.1419, -1.8112])
-        #params = np.array([ 1.9889,  -1.5, -1.5, 30.0,
-        #                   -0.95352, -1.5, -1.5, 30.0,
-        #                   -1.4626,  -2.0, -2.0, 30.0])
+        #params = np.array([-1.4877, -1.4141, -1.5389])
+        params = np.array([-1.8366, -1.9193, -2.1350, 30.3135,
+                           -1.6788, -1.5526, -1.9662, 30.0136,
+                           -1.9883, -1.8053, -2.1915, 30.3561])
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(),
@@ -349,6 +349,7 @@ def map3d(fit, system):
         plots.bestfitlcsspec(fit)
         plots.bestfittgrid(fit)
         plots.tau(fit)
+        plots.pmaps3d(fit)
     
     fit.save(cfg.outdir)
         
