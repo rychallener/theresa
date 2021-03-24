@@ -175,15 +175,16 @@ def map2d(cfile):
         fit.maps[i].bic      = fit.maps[i].chisq + \
             fit.maps[i].nfreep * np.log(fit.maps[i].ndata)
 
-        print(  "Chisq:         {}".format(fit.maps[i].chisq))
-        print(  "Reduced Chisq: {}".format(fit.maps[i].redchisq))
-        print(  "BIC:           {}".format(fit.maps[i].bic))
+        print("Chisq:         {}".format(fit.maps[i].chisq))
+        print("Reduced Chisq: {}".format(fit.maps[i].redchisq))
+        print("BIC:           {}".format(fit.maps[i].bic))
 
+        print("Calculating hotspot latitude and longitude.")
         fit.maps[i].hslocbest, fit.maps[i].hslocstd, fit.maps[i].hslocpost = \
             utils.hotspotloc_driver(fit, fit.maps[i])
 
-        print(  "Hotspot Longitude: {} +/- {}".format(fit.maps[i].hslocbest[1],
-                                                      fit.maps[i].hslocstd[1]))
+        print("Hotspot Longitude: {} +/- {}".format(fit.maps[i].hslocbest[1],
+                                                    fit.maps[i].hslocstd[1]))
 
     # Useful prints
     fit.totchisq2d    = np.sum([m.chisq for m in fit.maps])

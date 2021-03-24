@@ -105,7 +105,7 @@ def specgrid(params, fit, return_tau=False):
     r, p, abn, spec = atm.atminit(cfg.threed.atmtype,
                                   cfg.threed.atmfile, p, tgrid,
                                   cfg.planet.m, cfg.planet.r,
-                                  cfg.planet.p0, cfg.elemfile,
+                                  cfg.planet.p0, cfg.threed.elemfile,
                                   cfg.outdir, ilat=ilat, ilon=ilon)
 
     negativeT = False

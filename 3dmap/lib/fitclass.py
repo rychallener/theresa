@@ -39,7 +39,7 @@ class Fit:
         self.cfg.twod.ncalc      = self.cfg.cfg.getint('2D', 'ncalc')
         self.cfg.twod.ncpu       = self.cfg.cfg.getint('2D', 'ncpu')
         self.cfg.twod.nsamples   = self.cfg.cfg.getint('2D', 'nsamples')
-        self.cfg.twod.burnin     = self.cfg.cfg.getint('2Dl', 'burnin')
+        self.cfg.twod.burnin     = self.cfg.cfg.getint('2D', 'burnin')
         
         
         self.cfg.twod.posflux = self.cfg.cfg.getboolean('2D', 'posflux')
@@ -144,7 +144,7 @@ class Fit:
 
     def read_filters(self):
         self.filtwl, self.filtwn, self.filttrans, self.wnmid, self.wlmid = \
-            utils.readfilters(self.cfg.filtfiles)           
+            utils.readfilters(self.cfg.twod.filtfiles)           
             
     def save(self, outdir, fname=None):
         # Note: starry objects are not pickleable, so they
