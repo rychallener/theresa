@@ -313,10 +313,10 @@ def map3d(fit, system):
 
         indparams = [fit]
         params, pstep, pmin, pmax = model.get_par(fit)
-        #params = np.array([-1.4877, -1.4141, -1.5389])
-        params = np.array([-1.8366, -1.9193, -2.1350, 30.3135,
-                           -1.6788, -1.5526, -1.9662, 30.0136,
-                           -1.9883, -1.8053, -2.1915, 30.3561])
+        params = np.array([-1.1584, -1.1226, -1.1913])
+        #params = np.array([-1.1584, -1.9530, -2.2892, 30.2714,
+        #                   -1.1226, -2.6503, -2.7297, 29.5927,
+        #                   -1.1913, -2.0775, -2.2827, 28.8203])
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(),
@@ -347,7 +347,8 @@ def map3d(fit, system):
                                      fit.tmaps, fit.pmaps,
                                      cfg.threed.pbot, cfg.threed.ptop,
                                      oob=cfg.threed.oob,
-                                     interptype=cfg.threed.interp)
+                                     interptype=cfg.threed.interp,
+                                     smooth=cfg.threed.smooth)
 
     if cfg.threed.plots:
         plots.bestfitlcsspec(fit)

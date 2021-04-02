@@ -382,7 +382,7 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop,
           interptype='linear', oob='extrapolate', smooth=None):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
-    place at the supplied pressures. Dimensions are (nlayers, nlat,
+    placed at the supplied pressures. Dimensions are (nlayers, nlat,
     nlon). Will optionally smooth with a rolling average.
 
     """
