@@ -378,7 +378,7 @@ def calcrad(p, t, mu, r0, mp, p0):
     return r
         
 
-def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop,
+def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
           interptype='linear', oob='extrapolate', smooth=None):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
@@ -395,12 +395,24 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop,
         for j in range(nlon):
             if oob == 'extrapolate':
                 fill_value = 'extrapolate'
+                p_interp = np.copy(pmaps[:,i,j])
+                t_interp = np.copy(tmaps[:,i,j])
             elif oob == 'isothermal':
                 imax = np.argsort(pmaps[:,i,j])[-1]
                 imin = np.argsort(pmaps[:,i,j])[0]
                 fill_value = (tmaps[:,i,j][imin], tmaps[:,i,j][imax])
-            interp = spi.interp1d(np.log10(pmaps[:,i,j]),
-                                  tmaps[:,i,j], kind=interptype,
+                p_interp = np.copy(pmaps[:,i,j])
+                t_interp = np.copy(tmaps[:,i,j])
+            elif oob == 'parameterize':
+                ttop = params[-2]
+                tbot = params[-1]
+                p_interp = np.concatenate((pmaps[:,i,j],
+                                           (ptop, pbot)))
+                t_interp = np.concatenate((tmaps[:,i,j],
+                                           (ttop, tbot)))
+                fill_value = 'exptrapolate' # shouldn't matter
+            interp = spi.interp1d(np.log10(p_interp),
+                                  t_interp, kind=interptype,
                                   bounds_error=False,
                                   fill_value=fill_value)
             

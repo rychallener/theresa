@@ -313,7 +313,7 @@ def map3d(fit, system):
 
         indparams = [fit]
         params, pstep, pmin, pmax = model.get_par(fit)
-        params = np.array([-1.1584, -1.1226, -1.1913])
+        params = np.array([-0.4409, -2.1635, -1.2207, 643.6, 2754.8])
         #params = np.array([-1.1584, -1.9530, -2.2892, 30.2714,
         #                   -1.1226, -2.6503, -2.7297, 29.5927,
         #                   -1.1913, -2.0775, -2.2827, 28.8203])
@@ -346,6 +346,7 @@ def map3d(fit, system):
                                      cfg.twod.nlat, cfg.twod.nlon,
                                      fit.tmaps, fit.pmaps,
                                      cfg.threed.pbot, cfg.threed.ptop,
+                                     fit.specbestp,
                                      oob=cfg.threed.oob,
                                      interptype=cfg.threed.interp,
                                      smooth=cfg.threed.smooth)

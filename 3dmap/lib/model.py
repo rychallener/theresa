@@ -98,7 +98,7 @@ def specgrid(params, fit, return_tau=False):
     pmaps = atm.pmaps(params, fit)
     tgrid, p = atm.tgrid(cfg.threed.nlayers, cfg.twod.nlat,
                          cfg.twod.nlon, fit.tmaps, pmaps,
-                         cfg.threed.pbot, cfg.threed.ptop,
+                         cfg.threed.pbot, cfg.threed.ptop, params,
                          interptype=cfg.threed.interp,
                          oob=cfg.threed.oob, smooth=cfg.threed.smooth)
 
@@ -283,6 +283,12 @@ def get_par(fit):
         pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
     else:
         print("Warning: Unrecognized mapping function.")
+
+    if fit.cfg.threed.oob == 'parameterize':
+        par   = np.concatenate((par,   (1000., 2000.)))
+        pstep = np.concatenate((pstep, (   1.,    1.)))
+        pmin  = np.concatenate((pmin,  (   0.,    0.)))
+        pmax  = np.concatenate((pmax,  (4000., 4000.)))
 
     return par, pstep, pmin, pmax
         
