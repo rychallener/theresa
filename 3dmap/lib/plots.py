@@ -149,13 +149,17 @@ def pltmaps(fit, proj='rect'):
     elif proj == 'ortho':
         extent = (-90,   90, -90, 90)
 
+    # The weird placement of the subplots in this figure is a long-
+    # standing known bug in matplotlib with no straightforward
+    # solution.  Probably not worth fixing here.  See
+    # https://github.com/matplotlib/matplotlib/issues/5463
     for i in range(nmaps):
         irow = i // ncols
         icol = i %  ncols
         ax = axes[irow,icol]
         im = ax.imshow(fit.maps[i].tmap, origin='lower', cmap='plasma',
                        extent=extent, vmin=vmin, vmax=vmax)
-        plt.colorbar(im, ax=ax)
+        plt.colorbar(im, ax=ax, label='Temperature (K)')
         ax.set_title('{:.2f} um'.format(fit.wlmid[i]))
 
     fig.tight_layout()
@@ -320,6 +324,9 @@ def bestfittgrid(fit):
     # Match colors to light curves
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
+    # Line colors from colormap
+    cmap = mpl.cm.get_cmap('hsv')
+
     nmaps = len(fit.maps)
 
     # Latitude index 
@@ -331,7 +338,12 @@ def bestfittgrid(fit):
             lon = fit.lon[i,j]
             if i == ieq:
                 label = "Lat: {:.1f}, Lon: {:.1f}".format(lat, lon)
-                color = None
+                
+                ic = lon / 360.
+                if ic < 0.0:
+                    ic += 1.0
+                    
+                color = cmap(ic)
                 zorder = 2
                 alpha = 1.0
             else:
@@ -489,7 +501,7 @@ def tau(fit, ilat=None, ilon=None):
                  linestyle='--')
 
     plt.legend(frameon=False)
-    plt.colorbar()
+    plt.colorbar(label=r'$T_{above} - T_{layer}$')
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
     plt.close()
 
@@ -513,5 +525,6 @@ def pmaps3d(fit):
     ax.set_xlabel('Latitude (deg)')
     ax.set_ylabel('Longitude (deg)')
     ax.set_zlabel('Pressure (bars)')
+    plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'pmaps.png'))
     plt.close()
