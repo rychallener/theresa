@@ -516,15 +516,15 @@ def pmaps3d(fit):
     tmin = np.min(fit.tmaps)
     for i in range(nmaps):
         cm = mpl.cm.coolwarm((fit.tmaps[i] - tmin)/(tmax - tmin))
-        ax.plot_surface(fit.lat, fit.lon, fit.pmaps[i], facecolors=cm,
-                        linewidth=5, shade=False)
-        ax.plot_wireframe(fit.lat, fit.lon, fit.pmaps[i], linewidth=0.5,
-                          color=colors[i])
+        ax.plot_surface(fit.lat, fit.lon, np.log10(fit.pmaps[i]),
+                        facecolors=cm, linewidth=5, shade=False)
+        ax.plot_wireframe(fit.lat, fit.lon, np.log10(fit.pmaps[i]),
+                          linewidth=0.5, color=colors[i])
 
     ax.invert_zaxis()
     ax.set_xlabel('Latitude (deg)')
     ax.set_ylabel('Longitude (deg)')
-    ax.set_zlabel('Pressure (bars)')
+    ax.set_zlabel('log(p) (bars)')
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'pmaps.png'))
     plt.close()
