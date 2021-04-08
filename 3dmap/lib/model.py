@@ -252,14 +252,14 @@ def get_par(fit):
     '''
     if fit.cfg.threed.mapfunc == 'isobaric':
         npar  = len(fit.maps)
-        par   = np.ones(npar)
+        par   = np.zeros(npar)
         pstep = np.ones(npar) * 1e-3
         pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
         pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
     elif fit.cfg.threed.mapfunc == 'sinusoidal':
         # For a single wavelength
         npar = 4
-        par   = np.array([1.0, -10.0, -10.0, 30.0])
+        par   = np.array([0.0, -10.0, -10.0, 30.0])
         pstep = np.ones(npar) * 1e-3
         pmin  = np.array([np.log10(fit.cfg.threed.ptop),
                           -np.inf, -np.inf, -180.0])
@@ -277,7 +277,7 @@ def get_par(fit):
         nvislat = len(np.unique(ilat))
         nvislon = len(np.unique(ilon))
         npar = nvislat * nvislon * len(fit.maps)
-        par   = np.ones(npar)
+        par   = np.zeros(npar)
         pstep = np.ones(npar) * 1e-3
         pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
         pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
