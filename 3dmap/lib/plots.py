@@ -4,6 +4,7 @@ import matplotlib as mpl
 mpl.rcParams['axes.formatter.useoffset'] = False
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import atm
 
 
 def emaps(planet, eigeny, outdir, proj='ortho'):
@@ -528,3 +529,91 @@ def pmaps3d(fit):
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'pmaps.png'))
     plt.close()
+
+def tgrid_unc(fit):
+    '''
+    Plots the temperature profiles of the atmosphere at various
+    important locations, with uncertainties.
+    '''
+    ncols = 2
+    nrows = 2
+    fig, axes = plt.subplots(ncols=ncols, nrows=nrows, sharex=True,
+                             sharey=True)
+
+    mcmcout = np.load(fit.cfg.outdir + '/3dmcmc.npz')
+
+    # Posterior with burnin masked out
+    posterior = mcmcout['posterior'][mcmcout['zmask']]
+
+    niter, nfree = posterior.shape
+    nlev, nlat, nlon = fit.besttgrid.shape
+    
+    tgridpost = np.zeros((niter, nlev, nlat, nlon))
+    for i in range(niter):
+        tgridpost[i], p = atm.tgrid(nlev, nlat, nlon, fit.tmaps,
+                                    fit.pmaps, fit.cfg.threed.pbot,
+                                    fit.cfg.threed.ptop, posterior[i],
+                                    interptype=fit.cfg.threed.interp,
+                                    oob=fit.cfg.threed.oob,
+                                    smooth=fit.cfg.threed.smooth)
+
+    # Collapse to 1D for easier indexing
+    lat = np.unique(fit.lat)
+    lon = np.unique(fit.lon)
+    
+    for i in range(ncols*nrows):
+        irow = i // nrows
+        icol = i %  ncols
+        ax = axes[irow, icol]
+        # Hotspot
+        if i == 0:
+            # Average over all maps
+            hslatavg = np.mean([a.hslocbest[0] for a in fit.maps])
+            hslonavg = np.mean([a.hslocbest[1] for a in fit.maps])
+            ilat = np.abs(lat - hslatavg).argmin()
+            ilon = np.abs(lon - hslonavg).argmin()
+            title = 'Hotspot'
+        # Substellar point
+        if i == 1:
+            ilat = np.abs(lat -  0.0).argmin()
+            ilon = np.abs(lon -  0.0).argmin()
+            title = 'Substellar'
+        # West terminator
+        if i == 2:
+            ilat = np.abs(lat -  0.0).argmin()
+            ilon = np.abs(lon + 90.0).argmin()
+            title = 'West Terminator'
+        # East terminator
+        if i == 3:
+            ilat = np.abs(lat -  0.0).argmin()
+            ilon = np.abs(lon - 90.0).argmin()
+            title = 'East Terminator'
+
+        tdist = tgridpost[:,:,ilat,ilon]
+
+        l1 = np.percentile(tdist, 15.87, axis=0)
+        l2 = np.percentile(tdist,  2.28, axis=0)
+        h1 = np.percentile(tdist, 84.13, axis=0)
+        h2 = np.percentile(tdist, 97.72, axis=0)
+
+        bf = fit.besttgrid[:,ilat,ilon]
+
+        ax.fill_betweenx(fit.p, l2, h2, facecolor='royalblue')
+        ax.fill_betweenx(fit.p, l1, h1, facecolor='cornflowerblue')
+        ax.semilogy(bf, fit.p, label='Best Fit', color='black')
+        if irow == 1:
+            ax.set_xlabel('Temperature (K)')
+        if icol == 0:
+            ax.set_ylabel('Pressure (bars)')
+        if i == 0:
+            plt.gca().invert_yaxis()
+
+        subtitle = r'$\theta={}, \phi={}$'.format(lat[ilat], lon[ilon])
+        ax.set_title(title + '\n' + subtitle)
+
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(fit.cfg.outdir, 'tgrid_unc.png'))
+    plt.close()
+                                 
+                                 
