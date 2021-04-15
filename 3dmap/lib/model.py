@@ -252,7 +252,9 @@ def get_par(fit):
     '''
     if fit.cfg.threed.mapfunc == 'isobaric':
         npar  = len(fit.maps)
-        par   = np.zeros(npar)
+        # Guess that higher temps are deeper
+        ipar  = np.argsort(np.max(fit.tmaps, axis=(1,2)))
+        par   = np.linspace(-2, 0, npar)[ipar]
         pstep = np.ones(npar) * 1e-3
         pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
         pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
@@ -284,11 +286,23 @@ def get_par(fit):
     else:
         print("Warning: Unrecognized mapping function.")
 
-    if fit.cfg.threed.oob == 'parameterize':
+    if fit.cfg.threed.oob == 'both':
         par   = np.concatenate((par,   (1000., 2000.)))
         pstep = np.concatenate((pstep, (   1.,    1.)))
         pmin  = np.concatenate((pmin,  (   0.,    0.)))
         pmax  = np.concatenate((pmax,  (4000., 4000.)))
+    elif fit.cfg.threed.oob == 'top':
+        par   = np.concatenate((par,   (1000.,)))
+        pstep = np.concatenate((pstep, (   1.,)))
+        pmin  = np.concatenate((pmin,  (   0.,)))
+        pmax  = np.concatenate((pmax,  (4000.,)))
+    elif fit.cfg.threed.oob == 'bot':
+        par   = np.concatenate((par,   (2000.,)))
+        pstep = np.concatenate((pstep, (   1.,)))
+        pmin  = np.concatenate((pmin,  (   0.,)))
+        pmax  = np.concatenate((pmax,  (4000.,)))
+    else:
+        print("Unrecognized out-of-bounds rule.")
 
     return par, pstep, pmin, pmax
         

@@ -403,7 +403,19 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
                 fill_value = (tmaps[:,i,j][imin], tmaps[:,i,j][imax])
                 p_interp = np.copy(pmaps[:,i,j])
                 t_interp = np.copy(tmaps[:,i,j])
-            elif oob == 'parameterize':
+            elif oob == 'top':
+                ttop = params[-1]
+                p_interp = np.concatenate((pmaps[:,i,j], (ptop,)))
+                t_interp = np.concatenate((tmaps[:,i,j], (ttop,)))
+                imax = np.argsort(pmaps[:,i,j])[-1]
+                fill_value = (ttop, tmaps[:,i,j][imax])
+            elif oob == 'bot':
+                tbot = params[-1]
+                p_interp = np.concatenate((pmaps[:,i,j], (pbot,)))
+                t_interp = np.concatenate((tmaps[:,i,j], (tbot,)))
+                imin = np.argsort(pmaps[:,i,j])[0]
+                fill_value = (tmaps[:,i,j][imin], tbot)
+            elif oob == 'both':
                 ttop = params[-2]
                 tbot = params[-1]
                 p_interp = np.concatenate((pmaps[:,i,j],
@@ -411,6 +423,7 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
                 t_interp = np.concatenate((tmaps[:,i,j],
                                            (ttop, tbot)))
                 fill_value = 'exptrapolate' # shouldn't matter
+                
             interp = spi.interp1d(np.log10(p_interp),
                                   t_interp, kind=interptype,
                                   bounds_error=False,
