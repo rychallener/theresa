@@ -422,7 +422,7 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
                                            (ptop, pbot)))
                 t_interp = np.concatenate((tmaps[:,i,j],
                                            (ttop, tbot)))
-                fill_value = 'exptrapolate' # shouldn't matter
+                fill_value = 'extrapolate' # shouldn't matter
                 
             interp = spi.interp1d(np.log10(p_interp),
                                   t_interp, kind=interptype,
