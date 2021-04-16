@@ -550,8 +550,9 @@ def tgrid_unc(fit):
     
     tgridpost = np.zeros((niter, nlev, nlat, nlon))
     for i in range(niter):
+        pmaps = atm.pmaps(posterior[i], fit)
         tgridpost[i], p = atm.tgrid(nlev, nlat, nlon, fit.tmaps,
-                                    fit.pmaps, fit.cfg.threed.pbot,
+                                    pmaps, fit.cfg.threed.pbot,
                                     fit.cfg.threed.ptop, posterior[i],
                                     interptype=fit.cfg.threed.interp,
                                     oob=fit.cfg.threed.oob,
