@@ -5,6 +5,7 @@ import scipy as sp
 import scipy.constants as sc
 import constants as c
 import scipy.interpolate as spi
+import time
 
 libdir = os.path.dirname(os.path.realpath(__file__))
 moddir = os.path.join(libdir, 'modules')
@@ -13,8 +14,8 @@ ratedir = os.path.join(moddir, 'rate')
 sys.path.append(ratedir)
 import rate
 
-def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
-            elemfile, outdir, ilat=None, ilon=None):
+def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
+            ilat=None, ilon=None, cheminfo=None):
     """
     Initializes atmospheres of various types.
     
@@ -22,12 +23,8 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
     ------
     atmtype: string
         Type of atmosphere to initialize. Options are:
-            eq: thermochemical eqilibrium
-
-    atmfile: string
-        Name of file to store the atmosphere description. If this
-        file exists, it will be read and returned instead of creating
-        a new atmosphere.
+            rate: thermochemical eqilibrium with RATE
+            ggchem: thermochemical equilibrium with GGchem (requires file)
 
     p: 1D array
         Pressure layers of the atmosphere
@@ -60,6 +57,12 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
         Optional array of longitude indices where atmosphere should
         be evaluated.
 
+    cheminfo: list or tuple
+        Iterable that contains information needed by certain
+        atmtypes. For example, GGchem requires temperatures,
+        pressures, species, and abundances from a preloaded
+        file.
+
     Returns
     -------
     r: 1D array
@@ -77,12 +80,6 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
     rp *= c.Rsun / c.Rjup
     mp *= c.Msun / c.Mjup
 
-    if os.path.isfile(atmfile):
-        print("Using atmosphere " + atmfile)
-        r, p, t, abn, spec = atmload(atmfile)
-        atmsave(r, p, t, abn, spec, outdir, atmfile)
-        return r, p, abn, spec
-
     nlayers, nlat, nlon = t.shape
 
     if ilat is None:
@@ -91,10 +88,10 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
         ilon = np.repeat(np.arange(nlon), nlat)
 
     #mu = np.zeros(t.shape)
-    r  = np.zeros(t.shape)
+    #r  = np.zeros(t.shape)
     
     # Equilibrium atmosphere
-    if atmtype == 'eq':
+    if atmtype == 'rate':
         robj = rate.Rate(C=2.5e-4, N=1.0e-4, O=5.0e-4, fHe=0.0851)
         spec = robj.species
         nspec = len(spec)
@@ -104,8 +101,32 @@ def atminit(atmtype, atmfile, p, t, mp, rp, refpress,
             #mu[   :,i,j] = calcmu(elemfile, abn[:,:,i,j], spec)
             #r[    :,i,j] = calcrad(p, t[:,i,j], mu[:,i,j],
             #                       rp, mp, refpress)
+    elif atmtype == 'ggchem':
+        ggchemT, ggchemp, spec, ggchemabn = cheminfo
+        tic = time.time()
+        ngrid, nspec = ggchemabn.shape
+        abn = np.zeros((nspec, nlayers, nlat, nlon))
+        
+        if not np.all(np.isclose(p, np.sort(np.unique(ggchemp))[::-1])):
+            print("Pressures of fit and atmosphere file do not match. Exiting")
+            sys.exit()
+            
+        for s in range(nspec):
+            if spec[s] in mols:
+                for k in range(nlayers):
+                    where = np.where(np.isclose(p[k], ggchemp))
+                    f = spi.interp1d(ggchemT[where],
+                                     ggchemabn[where,s])
+                    for i, j in zip(ilat, ilon):
+                        abn[s,k,i,j] = f(t[k,i,j])
+                                                    
+                    #abn[s,:,i,j] = spi.griddata((ggchemT, ggchemp),
+                    #                            ggchemabn[:,s],
+                    #                            (t[:,i,j], p),
+                    #                            method='linear')
+        print("Interpolating: {}".format(time.time() - tic))
 
-    return r, p, abn, spec
+    return abn, spec
 
 def atmsave(r, p, t, abn, spec, outdir, atmfile):
     """
@@ -476,7 +497,63 @@ def pmaps(params, fit):
 
     return pmaps
         
+def read_GGchem(fname):
+    '''
+    Read a GGchem output file.
 
+    Inputs
+    ------
+    fname: string
+        File to be read.
+
+    Returns
+    -------
+    T: 1D array
+        Array of temperatures
+   
+    p: 1D array
+        Array of pressures
+
+    spec: list of strings
+        Elemental and molecular species names
+
+    abn: 2D array
+        Elemental and molecular number mixing ratios (same as molar
+        mixing ratios)
+    '''
+    
+    with open(fname) as f:
+        f.readline() # skip first line
+        d = np.array(f.readline().split())
+        nelem = int(d[0])
+        nmol  = int(d[1])
+        ndust = int(d[2])
+        npt   = int(d[3])
+        header = f.readline().split()
+
+    data = np.loadtxt(fname, skiprows=3)
+
+    T = data[:,0]
+    p = data[:,2] / 1e6 # convert to bars
+    spec = header[3:4+nelem+nmol]
+
+    ntot = 0
+    for i in range(3, 4 + nelem + nmol):
+        ntot += 10**data[:,i]
+
+    # Mixing ratio in log space (calculated by molecular number, but
+    # same as volume mxing ratio)
+    abn = data[:,3:4+nelem+nmol] - np.log10(ntot).reshape(npt**2, 1)
+
+    # Convert to non-log space
+    abn = 10.**abn
+
+    return T, p, spec, abn
+
+    
+        
+        
+        
     
     
         

@@ -276,6 +276,12 @@ def map2d(cfile):
 def map3d(fit, system):
     cfg = fit.cfg
     print("Fitting spectrum.")
+    # Handle any atmosphere setup
+    if cfg.threed.atmtype == 'ggchem':
+        fit.cheminfo = atm.read_GGchem(cfg.threed.atmfile)
+    else:
+        fit.cheminfo = None
+        
     if cfg.threed.rtfunc == 'transit':
         tcfg = mkcfg.mktransit(cfile, cfg.outdir)
         rtcall = os.path.join(transitdir, 'transit', 'transit')
@@ -313,10 +319,30 @@ def map3d(fit, system):
 
         indparams = [fit]
         params, pstep, pmin, pmax = model.get_par(fit)
-        params = np.array([-0.4409, -2.1635, -1.2207, 643.6, 2754.8])
+        #params = np.array([-0.4043, -2.3184, -2.0202, 787.7, 3019.9])
         #params = np.array([-1.1584, -1.9530, -2.2892, 30.2714,
         #                   -1.1226, -2.6503, -2.7297, 29.5927,
         #                   -1.1913, -2.0775, -2.2827, 28.8203])
+        # Linear
+        #params = np.array([-2.2305e-01, -3.2812e-01, -1.1398e00,
+        #                   -1.2935e00,  -1.2912e00,  -1.2818e00,
+        #                   -1.9692e00,  -1.1120e00,  -1.1467e00,
+        #                   -2.8556e-01, 1066.2, 2240.4])
+        # Quadratic
+        #params = np.array([-3.5041e-01, -4.8716e-01, -1.0453e00,
+        #                   -1.4919e00,  -2.6447e00,  -1.5499e00,
+        #                   -1.7487e00,  -8.4813e-01,  7.1842e-03,
+        #                    6.2465e-02, 1080., 1874.])
+        # Cubic
+        #params = np.array([-2.9825e-01, -6.9134e-01, -1.0918e00,
+        #                   -1.4882e00,  -2.3141e00,  -1.5134e00,
+        #                   -1.6642e00,  -7.6916e-01, -2.1964e-01,
+        #                    1.0198e-01, 948.1, 2013.9])
+        # WASP-76b
+        params = np.array([-4.3780e-1, -4.9632e00, -1.7821e00,
+                           -3.6519e00,  6.3395e-2,  6.4480e-1,
+                            8.1577e-2,  6.4573e-2,  3.4045e-1,
+                            1.9944e00, 2762.9])
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(),
@@ -356,6 +382,7 @@ def map3d(fit, system):
         plots.bestfittgrid(fit)
         plots.tau(fit)
         plots.pmaps3d(fit)
+        plots.tgrid_unc(fit)
     
     fit.save(cfg.outdir)
         

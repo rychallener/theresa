@@ -102,11 +102,11 @@ def specgrid(params, fit, return_tau=False):
                          interptype=cfg.threed.interp,
                          oob=cfg.threed.oob, smooth=cfg.threed.smooth)
 
-    r, p, abn, spec = atm.atminit(cfg.threed.atmtype,
-                                  cfg.threed.atmfile, p, tgrid,
-                                  cfg.planet.m, cfg.planet.r,
-                                  cfg.planet.p0, cfg.threed.elemfile,
-                                  cfg.outdir, ilat=ilat, ilon=ilon)
+    abn, spec = atm.atminit(cfg.threed.atmtype, cfg.threed.mols, p,
+                            tgrid, cfg.planet.m, cfg.planet.r,
+                            cfg.planet.p0, cfg.threed.elemfile,
+                            cfg.outdir, ilat=ilat, ilon=ilon,
+                            cheminfo=fit.cheminfo)
 
     negativeT = False
     
@@ -141,7 +141,7 @@ def specgrid(params, fit, return_tau=False):
             rtchem = taurex.chemistry.TaurexChemistry()
             for k in range(len(spec)):
                 if (spec[k] not in ['H2', 'He']) and \
-                   (spec[k]     in fit.cfg.cfg['taurex']['mols'].split()):
+                   (spec[k]     in fit.cfg.threed.mols):
                     gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
                     rtchem.addGas(gas)
             rt = trc.EmissionModel3D(

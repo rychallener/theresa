@@ -80,6 +80,8 @@ class Fit:
         self.cfg.threed.oob     = self.cfg.cfg.get('3D', 'oob')
         self.cfg.threed.interp  = self.cfg.cfg.get('3D', 'interp')
 
+        self.cfg.threed.mols = self.cfg.cfg.get('3D', 'mols').split()
+
         self.cfg.threed.plots      = self.cfg.cfg.getboolean('3D', 'plots')
         self.cfg.threed.animations = self.cfg.cfg.getboolean('3D', 'animations')
 
