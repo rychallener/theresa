@@ -8,6 +8,7 @@ import starry
 import progressbar
 import theano
 import theano.tensor as tt
+from numba import njit
 
 def initsystem(fit):
     '''
@@ -431,3 +432,6 @@ def hotspotloc_driver(fit, map):
 
     return (hslatbest, hslonbest), (hslatstd, hslonstd), (hslat, hslon)
 
+@njit
+def fast_linear_interp(a, b, x):
+    return (b[1] - a[1]) / (b[0] - a[0]) * (x - a[0]) + a[1]
