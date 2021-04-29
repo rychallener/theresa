@@ -1,6 +1,6 @@
 [submodule "3dmap/lib/modules/rate"]
-	path = 3dmap/lib/modules/rate
+	path = theresa/lib/modules/rate
 	url = https://github.com/pcubillos/rate
 [submodule "3dmap/lib/modules/transit"]
-	path = 3dmap/lib/modules/transit
+	path = theresa/lib/modules/transit
 	url = https://github.com/exosports/transit
