@@ -110,7 +110,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
         if not np.all(np.isclose(p, np.sort(np.unique(ggchemp))[::-1])):
             print("Pressures of fit and atmosphere file do not match. Exiting")
             sys.exit()
-            
+
         for s in range(nspec):
             if spec[s] in mols:
                 for k in range(nlayers):
@@ -119,12 +119,11 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
                                      ggchemabn[where,s])
                     for i, j in zip(ilat, ilon):
                         abn[s,k,i,j] = f(t[k,i,j])
-                                                    
-                    #abn[s,:,i,j] = spi.griddata((ggchemT, ggchemp),
-                    #                            ggchemabn[:,s],
-                    #                            (t[:,i,j], p),
-                    #                            method='linear')
+
         print("Interpolating: {}".format(time.time() - tic))
+    else:
+        print("Unrecognized atmopsphere type.")
+        sys.exit()
 
     return abn, spec
 
