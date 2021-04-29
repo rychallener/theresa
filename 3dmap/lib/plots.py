@@ -506,30 +506,71 @@ def tau(fit, ilat=None, ilon=None):
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
     plt.close()
 
-def pmaps3d(fit):
+def pmaps3d(fit, animate=False):
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
 
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     
     nmaps = fit.pmaps.shape[0]
 
-    tmax = np.max(fit.tmaps)
-    tmin = np.min(fit.tmaps)
-    for i in range(nmaps):
-        cm = mpl.cm.coolwarm((fit.tmaps[i] - tmin)/(tmax - tmin))
-        ax.plot_surface(fit.lat, fit.lon, np.log10(fit.pmaps[i]),
-                        facecolors=cm, linewidth=5, shade=False)
-        ax.plot_wireframe(fit.lat, fit.lon, np.log10(fit.pmaps[i]),
-                          linewidth=0.5, color=colors[i])
+    tmax = np.nanmax(fit.tmaps)
+    tmin = np.nanmin(fit.tmaps)
 
-    ax.invert_zaxis()
-    ax.set_xlabel('Latitude (deg)')
-    ax.set_ylabel('Longitude (deg)')
-    ax.set_zlabel('log(p) (bars)')
-    plt.tight_layout()
+    def init():
+        for i in range(nmaps):
+            cm = mpl.cm.coolwarm((fit.tmaps[i] - tmin)/(tmax - tmin))
+            ax.plot_surface(fit.lat, fit.lon, np.log10(fit.pmaps[i]),
+                            facecolors=cm, linewidth=3, shade=False)
+            ax.plot_wireframe(fit.lat, fit.lon,
+                              np.log10(fit.pmaps[i]), linewidth=0.5,
+                              color=colors[i])
+
+        ax.invert_zaxis()
+        ax.set_xlabel('Latitude (deg)')
+        ax.set_ylabel('Longitude (deg)')
+        ax.set_zlabel('log(p) (bars)')
+        plt.tight_layout()
+        return fig,
+
+    init()
     plt.savefig(os.path.join(fit.cfg.outdir, 'pmaps.png'))
     plt.close()
+    
+    if not animate:
+        return
 
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    
+    nframes = 80
+    
+    Writer = animation.writers['pillow']
+    writer = Writer(fps=15)
+
+    base_azim = 45.0
+    base_elev = 15.0
+
+    azim_vary = np.concatenate((np.linspace(0., 45., nframes // 4),
+                                np.linspace(45., 0., nframes // 4),
+                                np.zeros(nframes // 2)))
+    azim = base_azim + azim_vary
+
+    elev_vary = np.concatenate((np.zeros(nframes // 2),
+                                np.linspace(0., 30., nframes // 4),
+                                np.linspace(30., 0., nframes // 4)))
+    elev = base_elev + elev_vary
+    
+    def animate(i):
+        ax.view_init(elev=elev[i], azim=azim[i])
+        return fig,
+        
+    anim = animation.FuncAnimation(fig, animate, init_func=init,
+                                   frames=nframes, interval=20, blit=True)
+
+    anim.save(os.path.join(fit.cfg.outdir, 'pmaps3d.gif'), dpi=300,
+              writer=writer)
+
+    plt.close()
+    
 def tgrid_unc(fit):
     '''
     Plots the temperature profiles of the atmosphere at various

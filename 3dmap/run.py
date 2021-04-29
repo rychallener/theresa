@@ -339,10 +339,10 @@ def map3d(fit, system):
         #                   -1.6642e00,  -7.6916e-01, -2.1964e-01,
         #                    1.0198e-01, 948.1, 2013.9])
         # WASP-76b
-        params = np.array([-4.3780e-1, -4.9632e00, -1.7821e00,
-                           -3.6519e00,  6.3395e-2,  6.4480e-1,
-                            8.1577e-2,  6.4573e-2,  3.4045e-1,
-                            1.9944e00, 2762.9])
+        params = np.array([-1.0447e00, -5.7441e00, -1.2461e00,
+                           -1.7388e00,  1.5710e00,  1.9398e00,
+                            1.9925e00,  1.5119e00,  1.3836e00,
+                            1.4508e00, 1664.3])
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(),
@@ -386,6 +386,9 @@ def map3d(fit, system):
         plots.tau(fit)
         plots.pmaps3d(fit)
         plots.tgrid_unc(fit)
+
+    if cfg.threed.animations:
+        plots.pmaps3d(fit, animate=True)
     
     fit.save(cfg.outdir)
         
