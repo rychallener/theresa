@@ -339,10 +339,10 @@ def map3d(fit, system):
         #                   -1.6642e00,  -7.6916e-01, -2.1964e-01,
         #                    1.0198e-01, 948.1, 2013.9])
         # WASP-76b
-        params = np.array([-1.0447e00, -5.7441e00, -1.2461e00,
-                           -1.7388e00,  1.5710e00,  1.9398e00,
-                            1.9925e00,  1.5119e00,  1.3836e00,
-                            1.4508e00, 1664.3])
+        params = np.array([-1.0279e00, -5.7840e00, -1.3484e00,
+                           -1.7876e00,  1.4591e00,  1.8965e00,
+                            1.9833e00,  1.6257e00,  1.3986e00,
+                            1.5269e00, 1696.8])
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(),
@@ -411,7 +411,6 @@ if __name__ == "__main__":
         fit.read_config(cfile)
         fit = fc.load(outdir=fit.cfg.outdir)
         fit.read_config(cfile)
-        #fit.read_data()
         star, planet, system = utils.initsystem(fit)
         map3d(fit, system)
     else:
