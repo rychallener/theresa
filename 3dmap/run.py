@@ -354,7 +354,10 @@ def map3d(fit, system):
                          pstep=pstep, pmin=pmin, pmax=pmax,
                          leastsq=None, plots=cfg.threed.plots)
 
-    fit.specbestp = out['bestp']
+    fit.specbestp  = out['bestp']
+    fit.chisq3d    = out['best_chisq']
+    fit.redchisq3d = out['red_chisq']
+    fit.bic3d      = out['BIC']
 
     nfilt = len(cfg.twod.filtfiles)
     nt    = len(fit.t)
