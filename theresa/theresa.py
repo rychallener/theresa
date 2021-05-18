@@ -399,6 +399,7 @@ def map3d(fit, system):
         plots.tau(fit)
         plots.pmaps3d(fit)
         plots.tgrid_unc(fit)
+        plots.cf(fit)
 
     if cfg.threed.animations:
         plots.pmaps3d(fit, animate=True)
