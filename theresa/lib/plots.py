@@ -657,5 +657,45 @@ def tgrid_unc(fit):
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'tgrid_unc.png'))
     plt.close()
+
+
+def tmapunc(fit):
+    nmaps = len(fit.maps)
+
+    ncols = np.int(np.sqrt(nmaps) // 1)
+    nrows = np.int((nmaps // ncols) + (nmaps % ncols != 0))
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
+                             sharey=True)
+
+    fig.set_size_inches(2*ncols, 2*nrows)
+    
+    for i in range(nmaps):
+        irow = i // ncols
+        icol = i %  ncols
+        print(irow, icol)
                                  
-                                 
+        ax = axes[irow, icol]
+
+        map = fit.maps[i]
+        npost, nlat, nlon = map.tmappost.shape
+        ilat = nlat // 2
+
+        for j in range(npost):
+            ax.plot(fit.lon[ilat], map.tmappost[j,ilat], color='gray',
+                    alpha=0.01)
+        
+        ax.errorbar(fit.lon[ilat], map.tmap[ilat], map.tmapunc[ilat])
+
+        #plt.autoscale(False)
+        #ax.vlines((fit.minvislon, fit.maxvislon), 0.0, 5000.,
+        #          color='red')
+        #plt.autoscale(True)
+        
+        ax.set_title(r"{:.2f} $\mu$m".format(map.wlmid))
+        if irow == nrows:
+            ax.set_xlabel("Longitude (deg)")
+        if icol == 0:
+            ax.set_ylabel("Temperature (K)")
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(fit.cfg.outdir, 'tmapunc.png'))
