@@ -475,7 +475,7 @@ def tau(fit, ilat=None, ilon=None):
 
     tau = fit.taugrid[ilat,ilon]
     
-    plt.imshow(np.flip(tau), aspect='auto',
+    plt.imshow(np.flip(np.exp(-tau)), aspect='auto',
                extent=(minlogwl, maxlogwl, maxlogp, minlogp),
                cmap='magma')
 
@@ -502,7 +502,7 @@ def tau(fit, ilat=None, ilon=None):
                  linestyle='--')
 
     plt.legend(frameon=False)
-    plt.colorbar(label=r'$T_{above} - T_{layer}$')
+    plt.colorbar(label=r'$e^{-\tau}$')
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
     plt.close()
 
