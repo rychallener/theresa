@@ -40,6 +40,7 @@ transitdir = os.path.join(moddir, 'transit')
 
 # Lib imports
 sys.path.append(libdir)
+import cf
 import atm
 import pca
 import eigen
@@ -386,6 +387,11 @@ def map3d(fit, system):
                                      oob=cfg.threed.oob,
                                      interptype=cfg.threed.interp,
                                      smooth=cfg.threed.smooth)
+
+    print("Calculating contribution functions.")
+    fit.cf = cf.contribution_filters(fit.besttgrid, fit.modelwngrid,
+                                     fit.taugrid, fit.p, fit.filtwn,
+                                     fit.filttrans)
 
     if cfg.threed.plots:
         plots.bestfitlcsspec(fit)
