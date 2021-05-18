@@ -79,17 +79,72 @@ class EmissionModel3D(taurex.model.EmissionModel):
 
         return cell_flux
 
-# class NormalizedStar(taurex.stellar.Star):
-#     def __init__(self, temperature=5000, radius=1.0, metallicity=1.0,
-#                  mass=1.0, distance=1.0, magnitudeK=10.0):
-#         super().__init__(temperature=temperature, radius=radius,
-#                          distance=distance, magnitudeK=magnitudeK,
-#                          mass=mass, metallicity=metallicity)
-        
-#     def initialize(self, wngrid):
-#         """
-#         Overload intialize to set SED. Set to 1/PI for all wavelengths,
-#         so that the integrated flux is 1.
-#         """
-#         self.sed = np.ones(len(wngrid)) * 1 / np.pi
+    def path_integral(self, wngrid, return_contrib):
+        '''
+        Overload the base emission path_integral() method to 
+        return the actual cumulative tau array rather than
+        an array of the change in transmittance. This gives
+        more flexibility for further calculations.
+        '''
+        dz = np.gradient(self.altitudeProfile)
+
+        density = self.densityProfile
+
+        wngrid_size = wngrid.shape[0]
+
+        total_layers = self.nLayers
+
+        temperature = self.temperatureProfile
+        tau = np.zeros(shape=(self.nLayers, wngrid_size))
+        surface_tau = np.zeros(shape=(1, wngrid_size))
+
+        layer_tau = np.zeros(shape=(1, wngrid_size))
+
+        dtau = np.zeros(shape=(1, wngrid_size))
+
+        # Do surface first
+        # for layer in range(total_layers):
+        for contrib in self.contribution_list:
+            contrib.contribute(self, 0, total_layers, 0, 0,
+                               density, surface_tau, path_length=dz)
+        self.debug('density = %s', density[0])
+        self.debug('surface_tau = %s', surface_tau)
+
+        BB = black_body(wngrid, temperature[0])/PI
+
+        _mu = 1.0/self._mu_quads[:, None]
+        _w = self._wi_quads[:, None]
+        I = BB * (np.exp(-surface_tau*_mu))
+
+        self.debug('I1_pre %s', I)
+        # Loop upwards
+        for layer in range(total_layers):
+            layer_tau[...] = 0.0
+            dtau[...] = 0.0
+            for contrib in self.contribution_list:
+                contrib.contribute(self, layer+1, total_layers,
+                                   0, 0, density, layer_tau, path_length=dz)
+                contrib.contribute(self, layer, layer+1, 0,
+                                   0, density, dtau, path_length=dz)
+
+            #_tau = np.exp(-layer_tau) - np.exp(-dtau)
+            _tau = layer_tau + dtau
+
+            tau[layer] += _tau[0]
+            # for contrib in self.contribution_list:
+
+            self.debug('Layer_tau[%s]=%s', layer, layer_tau)
+
+            dtau += layer_tau
+            self.debug('dtau[%s]=%s', layer, dtau)
+            BB = black_body(wngrid, temperature[layer])/PI
+            self.debug('BB[%s]=%s,%s', layer, temperature[layer], BB)
+            I += BB * (np.exp(-layer_tau*_mu) - np.exp(-dtau*_mu))
+
+        self.debug('I: %s', I)
+
+        flux_total = 2.0 * np.pi * sum(I * (_w / _mu))
+        self.debug('flux_total %s', flux_total)
+
+        return self.compute_final_flux(flux_total).flatten(), tau
                          
