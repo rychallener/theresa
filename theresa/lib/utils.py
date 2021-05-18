@@ -500,3 +500,22 @@ def fmap_to_tmap(fmap, wl, rp, rs, ts, scorr):
 @njit
 def fast_linear_interp(a, b, x):
     return (b[1] - a[1]) / (b[0] - a[0]) * (x - a[0]) + a[1]
+
+@njit
+def blackbody(T, wn):
+    '''
+    Calculates the Planck function for a grid of temperatures and
+    wavenumbers. Wavenumbers must be in /cm.
+    '''
+     nt  = len(T)
+     nwn = len(wn)
+     bb = np.zeros((nt, nwn))
+
+     # Convert from /cm to /m
+     wn_m = wn * 1e2
+     for i in range(nt):
+          for j in range(nwn):
+               bb[i,j] = (2.0 * scc.h * scc.c**2 * wn_m[j]**3) \
+                    * 1/(np.exp(scc.h * scc.c * wn_m[j] / scc.k / T[i]) - 1.0)
+
+     return bb    
