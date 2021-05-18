@@ -699,3 +699,33 @@ def tmapunc(fit):
 
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'tmapunc.png'))
+
+def cf(fit):
+    nlat, nlon, nlev, nfilt = fit.cf.shape
+    fig, axes = plt.subplots(nrows=nlat, ncols=4, sharey=True)
+    fig.set_size_inches(16, 8)
+    cmap = mpl.cm.get_cmap('rainbow')
+    for i in range(nlat):
+        for j in range(nlon):
+            ax = axes[i,j]
+            for k in range(nfilt):
+                color = cmap(1 - k / nfilt)
+                label = os.path.split(fit.cfg.twod.filtfiles[k])[1]
+
+                ax.semilogy(fit.cf[i,j,:,k], fit.p, color=color,
+                            label=label)
+                
+            ax.set_xlabel('Contribution')
+
+            if i == 0:
+                ax.set_ylabel('Pressure (bars)')
+
+            ax.set_title('Lat: {}, Lon: {}'.format(
+                np.round(fit.lat[i,j], 2),
+                np.round(fit.lon[i,j], 2)))
+
+    # Since we share y axes, this inverts them all
+    plt.gca().invert_yaxis()
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
