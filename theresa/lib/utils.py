@@ -3,7 +3,9 @@ import pickle
 import theano
 import time
 import constants as c
+import scipy.constants as sc
 import scipy.interpolate as spi
+import eigen
 import starry
 import progressbar
 import theano
@@ -337,10 +339,11 @@ def mapintensity(map, lat, lon, amp):
     """
     Calculates a grid of intensities, multiplied by the amplitude given.
     """
-    grid  = map.intensity(lat=lat.flatten(), lon=lon.flatten()).eval()
+    grid = map.intensity(lat=lat.flatten(), lon=lon.flatten()).eval()
     grid *= amp
-    grid  = grid.reshape(lat.shape)
+    grid = grid.reshape(lat.shape)
     return grid
+
 
 def hotspotloc_driver(fit, map):
     """
@@ -398,9 +401,8 @@ def hotspotloc_driver(fit, map):
                                       ntries=ntries, bounds=bounds)
         return lat, lon, val
 
-    arg1 = tt.iscalar()
-    arg2 = tt.dvector()
-    t_hotspotloc = theano.function([arg2], hotspotloc(arg2))
+    arg1 = tt.dvector()
+    t_hotspotloc = theano.function([arg1], hotspotloc(arg1))
 
     # Note the maps created here do not include the correct uniform
     # component because that does not affect the location of the
@@ -431,6 +433,69 @@ def hotspotloc_driver(fit, map):
     hslatstd = np.std(hslat)
 
     return (hslatbest, hslonbest), (hslatstd, hslonstd), (hslat, hslon)
+
+def tmappost(fit, map):
+    post = map.post[map.zmask]
+
+    nsamp, nfree = post.shape
+    ncurves = fit.cfg.twod.ncurves
+
+    if fit.cfg.twod.ncalc > nsamp:
+        print("Warning: ncalc reduced to match burned-in sample.")
+        ncalc = nsamp
+    else:
+        ncalc = fit.cfg.twod.ncalc
+
+    thinning = nsamp // ncalc
+
+    fmaps = np.zeros((ncalc, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+    tmaps = np.zeros((ncalc, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+    
+    star, planet, system = initsystem(fit)
+
+    def calcfmap(yval, unifamp):
+        planet.map[1:,:] = 0.0
+        amp = unifamp - 1
+        fmap = planet.map.intensity(lat=fit.lat.flatten(),
+                                    lon=fit.lon.flatten()) * amp
+
+        planet.map[1:,:] = yval
+        fmap += planet.map.intensity(lat=fit.lat.flatten(),
+                                     lon=fit.lon.flatten())
+
+        return fmap
+
+    arg1 = tt.dvector()
+    arg2 = tt.dscalar()
+    t_calcfmap = theano.function([arg1, arg2], calcfmap(arg1, arg2))
+        
+    pbar = progressbar.ProgressBar(max_value=ncalc)
+    for i in range(ncalc):
+        ipost = i * thinning
+        yval = np.zeros((fit.cfg.twod.lmax+1)**2-1)
+        for j in range(fit.cfg.twod.ncurves):
+            yval += post[ipost,j] * fit.eigeny[j,1:]
+            
+        fmaps[i] = t_calcfmap(yval, post[ipost, ncurves]).reshape(fit.lat.shape)
+        tmaps[i] = fmap_to_tmap(fmaps[i], map.wlmid*1e-6,
+                                fit.cfg.planet.r, fit.cfg.star.r,
+                                fit.cfg.star.t, post[ipost,ncurves+1])
+        
+        pbar.update(i+1)
+
+    return fmaps, tmaps
+
+def fmap_to_tmap(fmap, wl, rp, rs, ts, scorr):
+    '''
+    Convert flux map to brightness temperatures.
+    See Rauscher et al., 2018, eq. 8
+    '''
+    ptemp = (sc.h * sc.c) / (wl * sc.k)
+    sfact = 1 + scorr
+    tmap = ptemp / np.log(1 + (rp / rs)**2 *
+                          (np.exp(ptemp / ts) - 1) /
+                          (np.pi * fmap * sfact))
+    return tmap
 
 @njit
 def fast_linear_interp(a, b, x):

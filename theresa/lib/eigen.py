@@ -162,11 +162,7 @@ def mkmaps(planet, eigeny, params, ncurves, wl, rs, rp, ts, lat, lon):
 
     # Convert to brightness temperatures
     # see Rauscher et al., 2018, Eq. 8
-    ptemp = (sc.h * sc.c) / (wl_m * sc.k)
-    sfact = 1 + params[ncurves+1]
-    tmap = ptemp / np.log(1 + (rp / rs)**2 *
-                          (np.exp(ptemp / ts) - 1) /
-                          (np.pi * fmap * sfact))
+    tmap = utils.fmap_to_tmap(fmap, wl_m, rp, rs, ts, params[ncurves+1])
 
     return fmap, tmap
 

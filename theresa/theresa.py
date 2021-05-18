@@ -186,6 +186,13 @@ def map2d(cfile):
         print("Hotspot Longitude: {} +/- {}".format(fit.maps[i].hslocbest[1],
                                                     fit.maps[i].hslocstd[1]))
 
+        print("Calculating temperature map uncertainties.")
+        fit.maps[i].wlmid = fit.wlmid[i]
+        fit.maps[i].fmappost, fit.maps[i].tmappost = utils.tmappost(
+            fit, fit.maps[i])
+        fit.maps[i].tmapunc = np.std(fit.maps[i].tmappost, axis=0)
+        fit.maps[i].fmapunc = np.std(fit.maps[i].fmappost, axis=0)
+
     # Useful prints
     fit.totchisq2d    = np.sum([m.chisq for m in fit.maps])
     fit.totredchisq2d = fit.totchisq2d / \
@@ -339,10 +346,10 @@ def map3d(fit, system):
         #                   -1.6642e00,  -7.6916e-01, -2.1964e-01,
         #                    1.0198e-01, 948.1, 2013.9])
         # WASP-76b
-        params = np.array([-1.0279e00, -5.7840e00, -1.3484e00,
-                           -1.7876e00,  1.4591e00,  1.8965e00,
-                            1.9833e00,  1.6257e00,  1.3986e00,
-                            1.5269e00, 1696.8])
+        params = np.array([-1.0708e00, -5.9989e00, -1.3116e00,
+                           -2.0480e00,  1.6022e00,  1.8505e00,
+                            1.9442e00,  1.6155e00,  1.6029e00,
+                            1.8327e00, 1832.7])
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(),
