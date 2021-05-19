@@ -702,8 +702,22 @@ def tmapunc(fit):
 
 def cf(fit):
     nlat, nlon, nlev, nfilt = fit.cf.shape
-    fig, axes = plt.subplots(nrows=nlat, ncols=4, sharey=True)
+    fig, axes = plt.subplots(nrows=nlat, ncols=nlon, sharey=True, sharex=True)
     fig.set_size_inches(16, 8)
+
+    # Place labels on a single large axes object
+    bigax = fig.add_subplot(111, frameon=False)
+    bigax.spines['top'].set_color('none')
+    bigax.spines['bottom'].set_color('none')
+    bigax.spines['left'].set_color('none')
+    bigax.spines['right'].set_color('none')
+    bigax.tick_params(labelcolor='w', top=False, bottom=False,
+                      left=False, right=False)
+
+    bigax.set_ylabel('Pressure (bars)', labelpad=30)
+    bigax.set_xlabel('Contribution (arbitrary)', labelpad=10)
+
+    
     cmap = mpl.cm.get_cmap('rainbow')
     for i in range(nlat):
         for j in range(nlon):
@@ -714,18 +728,17 @@ def cf(fit):
 
                 ax.semilogy(fit.cf[i,j,:,k], fit.p, color=color,
                             label=label)
-                
-            ax.set_xlabel('Contribution')
 
-            if i == 0:
-                ax.set_ylabel('Pressure (bars)')
+            if i == nlat - 1:
+                ax.set_xlabel('Lon: {}'.format(np.round(fit.lon[i,j], 2)))
+            if j == 0:
+                ax.set_ylabel('Lat: {}'.format(np.round(fit.lat[i,j], 2)))
 
-            ax.set_title('Lat: {}, Lon: {}'.format(
-                np.round(fit.lat[i,j], 2),
-                np.round(fit.lon[i,j], 2)))
+            ax.set_xticklabels([])
 
     # Since we share y axes, this inverts them all
     plt.gca().invert_yaxis()
-    plt.legend()
+    #plt.legend()
+    
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
