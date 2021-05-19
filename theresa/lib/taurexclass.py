@@ -1,6 +1,8 @@
 import taurex
 from taurex import chemistry
 from taurex import model
+from taurex.util.emission import black_body
+from taurex.constants import PI
 import constants as c
 import numpy as np
 
