@@ -503,19 +503,20 @@ def fast_linear_interp(a, b, x):
 
 @njit
 def blackbody(T, wn):
+    
     '''
     Calculates the Planck function for a grid of temperatures and
     wavenumbers. Wavenumbers must be in /cm.
     '''
-     nt  = len(T)
-     nwn = len(wn)
-     bb = np.zeros((nt, nwn))
+    nt  = len(T)
+    nwn = len(wn)
+    bb = np.zeros((nt, nwn))
 
-     # Convert from /cm to /m
-     wn_m = wn * 1e2
-     for i in range(nt):
-          for j in range(nwn):
-               bb[i,j] = (2.0 * sc.h * sc.c**2 * wn_m[j]**3) \
-                    * 1/(np.exp(sc.h * sc.c * wn_m[j] / sc.k / T[i]) - 1.0)
+    # Convert from /cm to /m
+    wn_m = wn * 1e2
+    for i in range(nt):
+         for j in range(nwn):
+              bb[i,j] = (2.0 * sc.h * sc.c**2 * wn_m[j]**3) \
+                   * 1/(np.exp(sc.h * sc.c * wn_m[j] / sc.k / T[i]) - 1.0)
 
-     return bb    
+    return bb    
