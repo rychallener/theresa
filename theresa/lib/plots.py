@@ -501,9 +501,12 @@ def tau(fit, ilat=None, ilon=None):
                  transform=transform, label='{:.2f} um'.format(fit.wlmid[i]),
                  linestyle='--')
 
-    plt.legend(frameon=False)
+    leg = plt.legend(frameon=False, ncol=4, fontsize=8)
+    for text in leg.get_texts():
+        text.set_color("white")
+        
     plt.colorbar(label=r'$e^{-\tau}$')
-    plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
+    plt.savefig(os.path.join(fit.cfg.outdir, 'transmission.png'))
     plt.close()
 
 def pmaps3d(fit, animate=False):
@@ -723,7 +726,7 @@ def cf(fit):
         for j in range(nlon):
             ax = axes[i,j]
             for k in range(nfilt):
-                color = cmap(1 - k / nfilt)
+                color = cmap(k / nfilt)
                 label = os.path.split(fit.cfg.twod.filtfiles[k])[1]
 
                 ax.semilogy(fit.cf[i,j,:,k], fit.p, color=color,
@@ -733,13 +736,16 @@ def cf(fit):
                 ax.set_xlabel(r'{}$^\circ$'.format(np.round(fit.lon[i,j], 2)))
             if j == 0:
                 ax.set_ylabel(r'{}$^\circ$'.format(np.round(fit.lat[i,j], 2)))
+            if i == nlat -1 and j == nlon - 1:
+                ax.invert_yaxis()
 
             ax.set_xticklabels([])
             ax.tick_params(axis='y', labelsize=6)
 
     # Since we share y axes, this inverts them all
-    plt.gca().invert_yaxis()
+    #plt.gca().invert_yaxis()
     #plt.legend()
     
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
+    plt.close()
