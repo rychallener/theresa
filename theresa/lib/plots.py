@@ -714,7 +714,7 @@ def cf(fit):
     bigax.tick_params(labelcolor='w', top=False, bottom=False,
                       left=False, right=False)
 
-    bigax.set_ylabel('Pressure (bars)', labelpad=30)
+    bigax.set_ylabel('Pressure (bars)', labelpad=20)
     bigax.set_xlabel('Contribution (arbitrary)', labelpad=10)
 
     
@@ -730,11 +730,12 @@ def cf(fit):
                             label=label)
 
             if i == nlat - 1:
-                ax.set_xlabel('Lon: {}'.format(np.round(fit.lon[i,j], 2)))
+                ax.set_xlabel(r'{}$^\circ$'.format(np.round(fit.lon[i,j], 2)))
             if j == 0:
-                ax.set_ylabel('Lat: {}'.format(np.round(fit.lat[i,j], 2)))
+                ax.set_ylabel(r'{}$^\circ$'.format(np.round(fit.lat[i,j], 2)))
 
             ax.set_xticklabels([])
+            ax.tick_params(axis='y', labelsize=6)
 
     # Since we share y axes, this inverts them all
     plt.gca().invert_yaxis()
