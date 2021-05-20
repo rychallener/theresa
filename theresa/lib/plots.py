@@ -586,18 +586,16 @@ def tgrid_unc(fit):
 
     mcmcout = np.load(fit.cfg.outdir + '/3dmcmc.npz')
 
-    # Posterior with burnin masked out
-    posterior = mcmcout['posterior'][mcmcout['zmask']]
-
-    niter, nfree = posterior.shape
+    niter, npar = fit.posterior3d.shape
     nlev, nlat, nlon = fit.besttgrid.shape
     
     tgridpost = np.zeros((niter, nlev, nlat, nlon))
     for i in range(niter):
-        pmaps = atm.pmaps(posterior[i], fit)
+        pmaps = atm.pmaps(fit.posterior3d[i], fit)
         tgridpost[i], p = atm.tgrid(nlev, nlat, nlon, fit.tmaps,
                                     pmaps, fit.cfg.threed.pbot,
-                                    fit.cfg.threed.ptop, posterior[i],
+                                    fit.cfg.threed.ptop,
+                                    fit.posterior3d[i],
                                     interptype=fit.cfg.threed.interp,
                                     oob=fit.cfg.threed.oob,
                                     smooth=fit.cfg.threed.smooth)

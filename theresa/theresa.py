@@ -347,10 +347,15 @@ def map3d(fit, system):
         #                   -1.6642e00,  -7.6916e-01, -2.1964e-01,
         #                    1.0198e-01, 948.1, 2013.9])
         # WASP-76b
-        params = np.array([-1.0708e00, -5.9989e00, -1.3116e00,
-                           -2.0480e00,  1.6022e00,  1.8505e00,
-                            1.9442e00,  1.6155e00,  1.6029e00,
-                            1.8327e00, 1832.7])
+        #params = np.array([-1.0708e00, -5.9989e00, -1.3116e00,
+        #                   -2.0480e00,  1.6022e00,  1.8505e00,
+        #                    1.9442e00,  1.6155e00,  1.6029e00,
+        #                    1.8327e00, 1832.7])
+        params[0::4] =  np.array([-1.0708e00, -5.9989e00, -1.3116e00,
+                                  -2.0480e00,  1.6022e00,  1.8505e00,
+                                  1.9442e00,  1.6155e00,  1.6029e00,
+                                  1.8327e00, 1832.7])
+        pstep[3::4] = 0
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
         out = mc3.sample(data=fit.flux.flatten(),
@@ -366,6 +371,14 @@ def map3d(fit, system):
     fit.chisq3d    = out['best_chisq']
     fit.redchisq3d = out['red_chisq']
     fit.bic3d      = out['BIC']
+
+    # Put fixed params in the posterior so it's a consistent size
+    fit.posterior3d = out['posterior'][out['zmask']]
+    niter, nfree = fit.posterior3d.shape
+    for i in range(len(params)):
+        if pstep[i] == 0:
+            fit.posterior3d = np.insert(fit.posterior3d, i,
+                                        np.ones(niter) * params[i], axis=1)
 
     nfilt = len(cfg.twod.filtfiles)
     nt    = len(fit.t)
