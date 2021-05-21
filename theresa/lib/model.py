@@ -261,7 +261,7 @@ def get_par(fit):
     elif fit.cfg.threed.mapfunc == 'sinusoidal':
         # For a single wavelength
         npar = 4
-        par   = np.array([0.0, -10.0, -10.0, 30.0])
+        par   = np.array([0.0, 0.0, 0.0, 0.0])
         pstep = np.ones(npar) * 1e-3
         pmin  = np.array([np.log10(fit.cfg.threed.ptop),
                           -np.inf, -np.inf, -180.0])
