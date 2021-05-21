@@ -495,7 +495,7 @@ def pmaps(params, fit):
             ip = npar * i
             pmaps[i] = 10.**(params[ip] + \
                 params[ip+1]*np.cos((lat             )*np.pi/180.) + \
-                params[ip+2]*np.cos((lon-params[ip+3])*np.pi/180.)
+                params[ip+2]*np.cos((lon-params[ip+3])*np.pi/180.))
     elif mapfunc == 'flexible':
         ilat, ilon = np.where((lon + dlon / 2. > fit.minvislon) &
                               (lon - dlon / 2. < fit.maxvislon))
