@@ -1,42 +1,53 @@
 import numpy as np
 import utils
 import scipy.interpolate as sci
+import time
+from numba import njit
+from numba import  jit
 
+#@njit
 def contribution(tgrid, wn, taugrid, p):
     nlev, nlat, nlon = tgrid.shape
+    #nlev, nlat, nlon = np.shape(tgrid)
     nwn = len(wn)
     
     cf = np.zeros((nlat, nlon, nlev, nwn))
+
+    # Pressure is always the same. Calculate out of the loop
+    # Start with second from top as delta-log-p makes no sense
+    # for the top layer (just leave at 0)
+    dlp = np.zeros((nlev, 1))
+    for k in range(nlev-2, -1, -1):
+        dlp[k] = np.log(p[k]) - np.log(p[k+1])
 
     for i in range(nlat):
         for j in range(nlon):
             bb = utils.blackbody(tgrid[:,i,j], wn)
             trans = np.exp(-taugrid[i,j])
-            dlp = np.zeros(nlev)
             dt = np.zeros((nlev, nwn))
-            for k in range(nlev-1, -1, -1):
-                if k == nlev - 1:
-                    dt[k,:]     = 0.0
-                    dlp[k]      = 0.0
-                    cf[i,j,k,:] = 0.0
-                else:
-                    dt[k,:] = trans[k+1] - trans[k]
-                    dlp[k]  = np.log(p[k]) - np.log(p[k+1])
-                    cf[i,j,k] = bb[k] * dt[k,:] / dlp[k]
+            
+            # Skip top layer (leave as 0s)
+            for k in range(nlev-2, -1, -1):
+                dt[k] = trans[k+1] - trans[k]
+
+            cf[i,j] = bb * dt / dlp
 
     return cf
 
+#@njit
 def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
-    nlev, nlat, nlon = tgrid.shape
+    #nlev, nlat, nlon = tgrid.shape
+    nlev, nlat, nlon = np.shape(tgrid)
     nwn = len(wn)
     nfilt = len(filtwn)
 
+    tic = time.time()
     cf = contribution(tgrid, wn, taugrid, p)
+    print("CF Calculation: {}".format(time.time() - tic))
+    tic = time.time()
 
     # Filter-integrated contribution functions
     filter_cf = np.zeros((nlat, nlon, nlev, nfilt))
-    # Contribution functions convolved with filter transmissions
-    cf_trans = np.zeros((nlat, nlon, nlev, nwn))
 
     for i in range(nfilt):
         # Interpolate filter to spectrum resolution. Assume zero
@@ -44,13 +55,17 @@ def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
         interp = sci.interp1d(filtwn[i], filttrans[i], bounds_error=False,
                               fill_value=0.0)
         interptrans = interp(wn)
+        integtrans  = np.trapz(interptrans)
         
+        # Contribution functions convolved with filter transmissions
+        cf_trans = cf * interptrans
+
         # Integrate
         for j in range(nlat):
             for k in range(nlon):
-                cf_trans[j,k,:,:] = cf[j,k,:,:] * interptrans
-                for l in range(nlev):
-                    filter_cf[j,k,l,i] = \
-                        np.trapz(cf_trans[j,k,l]) / np.trapz(interptrans)
+                filter_cf[j,k,:,i] = \
+                    np.trapz(cf_trans[j,k], axis=1) / integtrans
 
+    print("CF Integration: {}".format(time.time() - tic))
+        
     return filter_cf
