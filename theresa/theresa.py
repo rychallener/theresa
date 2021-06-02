@@ -109,6 +109,11 @@ def map2d(cfile):
                                                cfg.twod.nlon, endpoint=True),
                                    indexing='ij')
 
+    # Indices of visible cells (only considers longitudes)
+    ivis = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
+                    (fit.lon - fit.dlon / 2. < fit.maxvislon))
+    fit.ivislat, fit.ivislon = ivis
+
     print("Calculating intensities of visible grid cells of each eigenmap.")
     fit.intens, fit.vislat, fit.vislon = eigen.intensities(planet, fit)
     
@@ -351,21 +356,41 @@ def map3d(fit, system):
         #                   -2.0480e00,  1.6022e00,  1.8505e00,
         #                    1.9442e00,  1.6155e00,  1.6029e00,
         #                    1.8327e00, 1832.7])
-        params[0::4] =  np.array([-1.0708e00, -5.9989e00, -1.3116e00,
-                                  -2.0480e00,  1.6022e00,  1.8505e00,
-                                  1.9442e00,  1.6155e00,  1.6029e00,
-                                  1.8327e00, 1832.7])
-        pstep[3::4] = 0
+        #params[0::4] =  np.array([-1.0708e00, -5.9989e00, -1.3116e00,
+        #                          -2.0480e00,  1.6022e00,  1.8505e00,
+        #                          1.9442e00,  1.6155e00,  1.6029e00,
+        #                          1.8327e00, 1832.7])
+        #pstep[3::4] = 0
+        # With CF fitting
+        params = np.array([-1.2259e00,   6.1239e-02, -2.4883e00,
+                           -8.1028e-01, -7.3877e-01, -7.4520e-01,
+                           -7.8267e-01, -7.7353e-01, -8.0959e-01,
+                           -1.292e00, 3000.0])
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
 
-        out = mc3.sample(data=fit.flux.flatten(),
-                         uncert=fit.ferr.flatten(),
-                         func=model.sysflux, nsamples=cfg.threed.nsamples,
-                         burnin=cfg.threed.burnin, ncpu=cfg.threed.ncpu,
-                         sampler='snooker', savefile=mc3npz,
-                         params=params, indparams=indparams,
-                         pstep=pstep, pmin=pmin, pmax=pmax,
-                         leastsq=None, plots=cfg.threed.plots)
+        # Build data and uncert arrays for mc3
+        mc3data   = fit.flux.flatten()
+        mc3uncert = fit.ferr.flatten()
+        if cfg.threed.fitcf:
+            ncfpar = fit.ivislat.size * len(cfg.twod.filtfiles)
+            # Here we use 0s and 1s for the cf data and uncs, then
+            # have the model return a value equal to the number
+            # of sigma away from the cf peak, so MC3 computes the
+            # correct chisq contribution from each cf
+            cfdata = np.zeros(ncfpar)
+            cfunc  = np.ones( ncfpar)
+            mc3data   = np.concatenate((mc3data,   cfdata))
+            mc3uncert = np.concatenate((mc3uncert, cfunc))
+
+        out = mc3.sample(data=mc3data, uncert=mc3uncert,
+                         func=model.mcmc_wrapper,
+                         nsamples=cfg.threed.nsamples,
+                         burnin=cfg.threed.burnin,
+                         ncpu=cfg.threed.ncpu, sampler='snooker',
+                         savefile=mc3npz, params=params,
+                         indparams=indparams, pstep=pstep, pmin=pmin,
+                         pmax=pmax, leastsq=None,
+                         plots=cfg.threed.plots)
 
     fit.specbestp  = out['bestp']
     fit.chisq3d    = out['best_chisq']
@@ -384,22 +409,11 @@ def map3d(fit, system):
     nt    = len(fit.t)
 
     print("Calculating best fit.")
-    fit.fluxgrid, fit.modelwngrid, fit.taugrid = model.specgrid(fit.specbestp,
-                                                                fit,
-                                                                True)
-    fit.specbestmodel = model.sysflux(fit.specbestp, fit)
+    fit.fluxgrid, fit.besttgrid, fit.taugrid, fit.p, fit.modelwngrid, fit.pmaps = \
+        model.specgrid(fit.specbestp, fit)
+    
+    fit.specbestmodel = model.sysflux(fit.specbestp, fit)[0]
     fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
-        
-
-    fit.pmaps = atm.pmaps(fit.specbestp, fit)
-    fit.besttgrid, fit.p = atm.tgrid(cfg.threed.nlayers,
-                                     cfg.twod.nlat, cfg.twod.nlon,
-                                     fit.tmaps, fit.pmaps,
-                                     cfg.threed.pbot, cfg.threed.ptop,
-                                     fit.specbestp,
-                                     oob=cfg.threed.oob,
-                                     interptype=cfg.threed.interp,
-                                     smooth=cfg.threed.smooth)
 
     print("Calculating contribution functions.")
     fit.cf = cf.contribution_filters(fit.besttgrid, fit.modelwngrid,
@@ -432,8 +446,6 @@ if __name__ == "__main__":
     elif mode in ['3d', '3D']:
         # Read config to find location of output, load output,
         # then read config again to get any changes from 2d run.
-        # Consider a more robust system (separate 2d and 3d sections
-        # of config?)
         fit = fc.Fit()
         fit.read_config(cfile)
         fit = fc.load(outdir=fit.cfg.outdir)

@@ -1,9 +1,13 @@
 import numpy as np
 import time
 import theano
+import scipy.interpolate as sci
+import matplotlib.pyplot as plt
+import mc3
 from numba import jit
 
 # Lib imports
+import cf
 import atm
 import utils
 import constants as c
@@ -71,7 +75,7 @@ def fit_2d_wl(params, ecurves, t, wl, y00, sflux, ncurves, intens):
 
     return f
 
-def specgrid(params, fit, return_tau=False):
+def specgrid(params, fit):
     """
     Calculate emission from each cell of a planetary grid, as a 
     fraction of stellar flux, NOT
@@ -85,15 +89,13 @@ def specgrid(params, fit, return_tau=False):
     # Determine which grid cells to use
     # Only considers longitudes currently
     nlat, nlon = fit.lat.shape
-    ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
-                          (fit.lon - fit.dlon / 2. < fit.maxvislon))
+    ilat, ilon = fit.ivislat, fit.ivislon
 
     # Initialize to a list because we don't know the native wavenumber
     # resolution a priori of creating the model
     nlat, nlon = fit.lat.shape
     fluxgrid = np.empty((nlat, nlon), dtype=list)
-    if return_tau:
-        taugrid = np.empty((nlat, nlon), dtype=list)
+    taugrid = np.empty((nlat, nlon), dtype=list)
 
     pmaps = atm.pmaps(params, fit)
     tgrid, p = atm.tgrid(cfg.threed.nlayers, cfg.twod.nlat,
@@ -170,8 +172,7 @@ def specgrid(params, fit, return_tau=False):
             wn, flux, tau, ex = rt.model(wngrid=fit.wngrid)
 
             fluxgrid[i,j] = flux
-            if return_tau:
-                taugrid[i,j] = tau
+            taugrid[i,j] = tau
 
         # Fill in non-visible cells with zeros
         # (np.where doesn't work because of broadcasting issues)
@@ -180,9 +181,8 @@ def specgrid(params, fit, return_tau=False):
             for j in range(nlon):
                 if type(fluxgrid[i,j]) == type(None):
                     fluxgrid[i,j] = np.zeros(nwn)
-                if return_tau:
-                    if type(taugrid[i,j]) == type(None):
-                        taugrid[i,j] = np.zeros((cfg.threed.nlayers, nwn))
+                if type(taugrid[i,j]) == type(None):
+                    taugrid[i,j] = np.zeros((cfg.threed.nlayers, nwn))
 
         # Convert to 3d array (rather than 2d array of arrays)
         fluxgrid = np.concatenate(np.concatenate(fluxgrid)).reshape(nlat,
@@ -190,23 +190,20 @@ def specgrid(params, fit, return_tau=False):
                                                                     nwn)
 
     else:
-        print("ERROR: Unrecognized RT function.")
+        print("ERROR: Unrecognized RT function.")       
 
-    if return_tau:
-        return fluxgrid, wn, taugrid
-    
-    return fluxgrid, wn
+    return fluxgrid, tgrid, taugrid, p, wn, pmaps
                                         
 def specvtime(params, fit):
     """
     Calculate spectra emitted by each grid cell, integrate over filters,
-    account for line-of-sight and stellar visibility (as functiosn of time),
+    account for line-of-sight and stellar visibility (as functions of time),
     and sum over the grid cells. Returns an array of (nfilt, nt). Units
     are fraction of stellar flux, Fp/Fs.
     """
     tic = time.time()
     # Calculate grid of spectra without visibility correction
-    fluxgrid, wn = specgrid(params, fit)
+    fluxgrid, tgrid, taugrid, p, wn, pmaps = specgrid(params, fit)
     print("Spectrum generation: {} seconds".format(time.time() - tic))
     tic = time.time()
 
@@ -232,11 +229,11 @@ def specvtime(params, fit):
             fluxvtime[ifilt,it] = np.sum(intfluxgrid[:,:,ifilt] * fit.vis[it])
 
     #print("Visibility calculation: {} seconds".format(time.time() - tic))
-    return fluxvtime
+    return fluxvtime, tgrid, taugrid, p, wn, pmaps
 
 def sysflux(params, fit):
     # Calculate Fp/Fs
-    fpfs    = specvtime(params, fit)
+    fpfs, tgrid, taugrid, p, wn, pmaps = specvtime(params, fit)
     nfilt, nt = fpfs.shape
     systemflux = np.zeros((nfilt, nt))
     # Account for stellar correction
@@ -244,7 +241,78 @@ def sysflux(params, fit):
     for i in range(nfilt):
         fpfscorr = fpfs[i] * fit.sflux / (fit.sflux + fit.scorr[i])
         systemflux[i] = fpfscorr + 1
-    return systemflux.flatten()
+    return systemflux.flatten(), tgrid, taugrid, p, wn, pmaps
+
+def mcmc_wrapper(params, fit):
+    systemflux, tgrid, taugrid, p, wn, pmaps = sysflux(params, fit)
+
+    # Integrate cf if asked for
+    if fit.cfg.threed.fitcf:
+        cfsd = cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps)
+        return np.concatenate((systemflux, cfsd))
+    
+    else:
+        return systemflux
+
+def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
+    '''
+    Computes the distance between a 2D pressure/temperature map
+    and the corresponding contribution function, in units of 
+    "sigma". Sigma is estimated by finding the 68.3% credible region of
+    the contribution function and calculating the +/- distances from
+    the edges of this region to the pressure of maximum contribution.
+    The sigma distance is computed for every visible grid cell
+    and returned in a flattened array.
+    '''
+    cfs = cf.contribution_filters(tgrid, wn, taugrid, p, fit.filtwn,
+                                  fit.filttrans)
+    tic = time.time()
+    # Where the maps "should" be
+    # Find the roots of the derivative of a spline fit to
+    # the contribution functions, then calculate some sort
+    # of goodness of fit
+    nlev, nlat, nlon = tgrid.shape
+    nfilt = len(fit.cfg.twod.filtfiles)
+    cfsigdiff = np.zeros(nfilt * fit.ivislat.size)
+    logp = np.log10(p)
+    count = 0
+    for i, j in zip(fit.ivislat, fit.ivislon):
+        for k in range(nfilt):
+            order = np.argsort(logp)
+            spl = sci.UnivariateSpline(logp[order],
+                                       cfs[i,j,order,k],
+                                       k=4, s=0)
+            roots = spl.derivative().roots()
+            yroots = spl(roots)
+            ypeak = np.max(yroots)
+            xpeak = roots[np.argmax(yroots)]
+            xval  = np.log10(pmaps[k,i,j])
+            #cfpeak = roots[np.argmax(yroots)]
+            #cfsigdiff[count] = ypeak / spl(xval)
+            pdf, xpdf, HPDmin = mc3.stats.cred_region(pdf=cfs[i,j,order,k],
+                                                      xpdf=logp[order])
+            siglo = np.amin(xpdf[pdf>HPDmin])
+            sighi = np.amax(xpdf[pdf>HPDmin])
+            #sig = (sighi - siglo) / 2
+            if False:
+                plt.plot(cfs[i,j,order,k], logp[order])
+                xlo, xhi = plt.xlim()
+                plt.hlines([sighi], xlo, xhi, label='hi', color='red')
+                plt.hlines([siglo], xlo, xhi, label='lo', color='blue')
+                plt.hlines([xpeak], xlo, xhi, label='max', color='green')
+                plt.legend()
+                plt.show()
+
+            if xval > xpeak:
+                cfsigdiff[count] = (xval - xpeak) / (xval - sighi)
+            else:
+                cfsigdiff[count] = (xval - xpeak) / (xval - siglo)
+            #cfsigdiff[count] = (xval - xpeak) / sig
+            count += 1
+
+    #print(cfsigdiff)
+    print("CF maxima time: {}".format(time.time() - tic))
+    return cfsigdiff
 
 def get_par(fit):
     '''
@@ -261,7 +329,7 @@ def get_par(fit):
     elif fit.cfg.threed.mapfunc == 'sinusoidal':
         # For a single wavelength
         npar = 4
-        par   = np.array([0.0, 0.0, 0.0, 0.0])
+        par   = np.array([-2.0, 0.0, 0.0, 0.0])
         pstep = np.ones(npar) * 1e-3
         pmin  = np.array([np.log10(fit.cfg.threed.ptop),
                           -np.inf, -np.inf, -180.0])
