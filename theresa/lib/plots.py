@@ -673,7 +673,6 @@ def tmapunc(fit):
     for i in range(nmaps):
         irow = i // ncols
         icol = i %  ncols
-        print(irow, icol)
                                  
         ax = axes[irow, icol]
 
@@ -701,7 +700,7 @@ def tmapunc(fit):
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'tmapunc.png'))
 
-def cf(fit):
+def cf_by_location(fit):
     nlat, nlon, nlev, nfilt = fit.cf.shape
     fig, axes = plt.subplots(nrows=nlat, ncols=nlon, sharey=True, sharex=True)
     fig.set_size_inches(16, 8)
@@ -747,3 +746,66 @@ def cf(fit):
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
     plt.close()
+
+def cf_by_filter(fit):
+    nlat, nlon, nlev, nfilt = fit.cf.shape
+    
+    ncols = np.int(np.sqrt(nfilt) // 1)
+    nrows = np.int((nfilt // ncols) + (nfilt % ncols != 0))
+    naxes = nrows * ncols
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
+                             sharey=True)
+    fig.set_size_inches(8, 8)
+
+    extra = nfilt % ncols
+
+    ieq = nlat // 2
+
+    for i in range(naxes):
+        irow = i // ncols
+        icol = i %  ncols
+
+        ax = axes[irow, icol]
+
+        # Hide extra axes and move on
+        if i >= nfilt:
+            ax.spines['top'].set_color('none')
+            ax.spines['bottom'].set_color('none')
+            ax.spines['left'].set_color('none')
+            ax.spines['right'].set_color('none')
+            ax.tick_params(labelcolor='w', top=False, bottom=False,
+                           left=False, right=False)
+            continue
+
+        cmap = mpl.cm.get_cmap('hsv')
+        
+        for j in range(nlat):
+            for k in range(nlon):
+                if j == ieq:
+                    ic = fit.lon[j,k] / 360.
+                    if ic < 0:
+                        ic += 1
+
+                    color = cmap(ic)
+                    label = r"${} ^\circ$".format(np.round(fit.lon[j,k], 2))
+                    zorder = 1
+                else:
+                    color = 'gray'
+                    label = None
+                    zorder = 0
+                    
+                ax.semilogy(fit.cf[j,k,:,i], fit.p, color=color,
+                            label=label, zorder=zorder)
+
+        if icol == 0:
+            ax.set_ylabel('Pressure (bars)')
+        if i >= naxes - ncols - (ncols - extra):
+            ax.set_xlabel('Contribution (arbitrary)')
+
+        ax.set_title("{} um".format(np.round(fit.wlmid[i], 2)))
+
+    plt.gca().invert_yaxis()
+    plt.tight_layout()
+    plt.savefig(os.path.join(fit.cfg.outdir, 'cf-by-filter.png'))
+
+        
