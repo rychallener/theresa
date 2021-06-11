@@ -809,3 +809,64 @@ def cf_by_filter(fit):
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf-by-filter.png'))
 
         
+def cf_slice(fit, ilat=None, ilon=None, fname=None):   
+    if ilat is not None and ilon is not None:
+        print("Must specify either ilat or ilon, not both.")
+        return
+
+    nlat, nlon, nlev, nfilt = fit.cf.shape 
+    logp = np.log10(fit.p)
+    minlogp = np.min(logp)
+    maxlogp = np.max(logp)
+    
+    # Default behavior is slice along the equator
+    if   ilat is     None and ilon is     None:
+        latslice = nlat // 2
+        lonslice = np.arange(nlon)
+        xmin = -180.
+        xmax =  180.
+        xlabel = 'Longitude (deg)'
+    elif ilat is     None and ilon is not None:
+        latslice = np.arange(nlat)
+        lonslice = ilon
+        xmin = -90.
+        xmax =  90.
+        xlabel = 'Latitude (deg)'
+    elif ilat is not None and ilon is     None:
+        latslice = ilat
+        lonslice = np.arange(nlon)
+        xmin = -180.
+        xmax =  180.
+        xlabel = 'Longitude (deg)'
+
+    if fname is None:
+        fname = 'cf-slice.png'
+
+    gridspec_kw = {}
+    gridspec_kw['width_ratios'] = np.concatenate((np.ones(nfilt), [0.1]))
+
+    fig, axes = plt.subplots(ncols=nfilt + 1, gridspec_kw=gridspec_kw)
+    fig.set_size_inches(3*nfilt+1, 5)
+
+    vmin = np.min(fit.cf[latslice, lonslice])
+    vmax = np.max(fit.cf[latslice, lonslice])
+
+    extent = (xmin, xmax, maxlogp, minlogp)
+
+    for i in range(nfilt):
+        ax = axes[i]
+        im = ax.imshow(fit.cf[latslice, lonslice,:,i].T, vmin=vmin,
+                       vmax=vmax, origin='lower', extent=extent,
+                       aspect='auto')
+
+        if i == 0:
+            ax.set_ylabel('Log(p) (bars)')
+
+        ax.set_xlabel(xlabel)
+
+    fig.colorbar(im, cax=axes[-1], label='Contribution')
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(fit.cfg.outdir, fname))
+    plt.close()
+        
