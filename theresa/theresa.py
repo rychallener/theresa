@@ -232,7 +232,7 @@ def map2d(cfile):
         pbar.update(it+1)
 
     print("Checking for negative fluxes in visible cells:")
-    for j in range(len(fit.wl)):
+    for j in range(len(fit.wlmid)):
         print("  Wl: {:.2f} um".format(fit.wlmid[j]))
         for i in range(fit.intens.shape[1]):
             check = np.sum(fit.intens[:,i] *
@@ -362,11 +362,23 @@ def map3d(fit, system):
         #                          1.8327e00, 1832.7])
         #pstep[3::4] = 0
         # With CF fitting
-        params = np.array([-1.2259e00,   6.1239e-02, -2.4883e00,
-                           -8.1028e-01, -7.3877e-01, -7.4520e-01,
-                           -7.8267e-01, -7.7353e-01, -8.0959e-01,
-                           -1.292e00, 3000.0])
+        #params = np.array([-1.2259e00,   6.1239e-02, -2.4883e00,
+        #                   -8.1028e-01, -7.3877e-01, -7.4520e-01,
+        #                   -7.8267e-01, -7.7353e-01, -8.0959e-01,
+        #                   -1.292e00, 3000.0])
+        # 5 filters (no cf fitting)
+        #params = np.array([-1.0810, -2.6143e+00, -1.1817e+00,
+        #                   -2.1310e+00,  -2.4473e+00, 868.7])
+        # 5 filters, sinusoidal
+        params = np.array([-1.2150e+00,  7.5645e-02, -1.7090e-02, 2.4258e+01,
+                           -2.8024e+00,  6.3413e-02,  1.7067e-02, 1.1100e+01,
+                           -1.1626e+00,  2.5446e-02, -4.1109e-02, 1.2430e+01,
+                           -2.0530e+00, -9.9857e-02, -1.3036e-02, 1.0095e+01,
+                           -2.6491e+00, -1.9391e-02,  7.2621e-02, 1.2406e+01,
+                           2513.9]) #868.7
+        pstep[3::4] = 0.0
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
+        
 
         # Build data and uncert arrays for mc3
         mc3data   = fit.flux.flatten()

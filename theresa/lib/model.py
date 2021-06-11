@@ -152,13 +152,11 @@ def specgrid(params, fit):
                 pressure_profile=rtp,
                 temperature_profile=rtt,
                 chemistry=rtchem,
-                nlayers=cfg.threed.nlayers,
-                latmin=fit.lat[i,j] - fit.dlat / 2.,
-                latmax=fit.lat[i,j] + fit.dlat / 2.,
-                lonmin=fit.lon[i,j] - fit.dlon / 2.,
-                lonmax=fit.lon[i,j] + fit.dlon / 2.)
+                nlayers=cfg.threed.nlayers)
             rt.add_contribution(taurex.contributions.AbsorptionContribution())
             rt.add_contribution(taurex.contributions.CIAContribution())
+            if 'H-' in fit.cfg.threed.mols:
+                rt.add_contribution(trc.HMinusContribution())
 
             rt.build()
 
@@ -275,10 +273,10 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
     nfilt = len(fit.cfg.twod.filtfiles)
     cfsigdiff = np.zeros(nfilt * fit.ivislat.size)
     logp = np.log10(p)
+    order = np.argsort(logp)
     count = 0
     for i, j in zip(fit.ivislat, fit.ivislon):
         for k in range(nfilt):
-            order = np.argsort(logp)
             spl = sci.UnivariateSpline(logp[order],
                                        cfs[i,j,order,k],
                                        k=4, s=0)
@@ -341,6 +339,9 @@ def get_par(fit):
         pstep = np.tile(pstep, nwl)
         pmin  = np.tile(pmin,  nwl)
         pmax  = np.tile(pmax,  nwl)
+        # Guess that longitudinal sinusoid follows the hotpost
+        for i in range(nwl):
+            par[3+i*npar] = fit.maps[i].hslocbest[1]
     elif fit.cfg.threed.mapfunc == 'flexible':
         ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
                               (fit.lon - fit.dlon / 2. < fit.maxvislon))
