@@ -346,22 +346,23 @@ def bestfittgrid(fit):
                     
                 color = cmap(ic)
                 zorder = 2
-                alpha = 1.0
             else:
                 label = None
                 color = 'gray'
                 zorder = 1
-                alpha = 0.5
             
             if ((lon + fit.dlon < fit.minvislon) or
                 (lon - fit.dlon > fit.maxvislon)):
                 linestyle = '--'
             else:
                 linestyle = '-'
-                
-            ax.semilogy(fit.besttgrid[:,i,j], fit.p, label=label,
-                        linestyle=linestyle, color=color, zorder=zorder,
-                        alpha=alpha)
+
+            cfnorm = np.max(fit.cf[i,j])
+            for k in range(fit.cfg.threed.nlayers - 1):
+                alpha = np.max(fit.cf[i,j,k]) / cfnorm
+                ax.semilogy(fit.besttgrid[k:k+2,i,j], fit.p[k:k+2],
+                            linestyle=linestyle, color=color,
+                            zorder=zorder, alpha=alpha)
 
             ax.scatter(fit.tmaps[:,i,j], fit.pmaps[:,i,j],
                        c=colors[:nmaps], marker='o', zorder=3, s=4)

@@ -277,16 +277,14 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
     count = 0
     for i, j in zip(fit.ivislat, fit.ivislon):
         for k in range(nfilt):
-            spl = sci.UnivariateSpline(logp[order],
-                                       cfs[i,j,order,k],
-                                       k=4, s=0)
-            roots = spl.derivative().roots()
-            yroots = spl(roots)
-            ypeak = np.max(yroots)
-            xpeak = roots[np.argmax(yroots)]
+            #spl = sci.UnivariateSpline(logp[order],
+            #                           cfs[i,j,order,k],
+            #                           k=4, s=0)
+            #roots = spl.derivative().roots()
+            #yroots = spl(roots)
+            #ypeak = np.max(yroots)
+            #xpeak = roots[np.argmax(yroots)]
             xval  = np.log10(pmaps[k,i,j])
-            #cfpeak = roots[np.argmax(yroots)]
-            #cfsigdiff[count] = ypeak / spl(xval)
             pdf, xpdf, HPDmin = mc3.stats.cred_region(pdf=cfs[i,j,order,k],
                                                       xpdf=logp[order])
             siglo = np.amin(xpdf[pdf>HPDmin])
@@ -301,11 +299,13 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
                 plt.legend()
                 plt.show()
 
-            if xval > xpeak:
-                cfsigdiff[count] = (xval - xpeak) / (xval - sighi)
-            else:
-                cfsigdiff[count] = (xval - xpeak) / (xval - siglo)
-            #cfsigdiff[count] = (xval - xpeak) / sig
+            #if xval > xpeak:
+            #    cfsigdiff[count] = (xval - xpeak) / (xval - sighi)
+            #else:
+            #    cfsigdiff[count] = (xval - xpeak) / (xval - siglo)
+            xpeak = (sighi + siglo) / 2
+            sig   = (sighi - siglo) / 2
+            cfsigdiff[count] = (xval - xpeak) / sig
             count += 1
 
     #print(cfsigdiff)
