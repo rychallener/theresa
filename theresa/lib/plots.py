@@ -142,6 +142,9 @@ def pltmaps(fit, proj='rect'):
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
                              sharey=True, squeeze=False)
 
+    naxes = nrows * ncols
+    extra = nmaps % ncols
+
     vmax = np.max([np.max(m.tmap[~np.isnan(m.tmap)]) for m in fit.maps])
     vmin = np.min([np.min(m.tmap[~np.isnan(m.tmap)]) for m in fit.maps])
     
@@ -154,16 +157,35 @@ def pltmaps(fit, proj='rect'):
     # standing known bug in matplotlib with no straightforward
     # solution.  Probably not worth fixing here.  See
     # https://github.com/matplotlib/matplotlib/issues/5463
-    for i in range(nmaps):
+    for i in range(naxes):            
         irow = i // ncols
         icol = i %  ncols
         ax = axes[irow,icol]
+
+        if i >= nmaps:
+            ax.spines['top'].set_color('none')
+            ax.spines['bottom'].set_color('none')
+            ax.spines['left'].set_color('none')
+            ax.spines['right'].set_color('none')
+            ax.tick_params(labelcolor='w', top=False, bottom=False,
+                           left=False, right=False)
+            continue            
+        
         im = ax.imshow(fit.maps[i].tmap, origin='lower', cmap='plasma',
                        extent=extent, vmin=vmin, vmax=vmax)
-        plt.colorbar(im, ax=ax, label='Temperature (K)')
+        #plt.colorbar(im, ax=ax, label='Temperature (K)')
         ax.set_title('{:.2f} um'.format(fit.wlmid[i]))
 
+        if icol == 0:
+            ax.set_ylabel(r'Latitude ($^\circ$)')
+        if i >= naxes - ncols - (ncols - extra):
+            ax.set_xlabel(r'Longitude ($^\circ$)')
+
     fig.tight_layout()
+
+    fig.subplots_adjust(right=0.8)
+    cax = fig.add_axes([0.85, 0.15, 0.03, 0.75])
+    fig.colorbar(im, cax=cax, label='Temperature (K)')
     plt.savefig(os.path.join(fit.cfg.outdir,
                              'bestfit-{}-maps.png'.format(proj)))
     plt.close(fig)
