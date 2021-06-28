@@ -274,22 +274,31 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
     cfsigdiff = np.zeros(nfilt * fit.ivislat.size)
     logp = np.log10(p)
     order = np.argsort(logp)
+
+    # Where to interpolate later
+    xpdf = np.linspace(np.amin(logp),
+                       np.amax(logp),
+                       10*len(logp))
     count = 0
     for i, j in zip(fit.ivislat, fit.ivislon):
         for k in range(nfilt):
-            #spl = sci.UnivariateSpline(logp[order],
-            #                           cfs[i,j,order,k],
-            #                           k=4, s=0)
-            #roots = spl.derivative().roots()
-            #yroots = spl(roots)
-            #ypeak = np.max(yroots)
-            #xpeak = roots[np.argmax(yroots)]
+            # Where the map is placed
             xval  = np.log10(pmaps[k,i,j])
+
+            # Interpolate CF to 10x finer atmospheric layers
+            pdf = np.interp(xpdf, logp[order], cfs[i,j,order,k])
+
+            # Compute minimum density of 68.3% region
             pdf, xpdf, HPDmin = mc3.stats.cred_region(pdf=cfs[i,j,order,k],
                                                       xpdf=logp[order])
+
+            # Calculate 68.3% boundaries
             siglo = np.amin(xpdf[pdf>HPDmin])
             sighi = np.amax(xpdf[pdf>HPDmin])
-            #sig = (sighi - siglo) / 2
+
+            # Assume CF is approx. Gaussian
+            xpeak = (sighi + siglo) / 2
+            sig   = (sighi - siglo) / 2
             if False:
                 plt.plot(cfs[i,j,order,k], logp[order])
                 xlo, xhi = plt.xlim()
@@ -299,12 +308,6 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
                 plt.legend()
                 plt.show()
 
-            #if xval > xpeak:
-            #    cfsigdiff[count] = (xval - xpeak) / (xval - sighi)
-            #else:
-            #    cfsigdiff[count] = (xval - xpeak) / (xval - siglo)
-            xpeak = (sighi + siglo) / 2
-            sig   = (sighi - siglo) / 2
             cfsigdiff[count] = (xval - xpeak) / sig
             count += 1
 
