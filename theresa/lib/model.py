@@ -283,14 +283,13 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
     for i, j in zip(fit.ivislat, fit.ivislon):
         for k in range(nfilt):
             # Where the map is placed
-            xval  = np.log10(pmaps[k,i,j])
+            xval = np.log10(pmaps[k,i,j])
 
             # Interpolate CF to 10x finer atmospheric layers
             pdf = np.interp(xpdf, logp[order], cfs[i,j,order,k])
 
             # Compute minimum density of 68.3% region
-            pdf, xpdf, HPDmin = mc3.stats.cred_region(pdf=cfs[i,j,order,k],
-                                                      xpdf=logp[order])
+            pdf, xpdf, HPDmin = mc3.stats.cred_region(pdf=pdf, xpdf=xpdf)
 
             # Calculate 68.3% boundaries
             siglo = np.amin(xpdf[pdf>HPDmin])
