@@ -871,11 +871,11 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None):
     fig, axes = plt.subplots(ncols=nfilt + 1, gridspec_kw=gridspec_kw)
     fig.set_size_inches(3*nfilt+1, 5)
 
-    vmin = np.min(fit.cf[latslice, lonslice])
-    vmax = np.max(fit.cf[latslice, lonslice])
+    vmin = np.nanmin(fit.cf[latslice, lonslice])
+    vmax = np.nanmax(fit.cf[latslice, lonslice])
 
     extent = (xmin, xmax, maxlogp, minlogp)
-
+    
     for i in range(nfilt):
         ax = axes[i]
         im = ax.imshow(fit.cf[latslice, lonslice,:,i].T, vmin=vmin,
