@@ -4,6 +4,9 @@ import matplotlib as mpl
 mpl.rcParams['axes.formatter.useoffset'] = False
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import matplotlib.collections as collections
+import matplotlib.colors as mplc
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import atm
 
 
@@ -380,20 +383,37 @@ def bestfittgrid(fit):
                 linestyle = '-'
 
             cfnorm = np.max(fit.cf[i,j])
-            for k in range(fit.cfg.threed.nlayers - 1):
-                alpha = np.max(fit.cf[i,j,k]) / cfnorm
-                ax.semilogy(fit.besttgrid[k:k+2,i,j], fit.p[k:k+2],
-                            linestyle=linestyle, color=color,
-                            zorder=zorder, alpha=alpha)
+
+            points = np.array([fit.besttgrid[:,i,j], fit.p]).T.reshape(-1,1,2)
+            segments = np.concatenate([points[:-1], points[1:]],
+                                      axis=1)
+            norm = plt.Normalize(0, 1)
+
+            lc = collections.LineCollection(segments,
+                                            cmap=gradient_cmap(color),
+                                            norm=norm, zorder=zorder)
+            lc.set_array(np.max(fit.cf[i,j,:-1], axis=1) / cfnorm)
+            line = ax.add_collection(lc)
 
             ax.scatter(fit.tmaps[:,i,j], fit.pmaps[:,i,j],
                        c=colors[:nmaps], marker='o', zorder=3, s=4)
 
+    ax.set_yscale('log')
     ax.invert_yaxis()
     ax.legend(ncol=2, fontsize=6)
     ax.set_xlabel("Temperature (K)")
     ax.set_ylabel("Pressure (bars)")
     plt.tight_layout()
+
+    cax = inset_axes(plt.gca(), width='5%', height='25%',
+                     loc='lower right')
+    sm = plt.cm.ScalarMappable(cmap=cmap,
+                               norm=plt.Normalize(vmin=0, vmax=360))
+    cbar = plt.colorbar(sm, cax=cax, label=r'Longitude ($^\circ$)')
+    cbar.set_ticks(np.linspace(0, 360, 5, endpoint=True))
+    cax.yaxis.set_ticks_position('left')
+    cax.yaxis.set_label_position('left')
+    
     plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-tp.png'))
     plt.close(fig)
 
@@ -893,3 +913,28 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None):
     plt.savefig(os.path.join(fit.cfg.outdir, fname))
     plt.close()
         
+# Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
+def gradient_cmap(color):
+    '''
+    Utility function to make colormaps which are a 
+    gradient from white to the specified color.
+    '''
+    rgb_color = mplc.to_rgb(color)
+    dec_color = np.array(rgb_color) #/ 256
+
+    white = [1., 1., 1.]
+
+    dec_colors = [white, dec_color]
+
+    cdict = {}
+
+    # Just two colors
+    loclist = [0,1]
+
+    for num, col in enumerate(['red', 'green', 'blue']):
+        col_list = [[loclist[i], dec_colors[i][num], dec_colors[i][num]] \
+                    for i in range(2)]
+        cdict[col] = col_list
+
+    cmap = mplc.LinearSegmentedColormap(color, segmentdata=cdict, N=256)
+    return cmap
