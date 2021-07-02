@@ -4,6 +4,7 @@ import theano
 import scipy.interpolate as sci
 import matplotlib.pyplot as plt
 import mc3
+import gc
 from numba import jit
 
 # Lib imports
@@ -226,6 +227,7 @@ def specvtime(params, fit):
         for ifilt in range(nfilt):
             fluxvtime[ifilt,it] = np.sum(intfluxgrid[:,:,ifilt] * fit.vis[it])
 
+    gc.collect()
     #print("Visibility calculation: {} seconds".format(time.time() - tic))
     return fluxvtime, tgrid, taugrid, p, wn, pmaps
 
