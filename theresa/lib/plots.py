@@ -5,6 +5,7 @@ mpl.rcParams['axes.formatter.useoffset'] = False
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.collections as collections
+import matplotlib.lines as mpll
 import matplotlib.colors as mplc
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import atm
@@ -398,9 +399,19 @@ def bestfittgrid(fit):
             ax.scatter(fit.tmaps[:,i,j], fit.pmaps[:,i,j],
                        c=colors[:nmaps], marker='o', zorder=3, s=4)
 
+    # Build custom legend
+    legend_elements = []
+    for i in range(nmaps):
+        label = str(np.round(fit.wlmid[i], 2)) + ' um'
+        legend_elements.append(mpll.Line2D([0], [0], color='w',
+                                           label=label,
+                                           marker='o',
+                                           markerfacecolor=colors[i],
+                                           markersize=4))
+
     ax.set_yscale('log')
     ax.invert_yaxis()
-    ax.legend(ncol=2, fontsize=6)
+    ax.legend(handles=legend_elements, loc='best')
     ax.set_xlabel("Temperature (K)")
     ax.set_ylabel("Pressure (bars)")
     plt.tight_layout()
