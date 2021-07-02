@@ -227,6 +227,8 @@ def specvtime(params, fit):
         for ifilt in range(nfilt):
             fluxvtime[ifilt,it] = np.sum(intfluxgrid[:,:,ifilt] * fit.vis[it])
 
+    # There is a very small memory leak somewhere, but this seems to
+    # fix it. Not an elegant solution, but ¯\_(ツ)_/¯
     gc.collect()
     #print("Visibility calculation: {} seconds".format(time.time() - tic))
     return fluxvtime, tgrid, taugrid, p, wn, pmaps
