@@ -1,4 +1,4 @@
-# 3dmap
+# ThERESA
 
 A code for retrieving three-dimensional maps of exoplanets.
 
@@ -8,5 +8,3 @@ transfer to calculate emission from the planet over a latitude/longitude
 grid, and integrates over the grid (combined with the visibility
 function) to generate light curves. These light curves are compared
 against the input light curves behind MCMC to explore parameter space.
-
-Name is pending.
