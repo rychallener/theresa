@@ -383,7 +383,8 @@ def bestfittgrid(fit):
             else:
                 linestyle = '-'
 
-            cfnorm = np.max(fit.cf[i,j])
+            #cfnorm = np.max(fit.cf[i,j])
+            cfnorm = np.nanmax(fit.cf)
 
             points = np.array([fit.besttgrid[:,i,j], fit.p]).T.reshape(-1,1,2)
             segments = np.concatenate([points[:-1], points[1:]],
@@ -397,7 +398,7 @@ def bestfittgrid(fit):
             line = ax.add_collection(lc)
 
             ax.scatter(fit.tmaps[:,i,j], fit.pmaps[:,i,j],
-                       c=colors[:nmaps], marker='o', zorder=3, s=4)
+                       c=colors[:nmaps], marker='o', zorder=3, s=3)
 
     # Build custom legend
     legend_elements = []
