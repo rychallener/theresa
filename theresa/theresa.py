@@ -381,8 +381,8 @@ def map3d(fit, system):
                          ncpu=cfg.threed.ncpu, sampler='snooker',
                          savefile=mc3npz, params=params,
                          indparams=indparams, pstep=pstep, pmin=pmin,
-                         pmax=pmax, leastsq=None,
-                         plots=cfg.threed.plots)
+                         pmax=pmax, pnames=cfg.threed.pnames,
+                         leastsq=None, plots=cfg.threed.plots)
 
     fit.specbestp  = out['bestp']
     fit.chisq3d    = out['best_chisq']

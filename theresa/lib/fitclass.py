@@ -103,6 +103,12 @@ class Fit:
                 value = np.array(
                     self.cfg.cfg.get('3D', item).split()).astype(float)
                 setattr(self.cfg.threed, item, value)
+
+        if self.cfg.cfg.has_option('3D', 'pnames'):
+            self.cfg.threed.pnames = \
+                self.cfg.cfg.get('3D', 'pnames').split()
+        else:
+            self.cfg.threed.pnames = None
        
         # Star options
         self.cfg.star.m    = self.cfg.cfg.getfloat('Star', 'm')
