@@ -328,7 +328,19 @@ def map3d(fit, system):
                                                          'ciadir'))
 
         indparams = [fit]
+
+        # Get sensible defaults
         params, pstep, pmin, pmax = model.get_par(fit)
+
+        # Override if specified by the user
+        if hasattr(cfg.threed, 'params'):
+            params = cfg.threed.params
+        if hasattr(cfg.threed, 'pmin'):
+            pmin   = cfg.threed.pmin
+        if hasattr(cfg.threed, 'pmax'):
+            pmax   = cfg.threed.pmax
+        if hasattr(cfg.threed, 'pstep'):
+            pstep  = cfg.threed.pstep
 
         # 5 filters, isobaric, cf fit symmetric, 12x24
         #params = np.array([-1.0872e+00,

@@ -97,7 +97,12 @@ class Fit:
             self.cfg.threed.smooth = np.int(self.cfg.threed.smooth)
 
         self.cfg.threed.fitcf = self.cfg.cfg.getboolean('3D', 'fitcf')
-        
+
+        for item in ['params', 'pmin', 'pmax', 'pstep']:
+            if self.cfg.cfg.has_option('3D', item):
+                value = np.array(
+                    self.cfg.cfg.get('3D', item).split()).astype(float)
+                setattr(self.cfg.threed, item, value)
        
         # Star options
         self.cfg.star.m    = self.cfg.cfg.getfloat('Star', 'm')
