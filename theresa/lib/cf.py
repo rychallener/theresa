@@ -43,10 +43,10 @@ def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
     nwn = len(wn)
     nfilt = len(filtwn)
 
-    tic = time.time()
+    #tic = time.time()
     cf = contribution(tgrid, wn, taugrid, p)
-    print("CF Calculation: {}".format(time.time() - tic))
-    tic = time.time()
+    #print("CF Calculation: {}".format(time.time() - tic))
+    #tic = time.time()
 
     # Filter-integrated contribution functions
     filter_cf = np.zeros((nlat, nlon, nlev, nfilt))
@@ -68,6 +68,6 @@ def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
                 filter_cf[j,k,:,i] = \
                     np.trapz(cf_trans[j,k], axis=1) / integtrans
 
-    print("CF Integration: {}".format(time.time() - tic))
+    #print("CF Integration: {}".format(time.time() - tic))
         
     return filter_cf

@@ -43,7 +43,6 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens):
             # Contribution from uniform map
             totint[j] += params[ncurves] / np.pi
         if np.any(totint <= 0):
-            #print("Negative at loc {}.".format(j))
             f = np.ones(len(t)) * np.min(totint)
             return f
 
@@ -314,8 +313,6 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
             cfsigdiff[count] = (xval - xpeak) / sig
             count += 1
 
-    #print(cfsigdiff)
-    print("CF maxima time: {}".format(time.time() - tic))
     return cfsigdiff
 
 def get_par(fit):
