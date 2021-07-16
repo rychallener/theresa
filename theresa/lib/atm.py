@@ -134,7 +134,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
                              interpabn[tsorter][idx2]),
                             t[k,i,j])
 
-        print("Interpolating: {}".format(time.time() - tic))
+        #print("Interpolating: {}".format(time.time() - tic))
     else:
         print("Unrecognized atmopsphere type.")
         sys.exit()
