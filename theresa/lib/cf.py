@@ -5,7 +5,6 @@ import time
 from numba import njit
 from numba import  jit
 
-#@njit
 def contribution(tgrid, wn, taugrid, p):
     nlev, nlat, nlon = tgrid.shape
     #nlev, nlat, nlon = np.shape(tgrid)
@@ -36,7 +35,6 @@ def contribution(tgrid, wn, taugrid, p):
 
     return cf
 
-#@njit
 def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
     #nlev, nlat, nlon = tgrid.shape
     nlev, nlat, nlon = np.shape(tgrid)

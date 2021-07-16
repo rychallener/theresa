@@ -182,11 +182,6 @@ def specgrid(params, fit):
                 if type(taugrid[i,j]) == type(None):
                     taugrid[i,j] = np.zeros((cfg.threed.nlayers, nwn))
 
-        # Convert to 3d array (rather than 2d array of arrays)
-        fluxgrid = np.concatenate(np.concatenate(fluxgrid)).reshape(nlat,
-                                                                    nlon,
-                                                                    nwn)
-
     else:
         print("ERROR: Unrecognized RT function.")       
 
