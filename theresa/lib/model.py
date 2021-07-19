@@ -59,22 +59,6 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens):
 
     return f
 
-def fit_2d_wl(params, ecurves, t, wl, y00, sflux, ncurves, intens):
-    """
-    2D fitting driver that calls the 2D fitting routine for each
-    wavelength.
-    """
-    f = np.zeros(len(t) * len(wl))
-
-    nt   = len(t)
-    nw   = len(wl)
-    npar = int(len(params) / nw) # params per wavelength
-    for i in range(nw):            
-        f[i*nt:(i+1)*nt] = fit_2d(params[i*npar:(i+1)*npar], ecurves,
-                                  t, y00, sflux, ncurves, intens)
-
-    return f
-
 def specgrid(params, fit):
     """
     Calculate emission from each cell of a planetary grid, as a 
@@ -211,8 +195,6 @@ def specvtime(params, fit):
         for j in range(nlon):
             intfluxgrid[i,j] = utils.specint(wn, fluxgrid[i,j],
                                              fit.filtwn, fit.filttrans)
-    #print("Spectrum integration: {} seconds".format(time.time() - tic))
-    tic = time.time()
 
     fluxvtime = np.zeros((nfilt, nt))
 
@@ -224,7 +206,7 @@ def specvtime(params, fit):
     # There is a very small memory leak somewhere, but this seems to
     # fix it. Not an elegant solution, but ¯\_(ツ)_/¯
     gc.collect()
-    #print("Visibility calculation: {} seconds".format(time.time() - tic))
+
     return fluxvtime, tgrid, taugrid, p, wn, pmaps
 
 def sysflux(params, fit):
@@ -296,14 +278,6 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
             # Assume CF is approx. Gaussian
             xpeak = (sighi + siglo) / 2
             sig   = (sighi - siglo) / 2
-            if False:
-                plt.plot(cfs[i,j,order,k], logp[order])
-                xlo, xhi = plt.xlim()
-                plt.hlines([sighi], xlo, xhi, label='hi', color='red')
-                plt.hlines([siglo], xlo, xhi, label='lo', color='blue')
-                plt.hlines([xpeak], xlo, xhi, label='max', color='green')
-                plt.legend()
-                plt.show()
 
             cfsigdiff[count] = (xval - xpeak) / sig
             count += 1
@@ -325,7 +299,7 @@ def get_par(fit):
     elif fit.cfg.threed.mapfunc == 'sinusoidal':
         # For a single wavelength
         npar = 4
-        par   = np.array([-2.0, 0.0, 0.0, 0.0])
+        par   = np.zeros(npar)
         pstep = np.ones(npar) * 1e-3
         pmin  = np.array([np.log10(fit.cfg.threed.ptop),
                           -np.inf, -np.inf, -180.0])
@@ -340,6 +314,10 @@ def get_par(fit):
         # Guess that longitudinal sinusoid follows the hotpost
         for i in range(nwl):
             par[3+i*npar] = fit.maps[i].hslocbest[1]
+        # Guess that higher temps are deeper
+        ipar = np.argsort(np.max(fit.tmaps, axis=(1,2)))
+        for i in range(nwl):
+            par[i*npar]   = np.linspace(-2, 0, npar)[ipar]
     elif fit.cfg.threed.mapfunc == 'flexible':
         ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
                               (fit.lon - fit.dlon / 2. < fit.maxvislon))

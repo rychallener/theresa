@@ -7,7 +7,6 @@ from numba import  jit
 
 def contribution(tgrid, wn, taugrid, p):
     nlev, nlat, nlon = tgrid.shape
-    #nlev, nlat, nlon = np.shape(tgrid)
     nwn = len(wn)
     
     cf = np.zeros((nlat, nlon, nlev, nwn))
@@ -36,15 +35,11 @@ def contribution(tgrid, wn, taugrid, p):
     return cf
 
 def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
-    #nlev, nlat, nlon = tgrid.shape
     nlev, nlat, nlon = np.shape(tgrid)
     nwn = len(wn)
     nfilt = len(filtwn)
 
-    #tic = time.time()
     cf = contribution(tgrid, wn, taugrid, p)
-    #print("CF Calculation: {}".format(time.time() - tic))
-    #tic = time.time()
 
     # Filter-integrated contribution functions
     filter_cf = np.zeros((nlat, nlon, nlev, nfilt))
@@ -65,7 +60,5 @@ def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
             for k in range(nlon):
                 filter_cf[j,k,:,i] = \
                     np.trapz(cf_trans[j,k], axis=1) / integtrans
-
-    #print("CF Integration: {}".format(time.time() - tic))
         
     return filter_cf

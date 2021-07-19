@@ -87,9 +87,6 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
         ilat = np.repeat(np.arange(nlat), nlon)
     if ilon is None:
         ilon = np.repeat(np.arange(nlon), nlat)
-
-    #mu = np.zeros(t.shape)
-    #r  = np.zeros(t.shape)
     
     # Equilibrium atmosphere
     if atmtype == 'rate':
@@ -99,9 +96,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
         abn = np.zeros((nspec, nlayers, nlat, nlon))
         for i, j in zip(ilat, ilon):
             abn[:,:,i,j] = robj.solve(t[:,i,j], p)
-            #mu[   :,i,j] = calcmu(elemfile, abn[:,:,i,j], spec)
-            #r[    :,i,j] = calcrad(p, t[:,i,j], mu[:,i,j],
-            #                       rp, mp, refpress)
+
     elif atmtype == 'ggchem':
         ggchemT, ggchemp, spec, ggchemabn = cheminfo
         tic = time.time()
@@ -119,10 +114,6 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
                     interpT   = ggchemT[where]
                     interpabn = ggchemabn[where,s][0]
                     tsorter = np.argsort(interpT)
-                    # f = spi.interp1d(ggchemT[where],
-                    #                  ggchemabn[where,s])
-                    # for i, j in zip(ilat, ilon):
-                    #     abn[s,k,i,j] = f(t[k,i,j])
                     for i, j in zip(ilat, ilon):
                         idx1 = np.searchsorted(interpT[tsorter], t[k,i,j],
                                                side='left')
@@ -134,7 +125,6 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
                              interpabn[tsorter][idx2]),
                             t[k,i,j])
 
-        #print("Interpolating: {}".format(time.time() - tic))
     else:
         print("Unrecognized atmopsphere type.")
         sys.exit()

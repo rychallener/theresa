@@ -342,21 +342,6 @@ def map3d(fit, system):
         if hasattr(cfg.threed, 'pstep'):
             pstep  = cfg.threed.pstep
 
-        # 5 filters, isobaric, cf fit symmetric, 12x24
-        #params = np.array([-1.0872e+00,
-        #                   -1.3168e+00,
-        #                   -1.3139e+00,
-        #                   -1.3998e+00,
-        #                   -1.3303e+00,
-        #                   491.3])
-        # 5 filters, sinusoidal, cf fit symmetric, 12x24
-        #params = np.array([-1.1496e+00, -9.5174e-02,  2.1525e-01, 32.132,
-        #                   -1.4421e+00, -2.6572e-02,  9.6562e-02, 10.090,
-        #                   -1.3452e+00,  1.8070e-02, -1.5103e-02, 12.320,
-        #                   -1.3250e+00, -1.4248e-01,  3.1745e-02, 16.581,
-        #                   -1.1958e+00, -8.8353e-02, -1.1020e-01, 19.863,
-        #                   363.8])
-        #pstep[3::4] = 0.0
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
         
 
@@ -402,8 +387,13 @@ def map3d(fit, system):
     nt    = len(fit.t)
 
     print("Calculating best fit.")
-    fit.fluxgrid, fit.besttgrid, fit.taugrid, fit.p, fit.modelwngrid, fit.pmaps = \
-        model.specgrid(fit.specbestp, fit)
+    specout = model.specgrid(fit.specbestp, fit)
+    fit.fluxgrid    = specout[0]
+    fit.besttgrid   = specout[1]
+    fit.taugrid     = specout[2]
+    fit.p           = specout[3]
+    fit.modelwngrid = specout[4]
+    fit.pmaps       = specout[5]
     
     fit.specbestmodel = model.sysflux(fit.specbestp, fit)[0]
     fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
