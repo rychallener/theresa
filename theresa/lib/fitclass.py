@@ -90,7 +90,10 @@ class Fit:
             self.cfg.threed.leastsq == 'False'):
             self.cfg.threed.leastsq = None
 
-        self.cfg.threed.grbreak = self.cfg.cfg.getboolean('3D', 'grbreak')
+        if self.cfg.cfg.has_option('3D', 'grbreak'):
+            self.cfg.threed.grbreak = self.cfg.cfg.getfloat('3D', 'grbreak')
+        else:
+            self.cfg.threed.grbreak = 0.0
         
         self.cfg.threed.smooth  = self.cfg.cfg.get('3D', 'smooth')
         if self.cfg.threed.smooth == 'None':
