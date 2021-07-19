@@ -88,7 +88,9 @@ class Fit:
         self.cfg.threed.leastsq = self.cfg.cfg.get('3D', 'leastsq')
         if (self.cfg.threed.leastsq == 'None' or
             self.cfg.threed.leastsq == 'False'):
-            self.cfg.threed.leastsq = None        
+            self.cfg.threed.leastsq = None
+
+        self.cfg.threed.grbreak = self.cfg.cfg.getboolean('3D', 'grbreak')
         
         self.cfg.threed.smooth  = self.cfg.cfg.get('3D', 'smooth')
         if self.cfg.threed.smooth == 'None':
