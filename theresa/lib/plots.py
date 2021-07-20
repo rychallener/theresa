@@ -94,7 +94,7 @@ def lightcurves(t, lcs, outdir):
     plt.legend(ncol=l, fontsize=6)
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'lightcurves.png'))
-    plt.close()
+    plt.close(fig)
 
 def eigencurves(t, lcs, outdir, ncurves=None):
     if type(ncurves) == type(None):
@@ -111,7 +111,7 @@ def eigencurves(t, lcs, outdir, ncurves=None):
     plt.legend(fontsize=6)
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'eigencurves.png'))
-    plt.close()
+    plt.close(fig)
     
 def ecurvepower(evalues, outdir):
     ncurves = len(evalues)
@@ -276,7 +276,7 @@ def ecurveweights(fit):
 
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'ecurveweight.png'))
-    plt.close()
+    plt.close(fig)
 
 def hshist(fit):
     '''
@@ -307,7 +307,7 @@ def hshist(fit):
 
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'hotspot-hist.png'))
-    plt.close()
+    plt.close(fig)
 
 def bestfitlcsspec(fit):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -562,7 +562,7 @@ def tau(fit, ilat=None, ilon=None):
         
     plt.colorbar(label=r'$e^{-\tau}$')
     plt.savefig(os.path.join(fit.cfg.outdir, 'transmission.png'))
-    plt.close()
+    plt.close(fig)
 
 def pmaps3d(fit, animate=False):
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
@@ -592,7 +592,7 @@ def pmaps3d(fit, animate=False):
 
     init()
     plt.savefig(os.path.join(fit.cfg.outdir, 'pmaps.png'))
-    plt.close()
+    plt.close(fig)
     
     if not animate:
         return
@@ -627,7 +627,7 @@ def pmaps3d(fit, animate=False):
     anim.save(os.path.join(fit.cfg.outdir, 'pmaps3d.gif'), dpi=300,
               writer=writer)
 
-    plt.close()
+    plt.close(fig)
     
 def tgrid_unc(fit):
     '''
@@ -643,14 +643,18 @@ def tgrid_unc(fit):
 
     niter, npar = fit.posterior3d.shape
     nlev, nlat, nlon = fit.besttgrid.shape
+
+    # Limit calculations if large number of samples
+    ncalc = np.min((5000, niter))
     
-    tgridpost = np.zeros((niter, nlev, nlat, nlon))
-    for i in range(niter):
-        pmaps = atm.pmaps(fit.posterior3d[i], fit)
+    tgridpost = np.zeros((ncalc, nlev, nlat, nlon))
+    for i in range(ncalc):
+        ipost = i * niter // ncalc
+        pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
         tgridpost[i], p = atm.tgrid(nlev, nlat, nlon, fit.tmaps,
                                     pmaps, fit.cfg.threed.pbot,
                                     fit.cfg.threed.ptop,
-                                    fit.posterior3d[i],
+                                    fit.posterior3d[ipost],
                                     interptype=fit.cfg.threed.interp,
                                     oob=fit.cfg.threed.oob,
                                     smooth=fit.cfg.threed.smooth)
@@ -712,7 +716,7 @@ def tgrid_unc(fit):
 
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'tgrid_unc.png'))
-    plt.close()
+    plt.close(fig)
 
 
 def tmapunc(fit):
@@ -754,6 +758,7 @@ def tmapunc(fit):
 
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'tmapunc.png'))
+    plt.close(fig)
 
 def cf_by_location(fit):
     nlat, nlon, nlev, nfilt = fit.cf.shape
@@ -800,7 +805,7 @@ def cf_by_location(fit):
     
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
-    plt.close()
+    plt.close(fig)
 
 def cf_by_filter(fit):
     nlat, nlon, nlev, nfilt = fit.cf.shape
@@ -862,6 +867,7 @@ def cf_by_filter(fit):
     plt.gca().invert_yaxis()
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, 'cf-by-filter.png'))
+    plt.close(fig)
 
         
 def cf_slice(fit, ilat=None, ilon=None, fname=None):   
@@ -923,7 +929,7 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None):
 
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.outdir, fname))
-    plt.close()
+    plt.close(fig)
         
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
 def gradient_cmap(color):
