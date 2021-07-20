@@ -317,7 +317,7 @@ def get_par(fit):
         # Guess that higher temps are deeper
         ipar = np.argsort(np.max(fit.tmaps, axis=(1,2)))
         for i in range(nwl):
-            par[i*npar]   = np.linspace(-2, 0, npar)[ipar]
+            par[i*npar]   = np.linspace(-2, 0, npar)[ipar[i]]
     elif fit.cfg.threed.mapfunc == 'flexible':
         ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
                               (fit.lon - fit.dlon / 2. < fit.maxvislon))
