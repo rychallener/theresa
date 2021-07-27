@@ -283,7 +283,8 @@ def hshist(fit):
     Makes a plot of hotspot location posterior distribution
     '''
     nmaps = len(fit.maps)
-    fig, axes = plt.subplots(nrows=2, ncols=nmaps, sharey='row')
+    fig, axes = plt.subplots(nrows=2, ncols=nmaps, sharey='row',
+                             squeeze=False)
 
     for i in range(nmaps):
         # Latitude
