@@ -288,14 +288,16 @@ def get_par(fit):
     '''
     Returns sensible parameter settings for each model
     '''
+    nmaps = len(fit.maps)
     if fit.cfg.threed.mapfunc == 'isobaric':
-        npar  = len(fit.maps)
+        npar  = nmaps
         # Guess that higher temps are deeper
         ipar  = np.argsort(np.max(fit.tmaps, axis=(1,2)))
         par   = np.linspace(-2, 0, npar)[ipar]
         pstep = np.ones(npar) * 1e-3
         pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
         pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
+        pnames = ['log(p{})'.format(a) for a in np.arange(1,nmaps+1)]
     elif fit.cfg.threed.mapfunc == 'sinusoidal':
         # For a single wavelength
         npar = 4
@@ -305,12 +307,18 @@ def get_par(fit):
                           -np.inf, -np.inf, -180.0])
         pmax  = np.array([np.log10(fit.cfg.threed.pbot),
                           np.inf,  np.inf,  180.0])
+        pnames = ['log(p{})',
+                  'Lat. Amp. {}',
+                  'Lon. Amp. {}',
+                  'Lon. Phase {}']
         # Repeat for each wavelength
         nwl = len(fit.maps)
         par   = np.tile(par,   nwl)
         pstep = np.tile(pstep, nwl)
         pmin  = np.tile(pmin,  nwl)
         pmax  = np.tile(pmax,  nwl)
+        pnames = np.concatenate([[pname.format(a) for pname in pnames] \
+                                 for a in np.arange(1, nmaps+1)]) # Trust me
         # Guess that longitudinal sinusoid follows the hotpost
         for i in range(nwl):
             par[3+i*npar] = fit.maps[i].hslocbest[1]
@@ -328,27 +336,34 @@ def get_par(fit):
         pstep = np.ones(npar) * 1e-3
         pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
         pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
+        pnames = ['log(p{},{},{})'.format(i,j,k) \
+                  for i in np.arange(1, nmaps+1) \
+                  for j in ilat \
+                  for k in ilon]
     else:
         print("Warning: Unrecognized mapping function.")
 
     if fit.cfg.threed.oob == 'both':
-        par   = np.concatenate((par,   (1000., 2000.)))
-        pstep = np.concatenate((pstep, (   1.,    1.)))
-        pmin  = np.concatenate((pmin,  (   0.,    0.)))
-        pmax  = np.concatenate((pmax,  (4000., 4000.)))
+        par    = np.concatenate((par,   (1000., 2000.)))
+        pstep  = np.concatenate((pstep, (   1.,    1.)))
+        pmin   = np.concatenate((pmin,  (   0.,    0.)))
+        pmax   = np.concatenate((pmax,  (4000., 4000.)))
+        pnames = np.concatenate((pnames, ('Ttop, Tbot')))
     elif fit.cfg.threed.oob == 'top':
-        par   = np.concatenate((par,   (1000.,)))
-        pstep = np.concatenate((pstep, (   1.,)))
-        pmin  = np.concatenate((pmin,  (   0.,)))
-        pmax  = np.concatenate((pmax,  (4000.,)))
+        par    = np.concatenate((par,   (1000.,)))
+        pstep  = np.concatenate((pstep, (   1.,)))
+        pmin   = np.concatenate((pmin,  (   0.,)))
+        pmax   = np.concatenate((pmax,  (4000.,)))
+        pnames = np.concatenate((pnames, ('Ttop')))
     elif fit.cfg.threed.oob == 'bot':
-        par   = np.concatenate((par,   (2000.,)))
-        pstep = np.concatenate((pstep, (   1.,)))
-        pmin  = np.concatenate((pmin,  (   0.,)))
-        pmax  = np.concatenate((pmax,  (4000.,)))
+        par    = np.concatenate((par,   (2000.,)))
+        pstep  = np.concatenate((pstep, (   1.,)))
+        pmin   = np.concatenate((pmin,  (   0.,)))
+        pmax   = np.concatenate((pmax,  (4000.,)))
+        pnames = np.concatenate((pnames, ('Tbot')))
     else:
         print("Unrecognized out-of-bounds rule.")
 
-    return par, pstep, pmin, pmax
+    return par, pstep, pmin, pmax, pnames
         
     

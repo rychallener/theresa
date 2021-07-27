@@ -330,7 +330,7 @@ def map3d(fit, system):
         indparams = [fit]
 
         # Get sensible defaults
-        params, pstep, pmin, pmax = model.get_par(fit)
+        params, pstep, pmin, pmax, pnames = model.get_par(fit)
 
         # Override if specified by the user
         if hasattr(cfg.threed, 'params'):
@@ -341,6 +341,8 @@ def map3d(fit, system):
             pmax   = cfg.threed.pmax
         if hasattr(cfg.threed, 'pstep'):
             pstep  = cfg.threed.pstep
+        if hasattr(cfg.threed, 'pnames'):
+            pnames = cfg.threed.pnames
 
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
         
