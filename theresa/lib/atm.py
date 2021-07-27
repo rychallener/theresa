@@ -495,6 +495,31 @@ def pmaps(params, fit):
             for j, k in zip(ilat, ilon):
                 pmaps[i,j,k] = 10.**params[i*nvis+ip]
                 ip += 1
+    elif mapfunc == 'quadratic':
+        npar = 6
+        for i in range(nmap):
+            ip = npar*i
+            pmaps[i] = 10.**(
+                params[ip  ]          +
+                params[ip+1] * lat**2 +
+                params[ip+2] * lon**2 +
+                params[ip+3] * lat    +
+                params[ip+4] * lon    +
+                params[ip+5] * lat*lon)
+    elif mapfunc == 'cubic':
+        npar = 10
+        for i in range(nmap):
+            pmaps[i] = 10.**(
+                params[ip  ]              +
+                params[ip+1] * lat**3     +
+                params[ip+2] * lon**3     +
+                params[ip+3] * lat**2     +
+                params[ip+4] * lon**2     +
+                params[ip+5] * lat        +
+                params[ip+6] * lon        +
+                params[ip+7] * lat**2*lon +
+                params[ip+8] * lat*lon**2 +
+                params[ip+9] * lat*lon)
     else:
         print("WARNING: Unrecognized pmap model.")
 
