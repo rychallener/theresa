@@ -348,19 +348,19 @@ def get_par(fit):
         pstep  = np.concatenate((pstep, (   1.,    1.)))
         pmin   = np.concatenate((pmin,  (   0.,    0.)))
         pmax   = np.concatenate((pmax,  (4000., 4000.)))
-        pnames = np.concatenate((pnames, ('Ttop, Tbot')))
+        pnames = np.concatenate((pnames, ('Ttop', 'Tbot')))
     elif fit.cfg.threed.oob == 'top':
         par    = np.concatenate((par,   (1000.,)))
         pstep  = np.concatenate((pstep, (   1.,)))
         pmin   = np.concatenate((pmin,  (   0.,)))
         pmax   = np.concatenate((pmax,  (4000.,)))
-        pnames = np.concatenate((pnames, ('Ttop')))
+        pnames = np.concatenate((pnames, ('Ttop',)))
     elif fit.cfg.threed.oob == 'bot':
         par    = np.concatenate((par,   (2000.,)))
         pstep  = np.concatenate((pstep, (   1.,)))
         pmin   = np.concatenate((pmin,  (   0.,)))
         pmax   = np.concatenate((pmax,  (4000.,)))
-        pnames = np.concatenate((pnames, ('Tbot')))
+        pnames = np.concatenate((pnames, ('Tbot',)))
     else:
         print("Unrecognized out-of-bounds rule.")
 
