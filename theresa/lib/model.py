@@ -340,6 +340,58 @@ def get_par(fit):
                   for i in np.arange(1, nmaps+1) \
                   for j in ilat \
                   for k in ilon]
+    elif fit.cfg.threed.mapfunc == 'quadratic':
+        # For a single wavelength
+        npar  = 6
+        par   = np.zeros(npar)
+        pstep = np.ones(npar) * 1e-3
+        pmin  = np.array([np.log10(fit.cfg.threed.ptop),
+                          -np.inf, -np.inf, -np.inf, -np.inf, -np.inf])
+        pmax  = np.array([np.log10(fit.cfg.threed.pbot),
+                          np.inf, np.inf, np.inf, np.inf, np.inf])
+        pnames = ['log(p{})',
+                  'LatLat {}',
+                  'LonLon {}',
+                  'Lat {}',
+                  'Lon {}',
+                  'LatLon {}']
+        # Repeat for each wavelength
+        nwl = len(fit.maps)
+        par   = np.tile(par,   nwl)
+        pstep = np.tile(pstep, nwl)
+        pmin  = np.tile(pmin,  nwl)
+        pmax  = np.tile(pmax,  nwl)
+        pnames = np.concatenate([[pname.format(a) for pname in pnames] \
+                                 for a in np.arange(1, nmaps+1)]) # Trust me
+    elif fit.cfg.threed.mapfunc == 'cubic':
+        # For a single wavelength
+        npar  = 10
+        par   = np.zeros(npar)
+        pstep = np.ones(npar) * 1e-3
+        pmin  = np.array([np.log10(fit.cfg.threed.ptop),
+                          -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,
+                          -np.inf, -np.inf, -np.inf, -np.inf])
+        pmax  = np.array([np.log10(fit.cfg.threed.pbot),
+                          np.inf, np.inf, np.inf, np.inf, np.inf,
+                          np.inf, np.inf, np.inf, np.inf])
+        pnames = ['log(p{})',
+                  'LatLatLat {}',
+                  'LonLonLon {}',
+                  'LatLat {}',
+                  'LonLon {}',
+                  'Lat {}',
+                  'Lon {}',
+                  'LatLatLon {}',
+                  'LatLonLon {}',
+                  'LatLon {}']
+        # Repeat for each wavelength
+        nwl = len(fit.maps)
+        par   = np.tile(par,   nwl)
+        pstep = np.tile(pstep, nwl)
+        pmin  = np.tile(pmin,  nwl)
+        pmax  = np.tile(pmax,  nwl)
+        pnames = np.concatenate([[pname.format(a) for pname in pnames] \
+                                 for a in np.arange(1, nmaps+1)]) # Trust me
     else:
         print("Warning: Unrecognized mapping function.")
 

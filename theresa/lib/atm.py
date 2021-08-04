@@ -509,6 +509,7 @@ def pmaps(params, fit):
     elif mapfunc == 'cubic':
         npar = 10
         for i in range(nmap):
+            ip = npar*i
             pmaps[i] = 10.**(
                 params[ip  ]              +
                 params[ip+1] * lat**3     +
