@@ -360,6 +360,9 @@ def bestfittgrid(fit):
     # Latitude index 
     ieq = fit.cfg.twod.nlat // 2
 
+    cfnorm_lines = np.nanmax(fit.cf)
+    cfnorm_dots  = np.nanmax(np.sum(fit.cf, axis=2))
+    
     for i in range(fit.cfg.twod.nlat):
         for j in range(fit.cfg.twod.nlon):
             lat = fit.lat[i,j]
@@ -384,9 +387,6 @@ def bestfittgrid(fit):
             else:
                 linestyle = '-'
 
-            #cfnorm = np.max(fit.cf[i,j])
-            cfnorm = np.nanmax(fit.cf)
-
             points = np.array([fit.besttgrid[:,i,j], fit.p]).T.reshape(-1,1,2)
             segments = np.concatenate([points[:-1], points[1:]],
                                       axis=1)
@@ -395,11 +395,16 @@ def bestfittgrid(fit):
             lc = collections.LineCollection(segments,
                                             cmap=gradient_cmap(color),
                                             norm=norm, zorder=zorder)
-            lc.set_array(np.max(fit.cf[i,j,:-1], axis=1) / cfnorm)
+            lc.set_array(np.max(fit.cf[i,j,:-1], axis=1) / cfnorm_lines)
             line = ax.add_collection(lc)
 
-            ax.scatter(fit.tmaps[:,i,j], fit.pmaps[:,i,j],
-                       c=colors[:nmaps], marker='o', zorder=3, s=3)
+            if linestyle != '--':
+                for k in range(nmaps):
+                    alpha = np.sum(fit.cf[i,j,:,k]) / cfnorm_dots
+                    alpha = np.round(alpha, 2)
+                    ax.scatter(fit.tmaps[k,i,j], fit.pmaps[k,i,j],
+                               c=colors[k], marker='o', zorder=3, s=1,
+                               alpha=alpha)
 
     # Build custom legend
     legend_elements = []
