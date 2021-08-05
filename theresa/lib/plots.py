@@ -921,6 +921,13 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None):
                        vmax=vmax, origin='lower', extent=extent,
                        aspect='auto')
 
+        if ilon is None:
+            ax.plot(fit.lon[latslice],
+                    np.log10(fit.pmaps[i,latslice,lonslice]), color='red')
+        else:
+            ax.plot(fit.lat[:,lonslice],
+                    np.log10(fit.pmaps[i,latslic,lonslice]), color='red')
+            
         if i == 0:
             ax.set_ylabel('Log(p) (bars)')
 
