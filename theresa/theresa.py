@@ -123,8 +123,14 @@ def map2d(cfile):
         m = fit.maps[i]
         m.ncurves = cfg.twod.ncurves[i]
         m.lmax    = cfg.twod.lmax[i]
+        m.wlmid = fit.wlmid[i]
 
-        # New planet object with the lmax
+        # Where to put wl-specific outputs
+        m.subdir = 'filt{}'.format(i+1)
+        if not os.path.isdir(os.path.join(cfg.outdir, m.subdir)):
+            os.mkdir(os.path.join(cfg.outdir, m.subdir))
+
+        # New planet object with updated lmax
         star, planet, system = utils.initsystem(fit, m.lmax)
 
         print("Running PCA to determine eigencurves.")
@@ -197,7 +203,6 @@ def map2d(cfile):
                                                     fit.maps[i].hslocstd[1]))
 
         print("Calculating temperature map uncertainties.")
-        fit.maps[i].wlmid = fit.wlmid[i]
         fit.maps[i].fmappost, fit.maps[i].tmappost = utils.tmappost(
             fit, fit.maps[i])
         fit.maps[i].tmapunc = np.std(fit.maps[i].tmappost, axis=0)
@@ -273,13 +278,16 @@ def map2d(cfile):
 
     if cfg.twod.plots:
         print("Making plots.")
-        plots.emaps(planet, fit.eigeny, cfg.outdir, proj='ortho')
-        plots.emaps(planet, fit.eigeny, cfg.outdir, proj='rect')
-        plots.emaps(planet, fit.eigeny, cfg.outdir, proj='moll')
-        plots.lightcurves(fit.t, fit.lcs, cfg.outdir)
-        plots.eigencurves(fit.t, fit.ecurves, cfg.outdir,
-                          ncurves=cfg.twod.ncurves)
-        plots.ecurvepower(fit.evalues, cfg.outdir)
+        for m in fit.maps:
+            outdir = os.path.join(cfg.outdir, m.subdir)
+            plots.emaps(planet, m.eigeny, outdir, proj='ortho')
+            plots.emaps(planet, m.eigeny, outdir, proj='rect')
+            plots.emaps(planet, m.eigeny, outdir, proj='moll')
+            plots.lightcurves(fit.t, m.lcs, outdir)
+            plots.eigencurves(fit.t, m.ecurves, outdir,
+                              ncurves=m.ncurves)
+            plots.ecurvepower(m.evalues, outdir)
+            
         plots.pltmaps(fit)
         plots.bestfit(fit)
         plots.ecurveweights(fit)
