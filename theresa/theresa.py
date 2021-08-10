@@ -454,7 +454,9 @@ if __name__ == "__main__":
         fit.read_config(cfile)
         fit = fc.load(outdir=fit.cfg.outdir)
         fit.read_config(cfile)
-        star, planet, system = utils.initsystem(fit)
+        # 3D mapping doesn't care about the degree of harmonics, so
+        # just use 1
+        star, planet, system = utils.initsystem(fit, 1)
         map3d(fit, system)
     else:
         print("ERROR: Unrecognized mode. Options are <2d, 3d>.")
