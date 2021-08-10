@@ -79,7 +79,7 @@ def map2d(cfile):
     # Create star, planet, and system objects
     # Not added to fit obj because they aren't pickleable
     print("Initializing star and planet objects.")
-    star, planet, system = utils.initsystem(fit)
+    star, planet, system = utils.initsystem(fit, 1)
 
     print("Computing planet and star positions at observation times.")
     fit.x, fit.y, fit.z = [a.eval() for a in system.position(fit.t)]
@@ -87,11 +87,6 @@ def map2d(cfile):
     print("Calculating uniform-map planet and star fluxes.")
     fit.sflux, fit.pflux_y00 = [a.eval() for a in  \
                                 system.flux(fit.t, total=False)]
-
-    print("Running PCA to determine eigencurves.")
-    fit.eigeny, fit.evalues, fit.evectors, fit.ecurves, fit.lcs = \
-        eigen.mkcurves(system, fit.t, cfg.twod.lmax, fit.pflux_y00,
-                       ncurves=fit.cfg.twod.ncurves, method=cfg.twod.pca)
 
     print("Calculating minimum and maximum observed longitudes.")
     fit.minvislon, fit.maxvislon = utils.vislon(planet, fit)
@@ -113,9 +108,6 @@ def map2d(cfile):
     ivis = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
                     (fit.lon - fit.dlon / 2. < fit.maxvislon))
     fit.ivislat, fit.ivislon = ivis
-
-    print("Calculating intensities of visible grid cells of each eigenmap.")
-    fit.intens, fit.vislat, fit.vislon = eigen.intensities(planet, fit)
     
     if not os.path.isdir(cfg.outdir):
         os.mkdir(cfg.outdir)
@@ -123,24 +115,39 @@ def map2d(cfile):
     # List of 2d map fits
     fit.maps = []
 
-    # Set up for MCMC
-    if cfg.twod.posflux:
-        intens = fit.intens
-    else:
-        intens = None
-        
-    indparams = (fit.ecurves, fit.t, fit.pflux_y00, fit.sflux,
-                 cfg.twod.ncurves, intens)
-
-    npar = cfg.twod.ncurves + 2
-
     print("Optimizing 2D maps.")
     for i in range(len(fit.wlmid)):
-        print("  {:.2f} um".format(fit.wlmid[i]))
+        print("{:.2f} um".format(fit.wlmid[i]))
         fit.maps.append(fc.Map())
 
+        m = fit.maps[i]
+        m.ncurves = cfg.twod.ncurves[i]
+        m.lmax    = cfg.twod.lmax[i]
+
+        # New planet object with the lmax
+        star, planet, system = utils.initsystem(fit, m.lmax)
+
+        print("Running PCA to determine eigencurves.")
+        m.eigeny, m.evalues, m.evectors, m.ecurves, m.lcs = \
+        eigen.mkcurves(system, fit.t, m.lmax, fit.pflux_y00,
+                       ncurves=m.ncurves, method=cfg.twod.pca)
+
+        print("Calculating intensities of visible grid cells of each eigenmap.")
+        m.intens, m.vislat, m.vislon = eigen.intensities(planet, fit, m)
+
+        # Set up for MCMC
+        if cfg.twod.posflux:
+            intens = m.intens
+        else:
+            intens = None
+        
+        indparams = (m.ecurves, fit.t, fit.pflux_y00, fit.sflux,
+                     m.ncurves, m.intens)
+
+        npar = m.ncurves + 2
+
         params = np.zeros(npar)
-        params[cfg.twod.ncurves] = 0.001
+        params[m.ncurves] = 0.001
         pstep  = np.ones(npar) *  0.01
         pmin   = np.ones(npar) * -1.0
         pmax   = np.ones(npar) *  1.0
@@ -208,7 +215,7 @@ def map2d(cfile):
     # Save stellar correction terms (we need them later)
     fit.scorr = np.zeros(len(fit.wlmid))
     for i in range(len(fit.wlmid)):
-        fit.scorr[i] = fit.maps[i].bestp[cfg.twod.ncurves+1]
+        fit.scorr[i] = fit.maps[i].bestp[fit.maps[i].ncurves+1]
 
     print("Calculating planet visibility with time.")
     pbar = progressbar.ProgressBar(max_value=len(fit.t))
@@ -231,10 +238,11 @@ def map2d(cfile):
     print("Checking for negative fluxes in visible cells:")
     for j in range(len(fit.wlmid)):
         print("  Wl: {:.2f} um".format(fit.wlmid[j]))
-        for i in range(fit.intens.shape[1]):
-            check = np.sum(fit.intens[:,i] *
-                           fit.maps[j].bestp[:cfg.twod.ncurves]) + \
-                           fit.maps[j].bestp[cfg.twod.ncurves] / np.pi
+        m = fit.maps[j]
+        for i in range(m.intens.shape[1]):
+            check = np.sum(m.intens[:,i] *
+                           m.bestp[:m.ncurves]) + \
+                           m.bestp[m.ncurves] / np.pi
             if check <= 0.0:
                 msg = "    Lat: {:+07.2f}, Lon: {:+07.2f}, Flux: {:+013.10f}"
                 print(msg.format(fit.vislat[i], fit.vislon[i], check))
@@ -242,8 +250,9 @@ def map2d(cfile):
     print("Constructing total flux and brightness temperature maps " +
           "from eigenmaps.")
     for j in range(len(fit.wlmid)):
-        fmap, tmap = eigen.mkmaps(planet, fit.eigeny,
-                                  fit.maps[j].bestp, cfg.twod.ncurves,
+        star, planet, system = utils.initsystem(fit, fit.maps[j].lmax)
+        fmap, tmap = eigen.mkmaps(planet, fit.maps[j].eigeny,
+                                  fit.maps[j].bestp, fit.maps[j].ncurves,
                                   fit.wlmid[j], cfg.star.r, cfg.planet.r,
                                   cfg.star.t, fit.lat, fit.lon)
         fit.maps[j].fmap = fmap

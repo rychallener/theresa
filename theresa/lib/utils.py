@@ -12,7 +12,7 @@ import theano
 import theano.tensor as tt
 from numba import njit
 
-def initsystem(fit):
+def initsystem(fit, ydeg):
     '''
     Uses a fit object to build the respective starry objects. Useful
     because starry objects cannot be pickled. Returns a tuple of
@@ -26,7 +26,7 @@ def initsystem(fit):
                           r   =cfg.star.r,
                           prot=cfg.star.prot)
 
-    planet = starry.kepler.Secondary(starry.Map(ydeg=cfg.twod.lmax),
+    planet = starry.kepler.Secondary(starry.Map(ydeg=ydeg),
                                      m    =cfg.planet.m,
                                      r    =cfg.planet.r,
                                      porb =cfg.planet.porb,
@@ -392,8 +392,7 @@ def hotspotloc_driver(fit, map):
     thinning = nsamp // ncalc
 
     bounds = (-45, 45),(fit.minvislon, fit.maxvislon)
-    #bounds = (-90,90),(-180, 180)
-    smap = starry.Map(ydeg=fit.cfg.twod.lmax)
+    smap = starry.Map(ydeg=map.lmax)
     # Function defined in this way to avoid passing non-numeric arguments
     def hotspotloc(yval):       
         smap[1:,:] = yval
@@ -412,17 +411,17 @@ def hotspotloc_driver(fit, map):
     pbar = progressbar.ProgressBar(max_value=ncalc)
     for i in range(0, ncalc):
         ipost = i * thinning
-        yval = np.zeros((fit.cfg.twod.lmax+1)**2-1)
-        for j in range(fit.cfg.twod.ncurves):
-            yval += -1 * post[ipost,j] * fit.eigeny[j,1:]
+        yval = np.zeros((map.lmax+1)**2-1)
+        for j in range(map.ncurves):
+            yval += -1 * post[ipost,j] * map.eigeny[j,1:]
 
         hslat[i], hslon[i], _ = t_hotspotloc(yval)
         pbar.update(i+1)
 
-    star, planet, system = initsystem(fit)
+    star, planet, system = initsystem(fit, map.lmax)
     planet.map[1:,:] = 0.0
-    for j in range(fit.cfg.twod.ncurves):
-        planet.map[1:,:] += -1 * map.bestp[j] * fit.eigeny[j,1:]
+    for j in range(map.ncurves):
+        planet.map[1:,:] += -1 * map.bestp[j] * map.eigeny[j,1:]
     hslatbest, hslonbest, _ = planet.map.minimize(oversample=oversample,
                                                   bounds=bounds,
                                                   ntries=ntries)
@@ -438,7 +437,7 @@ def tmappost(fit, map):
     post = map.post[map.zmask]
 
     nsamp, nfree = post.shape
-    ncurves = fit.cfg.twod.ncurves
+    ncurves = map.ncurves
 
     if fit.cfg.twod.ncalc > nsamp:
         print("Warning: ncalc reduced to match burned-in sample.")
@@ -451,7 +450,7 @@ def tmappost(fit, map):
     fmaps = np.zeros((ncalc, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
     tmaps = np.zeros((ncalc, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
     
-    star, planet, system = initsystem(fit)
+    star, planet, system = initsystem(fit, map.lmax)
 
     def calcfmap(yval, unifamp):
         planet.map[1:,:] = 0.0
@@ -472,9 +471,9 @@ def tmappost(fit, map):
     pbar = progressbar.ProgressBar(max_value=ncalc)
     for i in range(ncalc):
         ipost = i * thinning
-        yval = np.zeros((fit.cfg.twod.lmax+1)**2-1)
-        for j in range(fit.cfg.twod.ncurves):
-            yval += post[ipost,j] * fit.eigeny[j,1:]
+        yval = np.zeros((map.lmax+1)**2-1)
+        for j in range(map.ncurves):
+            yval += post[ipost,j] * map.eigeny[j,1:]
             
         fmaps[i] = t_calcfmap(yval, post[ipost, ncurves]).reshape(fit.lat.shape)
         tmaps[i] = fmap_to_tmap(fmaps[i], map.wlmid*1e-6,
