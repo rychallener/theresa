@@ -177,7 +177,7 @@ def pltmaps(fit, proj='rect'):
         
         im = ax.imshow(fit.maps[i].tmap, origin='lower', cmap='plasma',
                        extent=extent, vmin=vmin, vmax=vmax)
-        #plt.colorbar(im, ax=ax, label='Temperature (K)')
+
         ax.set_title('{:.2f} um'.format(fit.wlmid[i]))
 
         if icol == 0:
@@ -234,11 +234,11 @@ def bestfit(fit):
 
 def ecurveweights(fit):
     nwl = len(fit.wlmid)
-    ncurves = fit.cfg.twod.ncurves
-    npar = ncurves + 2
 
     maxweight = -np.inf
     minweight =  np.inf
+
+    maxcurves = np.max([m.ncurves for m in fit.maps])
 
     if nwl == 1:
         shifts = [0]
@@ -248,6 +248,8 @@ def ecurveweights(fit):
     fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
 
     for i in range(nwl):
+        ncurves = fit.maps[i].ncurves
+        npar = ncurves + 2
         weights = fit.maps[i].bestp[:ncurves]
         uncs    = fit.maps[i].stdp[:ncurves]
         axes[0].errorbar(np.arange(ncurves) + shifts[i] + 1,
@@ -270,7 +272,8 @@ def ecurveweights(fit):
     axes[0].legend()
 
     xlim = axes[1].get_xlim()
-    axes[1].hlines(3, 0, nwl*ncurves+1, linestyles='--', label=r'3$\sigma$')
+    axes[1].hlines(3, 0, nwl*maxcurves+1, linestyles='--',
+                   label=r'3$\sigma$')
     axes[1].set_xlim(xlim)
     axes[1].legend()
 

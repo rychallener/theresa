@@ -241,7 +241,7 @@ def emapminmax(planet, eigeny, ncurves):
             
     return lat, lon, intens
 
-def intensities(planet, fit):
+def intensities(planet, fit, map):
     wherevis = np.where((fit.lon + fit.dlon >= fit.minvislon) &
                         (fit.lon - fit.dlon <= fit.maxvislon))
 
@@ -250,14 +250,14 @@ def intensities(planet, fit):
 
     nloc = len(vislon)
     
-    intens = np.zeros((fit.cfg.twod.ncurves, nloc))
+    intens = np.zeros((map.ncurves, nloc))
 
-    for k in range(fit.cfg.twod.ncurves):
+    for k in range(map.ncurves):
         planet.map[1:,:] = 0
         yi = 1
-        for l in range(1, fit.cfg.twod.lmax + 1):
+        for l in range(1, map.lmax + 1):
             for m in range(-l, l + 1):
-                planet.map[l,m] = fit.eigeny[k,yi]
+                planet.map[l,m] = map.eigeny[k,yi]
                 yi += 1
 
         intens[k] = planet.map.intensity(lat=vislat,

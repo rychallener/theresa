@@ -30,29 +30,41 @@ class Fit:
         self.cfg.cfg   = config
 
         # General options
-        self.cfg.outdir     = self.cfg.cfg.get(       'General', 'outdir')
+        self.cfg.outdir     = self.cfg.cfg.get('General', 'outdir')
        
         # 2D options
-        self.cfg.twod.lmax       = self.cfg.cfg.getint('2D', 'lmax')
-        self.cfg.twod.ncurves    = self.cfg.cfg.getint('2D', 'ncurves')
-        self.cfg.twod.pca        = self.cfg.cfg.get(   '2D', 'pca')
-        self.cfg.twod.ncalc      = self.cfg.cfg.getint('2D', 'ncalc')
-        self.cfg.twod.ncpu       = self.cfg.cfg.getint('2D', 'ncpu')
-        self.cfg.twod.nsamples   = self.cfg.cfg.getint('2D', 'nsamples')
-        self.cfg.twod.burnin     = self.cfg.cfg.getint('2D', 'burnin')
-        
-        
-        self.cfg.twod.posflux = self.cfg.cfg.getboolean('2D', 'posflux')
-        
-        self.cfg.twod.nlat    = self.cfg.cfg.getint('2D', 'nlat')
-        self.cfg.twod.nlon    = self.cfg.cfg.getint('2D', 'nlon')
-
         self.cfg.twod.timefile = self.cfg.cfg.get('2D', 'timefile')
         self.cfg.twod.fluxfile = self.cfg.cfg.get('2D', 'fluxfile')
         self.cfg.twod.ferrfile = self.cfg.cfg.get('2D', 'ferrfile')
         self.cfg.twod.wlfile   = self.cfg.cfg.get('2D', 'wlfile')
 
         self.cfg.twod.filtfiles = self.cfg.cfg.get('2D', 'filtfiles').split()
+        nfilt = len(self.cfg.twod.filtfiles)
+        
+        if len(self.cfg.cfg.get('2D', 'lmax').split()) == 1:
+            self.cfg.twod.lmax = np.ones(nfilt) * \
+                self.cfg.cfg.getint('2D', 'lmax')
+        else:
+            self.cfg.twod.lmax = np.array(
+                [int(a) for a in self.cfg.cfg.get('2D', 'lmax').split()])
+
+        if len(self.cfg.cfg.get('2D', 'ncurves').split()) == 1:
+            self.cfg.twod.ncurves = np.ones(nfilt) * \
+                self.cfg.cfg.getint('2D', 'ncurves')
+        else:
+            self.cfg.twod.ncurves = np.array(
+                [int(a) for a in self.cfg.cfg.get('2D', 'ncurves').split()])
+            
+        self.cfg.twod.pca        = self.cfg.cfg.get(   '2D', 'pca')
+        self.cfg.twod.ncalc      = self.cfg.cfg.getint('2D', 'ncalc')
+        self.cfg.twod.ncpu       = self.cfg.cfg.getint('2D', 'ncpu')
+        self.cfg.twod.nsamples   = self.cfg.cfg.getint('2D', 'nsamples')
+        self.cfg.twod.burnin     = self.cfg.cfg.getint('2D', 'burnin')
+              
+        self.cfg.twod.posflux = self.cfg.cfg.getboolean('2D', 'posflux')
+        
+        self.cfg.twod.nlat    = self.cfg.cfg.getint('2D', 'nlat')
+        self.cfg.twod.nlon    = self.cfg.cfg.getint('2D', 'nlon')
 
         self.cfg.twod.plots      = self.cfg.cfg.getboolean('2D', 'plots')
         self.cfg.twod.animations = self.cfg.cfg.getboolean('2D', 'animations')
