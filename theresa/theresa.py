@@ -176,37 +176,41 @@ def map2d(cfile):
         # MC3 doesn't clear its plots >:(
         plt.close('all')
 
-        fit.maps[i].bestfit = mc3out['best_model']
-        fit.maps[i].bestp   = mc3out['bestp']
-        fit.maps[i].stdp    = mc3out['stdp']
-        fit.maps[i].chisq   = mc3out['best_chisq']
-        fit.maps[i].post    = mc3out['posterior']
-        fit.maps[i].zmask   = mc3out['zmask']
+        m.bestfit = mc3out['best_model']
+        m.bestp   = mc3out['bestp']
+        m.stdp    = mc3out['stdp']
+        m.chisq   = mc3out['best_chisq']
+        m.post    = mc3out['posterior']
+        m.zmask   = mc3out['zmask']
 
-        fit.maps[i].nfreep = np.sum(pstep > 0)
-        fit.maps[i].ndata  = mc3data.size
+        m.nfreep = np.sum(pstep > 0)
+        m.ndata  = mc3data.size
 
-        fit.maps[i].redchisq = fit.maps[i].chisq / \
-            (fit.maps[i].ndata - fit.maps[i].nfreep)
-        fit.maps[i].bic      = fit.maps[i].chisq + \
-            fit.maps[i].nfreep * np.log(fit.maps[i].ndata)
+        m.redchisq = m.chisq / \
+            (m.ndata - m.nfreep)
+        m.bic      = m.chisq + \
+            m.nfreep * np.log(m.ndata)
 
-        print("Chisq:         {}".format(fit.maps[i].chisq))
-        print("Reduced Chisq: {}".format(fit.maps[i].redchisq))
-        print("BIC:           {}".format(fit.maps[i].bic))
+        print("Chisq:         {}".format(m.chisq))
+        print("Reduced Chisq: {}".format(m.redchisq))
+        print("BIC:           {}".format(m.bic))
 
         print("Calculating hotspot latitude and longitude.")
-        fit.maps[i].hslocbest, fit.maps[i].hslocstd, fit.maps[i].hslocpost = \
-            utils.hotspotloc_driver(fit, fit.maps[i])
+        hs = utils.hotspotloc_driver(fit, m)
+        m.hslocbest  = hs[0]
+        m.hslocstd   = hs[1]
+        m.hslocpost  = hs[2]
+        m.hsloctserr = hs[3]
 
-        print("Hotspot Longitude: {} +/- {}".format(fit.maps[i].hslocbest[1],
-                                                    fit.maps[i].hslocstd[1]))
+        msg = "Hotspot Longitude: {:.2f} +{:.2f} {:.2f}"
+        print(msg.format(m.hslocbest[1],
+                         m.hsloctserr[1][0],
+                         m.hsloctserr[1][1]))
 
         print("Calculating temperature map uncertainties.")
-        fit.maps[i].fmappost, fit.maps[i].tmappost = utils.tmappost(
-            fit, fit.maps[i])
-        fit.maps[i].tmapunc = np.std(fit.maps[i].tmappost, axis=0)
-        fit.maps[i].fmapunc = np.std(fit.maps[i].fmappost, axis=0)
+        m.fmappost, m.tmappost = utils.tmappost(fit, m)
+        m.tmapunc = np.std(m.tmappost, axis=0)
+        m.fmapunc = np.std(m.fmappost, axis=0)
 
     # Useful prints
     fit.totchisq2d    = np.sum([m.chisq for m in fit.maps])

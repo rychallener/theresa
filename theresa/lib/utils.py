@@ -10,6 +10,7 @@ import starry
 import progressbar
 import theano
 import theano.tensor as tt
+import mc3.stats as ms
 from numba import njit
 
 def initsystem(fit, ydeg):
@@ -431,7 +432,25 @@ def hotspotloc_driver(fit, map):
     hslonstd = np.std(hslon)
     hslatstd = np.std(hslat)
 
-    return (hslatbest, hslonbest), (hslatstd, hslonstd), (hslat, hslon)
+    # Two-sided errors 
+    pdf, xpdf, hpdmin = ms.cred_region(hslon)
+    crlo = np.amin(xpdf[pdf>hpdmin])
+    crhi = np.amax(xpdf[pdf>hpdmin])
+    hsloncrlo = crlo - hslonbest
+    hsloncrhi = crhi - hslonbest
+
+    pdf, xpdf, hpdmin = ms.cred_region(hslat)
+    crlo = np.amin(xpdf[pdf>hpdmin])
+    crhi = np.amax(xpdf[pdf>hpdmin])
+    hslatcrlo = crlo - hslatbest
+    hslatcrhi = crhi - hslatbest
+
+    hslocbest  = (hslatbest, hslonbest)
+    hslocstd   = (hslatstd,  hslonstd)
+    hslocpost  = (hslat,     hslon)
+    hsloctserr = ((hslatcrhi, hslatcrlo), (hsloncrhi, hsloncrlo))
+    
+    return hslocbest, hslocstd, hslocpost, hsloctserr
 
 def tmappost(fit, map):
     post = map.post[map.zmask]
