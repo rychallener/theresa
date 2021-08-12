@@ -42,14 +42,14 @@ class Fit:
         nfilt = len(self.cfg.twod.filtfiles)
         
         if len(self.cfg.cfg.get('2D', 'lmax').split()) == 1:
-            self.cfg.twod.lmax = np.ones(nfilt) * \
+            self.cfg.twod.lmax = np.ones(nfilt, dtype=int) * \
                 self.cfg.cfg.getint('2D', 'lmax')
         else:
             self.cfg.twod.lmax = np.array(
                 [int(a) for a in self.cfg.cfg.get('2D', 'lmax').split()])
 
         if len(self.cfg.cfg.get('2D', 'ncurves').split()) == 1:
-            self.cfg.twod.ncurves = np.ones(nfilt) * \
+            self.cfg.twod.ncurves = np.ones(nfilt, dtype=int) * \
                 self.cfg.cfg.getint('2D', 'ncurves')
         else:
             self.cfg.twod.ncurves = np.array(
