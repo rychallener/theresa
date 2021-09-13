@@ -126,6 +126,8 @@ class Fit:
                 self.cfg.cfg.get('3D', 'pnames').split()
         else:
             self.cfg.threed.pnames = None
+
+        self.cfg.threed.resume = self.cfg.cfg.getboolean('3D', 'resume')
        
         # Star options
         self.cfg.star.m    = self.cfg.cfg.getfloat('Star', 'm')

@@ -391,7 +391,8 @@ def map3d(fit, system):
                          indparams=indparams, pstep=pstep, pmin=pmin,
                          pmax=pmax, pnames=pnames, leastsq=None,
                          grbreak=cfg.threed.grbreak,
-                         plots=cfg.threed.plots)
+                         plots=cfg.threed.plots,
+                         resume=cfg.threed.resume)
 
     fit.specbestp  = out['bestp']
     fit.chisq3d    = out['best_chisq']
