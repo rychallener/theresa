@@ -146,7 +146,7 @@ position of the planet, and :math:`y_s` is the :math:`y` position of
 the star. :math:`\bar\theta` is the average visible :math:`\theta` and
 :math:`\bar\phi` is the average visible :math:`\phi`.
 
-We compute $L$ and $S$ for every grid cell at every time in the
+We compute :math:`L` and :math:`S` for every grid cell at every time in the
 observation.  Later, in the 3D operating mode, this precomputed
 visibility grid is multiplied with the planetary emitted flux and then
 summed over the grid cells at each time to compute the spectroscopic
