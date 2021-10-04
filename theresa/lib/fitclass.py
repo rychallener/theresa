@@ -36,7 +36,6 @@ class Fit:
         self.cfg.twod.timefile = self.cfg.cfg.get('2D', 'timefile')
         self.cfg.twod.fluxfile = self.cfg.cfg.get('2D', 'fluxfile')
         self.cfg.twod.ferrfile = self.cfg.cfg.get('2D', 'ferrfile')
-        self.cfg.twod.wlfile   = self.cfg.cfg.get('2D', 'wlfile')
 
         self.cfg.twod.filtfiles = self.cfg.cfg.get('2D', 'filtfiles').split()
         nfilt = len(self.cfg.twod.filtfiles)
@@ -155,7 +154,6 @@ class Fit:
         self.t    = np.loadtxt(self.cfg.twod.timefile, ndmin=1)
         self.flux = np.loadtxt(self.cfg.twod.fluxfile, ndmin=2).T
         self.ferr = np.loadtxt(self.cfg.twod.ferrfile, ndmin=2).T
-        self.wl   = np.loadtxt(self.cfg.twod.wlfile,   ndmin=1)
 
         if len(self.t) != self.flux.shape[1]:
             print("WARNING: Number of times does not match the size " +
@@ -164,16 +162,6 @@ class Fit:
 
         if len(self.t) != self.ferr.shape[1]:
             print("WARNING: Number of times does not match the size " +
-                  "of the ferr array.")
-            sys.exit()
-
-        if len(self.wl) != self.flux.shape[0]:
-            print("WARNING: Number of wavelengths does not match the size " +
-                  "of the flux array.")
-            sys.exit()
-
-        if len(self.wl) != self.ferr.shape[0]:
-            print("WARNING: Number of wavelengths does not match the size " +
                   "of the ferr array.")
             sys.exit()
 
