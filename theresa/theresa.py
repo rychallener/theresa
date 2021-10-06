@@ -103,6 +103,9 @@ def map2d(cfile):
                                                 180 - fit.dlon / 2.,
                                                cfg.twod.nlon, endpoint=True),
                                    indexing='ij')
+    fit.dlatgrid, fit.dlongrid = np.meshgrid(np.ones(nlat) * fit.dlat,
+                                             np.ones(nlon) * fit.dlon,
+                                             indexing='ij')
 
     # Indices of visible cells (only considers longitudes)
     ivis = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &

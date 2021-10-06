@@ -168,8 +168,8 @@ def readfilters(filterfiles):
 
     return filtwl_list, filtwn_list, filttrans_list, wnmid, wlmid
         
-def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
-               rs, x, y):
+def visibility(t, latgrid, longrid, dlatgrid, dlongrid, theta0, prot,
+               t0, rp, rs, x, y):
     """
     Calculate the visibility of a grid of cells on a planet at a specific
     time. Returns a combined visibility based on the observer's
@@ -255,8 +255,10 @@ def visibility(t, latgrid, longrid, dlat, dlon, theta0, prot, t0, rp,
     for i in range(nlat):
         for j in range(nlon):
             # Angles wrt the observer
-            lat = latgrid[i,j]
-            lon = longrid[i,j]
+            lat  = latgrid[i,j]
+            lon  = longrid[i,j]
+            dlat = dlatgrid[i,j]
+            dlon = dlongrid[i,j]
             
             phi   = lon - centlon
             theta = lat
