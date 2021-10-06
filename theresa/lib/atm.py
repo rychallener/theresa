@@ -86,7 +86,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
     if ilat is None:
         ilat = np.repeat(np.arange(nlat), nlon)
     if ilon is None:
-        ilon = np.repeat(np.arange(nlon), nlat)
+        ilon = np.tile(  np.arange(nlon), nlat)
     
     # Equilibrium atmosphere
     if atmtype == 'rate':
