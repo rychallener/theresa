@@ -28,3 +28,4 @@ Documentation
    gettingstarted
    configuration
    codedesc
+   scripts
