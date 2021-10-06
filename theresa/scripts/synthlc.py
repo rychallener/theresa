@@ -267,8 +267,9 @@ fnoised = np.zeros((nfilt, nt))
 ferr    = np.zeros((nfilt, nt))
 # Addnoise
 for ifilt in range(nfilt):
-     fnoised[ifilt] = sysflux[ifilt] + noise[ifilt] * np.random.randn(nt)
-     ferr[ifilt]    =                  noise[ifilt] * np.ones(nt)
+     scnoise = noise[ifilt] / np.sqrt(necl)
+     fnoised[ifilt] = sysflux[ifilt] + scnoise * np.random.randn(nt)
+     ferr[ifilt]    =                  scnoise * np.ones(nt)
 
 np.savetxt(os.path.join(outdir, 'time.txt'), t)
 np.savetxt(os.path.join(outdir, 'flux.txt'), fnoised.T)
