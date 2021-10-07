@@ -368,6 +368,8 @@ def map3d(fit, system):
         if hasattr(cfg.threed, 'pnames'):
             pnames = cfg.threed.pnames
 
+        nparams = len(params)
+
         mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
         
 
@@ -405,11 +407,26 @@ def map3d(fit, system):
     # Put fixed params in the posterior so it's a consistent size
     fit.posterior3d = out['posterior'][out['zmask']]
     niter, nfree = fit.posterior3d.shape
-    for i in range(len(params)):
+    for i in range(nparams):
         if pstep[i] == 0:
             fit.posterior3d = np.insert(fit.posterior3d, i,
                                         np.ones(niter) * params[i], axis=1)
 
+    # Evaluate SPEIS, ESS, and CR error
+    print("Calculating effective sample size.")
+    fit.speis3d, fit.ess3d = utils.ess(fit.posterior3d)
+    fit.crsig3d = np.zeros(nparams)
+    for i in range(nparams):
+        fit.crsig3d[i] = utils.crsig(fit.ess3d[i])
+
+    print("\nParameter   SPEIS   ESS   68.3% Error"
+          "\n--------- ------- ----- -------------")
+    for i in range(nparams):
+        print(f"{pnames[i]:<9s} " +
+              f"{fit.speis3d[i]:7d} " +
+              f"{fit.ess3d[i]:5d} " +
+              f"{fit.crsig3d[i]:13.5e}")
+          
     nfilt = len(cfg.twod.filtfiles)
     nt    = len(fit.t)
 

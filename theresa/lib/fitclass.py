@@ -123,8 +123,6 @@ class Fit:
         if self.cfg.cfg.has_option('3D', 'pnames'):
             self.cfg.threed.pnames = \
                 self.cfg.cfg.get('3D', 'pnames').split()
-        else:
-            self.cfg.threed.pnames = None
 
         self.cfg.threed.resume = self.cfg.cfg.getboolean('3D', 'resume')
        

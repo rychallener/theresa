@@ -517,6 +517,64 @@ def fmap_to_tmap(fmap, wl, rp, rs, ts, scorr):
                           (np.pi * fmap * sfact))
     return tmap
 
+def ess(posterior):
+    '''
+    Calculates the Steps Per Effectively-Independent Sample and
+    Effective Sample Size (ESS) of an MCMC posterior distribution.
+
+    Adapted from some code I wrote for MC3 many years ago, and
+    the SPEIS/ESS calculation in BART.
+    '''
+    niter, npar = posterior.shape
+
+    speis = np.zeros(npar, dtype=int)
+    ess   = np.zeros(npar, dtype=int)
+
+    for i in range(npar):
+        mean     = np.mean(posterior[:,i])
+        autocorr = np.correlate(posterior[:,i] - mean,
+                                posterior[:,i] - mean,
+                                mode='full')
+        # Keep lags >= 0 and normalize
+        autocorr = autocorr[np.size(autocorr) // 2:] / np.max(autocorr)
+        # Sum adjacent pairs (Geyer, 1993)
+        pairsum = autocorr[:-1:2] + autocorr[1::2]
+        # Find where the sum goes negative, or use the whole thing
+        if np.any(pairsum > 0):
+            idx = np.where(pairsum < 0)[0][0]
+        else:
+            idx = len(pairsum)
+            print("WARNING: parameter {} did not decorrelate!"
+                  "Do not trust ESS/SPEIS!".format(i))
+        # Calculate SPEIS
+        speis[i] = int(np.ceil(-1 + 2 * np.sum(pairsum[:idx])))
+        ess[i]   = int(np.floor(niter / speis[i]))
+
+    return speis, ess
+
+def crsig(ess, cr=0.683):
+    '''
+    Calculates the absolute error on an estimate of a credible region
+    of a given percentile based on the effective sample size.
+
+    See Harrington et al, 2021.
+
+    Arguments
+    ---------
+    ess: int
+        Effective Sample Size
+
+    cr: float
+        Credible region percentile to calculate error on. E.g., 
+        for a 1-sigma region, use 0.683 (the default).
+
+    Returns
+    -------
+    crsig: float
+        The absolute error on the supplied credible region.
+    '''
+    return (cr * (1 - cr) / (ess + 3))**0.5
+
 @njit
 def fast_linear_interp(a, b, x):
     return (b[1] - a[1]) / (b[0] - a[0]) * (x - a[0]) + a[1]
