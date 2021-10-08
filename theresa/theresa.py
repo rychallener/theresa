@@ -403,9 +403,11 @@ def map3d(fit, system):
     fit.chisq3d    = out['best_chisq']
     fit.redchisq3d = out['red_chisq']
     fit.bic3d      = out['BIC']
+    fit.zmask3d    = out['zmask']
+    fit.zchain3d   = out['zchain']
 
     # Put fixed params in the posterior so it's a consistent size
-    fit.posterior3d = out['posterior'][out['zmask']]
+    fit.posterior3d = out['posterior']
     niter, nfree = fit.posterior3d.shape
     for i in range(nparams):
         if pstep[i] == 0:
@@ -414,17 +416,26 @@ def map3d(fit, system):
 
     # Evaluate SPEIS, ESS, and CR error
     print("Calculating effective sample size.")
-    fit.speis3d, fit.ess3d = utils.ess(fit.posterior3d)
+    nchains = np.max(fit.zchain3d) + 1
+    fit.cspeis3d = np.zeros((nchains, nparams)) # SPEIS by chain
+    fit.cess3d   = np.zeros((nchains, nparams)) # ESS by chain
+    for i in range(nchains):
+        where = np.where(fit.zchain3d[fit.zmask3d] == i)
+        chain = fit.posterior3d[fit.zmask3d][where]
+        fit.cspeis3d[i], fit.cess3d[i] = utils.ess(chain)
+
+    fit.ess3d   = np.sum(fit.cess3d, axis=0) # Overall ESS
+    fit.speis3d = np.ceil(niter / fit.ess3d).astype(int) # Overall SPEIS
     fit.crsig3d = np.zeros(nparams)
     for i in range(nparams):
         fit.crsig3d[i] = utils.crsig(fit.ess3d[i])
 
-    print("\nParameter   SPEIS   ESS   68.3% Error"
-          "\n--------- ------- ----- -------------")
+    print("\nParameter        SPEIS   ESS   68.3% Error"
+          "\n-------------- ------- ----- -------------")
     for i in range(nparams):
-        print(f"{pnames[i]:<9s} " +
+        print(f"{pnames[i]:<14s} " +
               f"{fit.speis3d[i]:7d} " +
-              f"{fit.ess3d[i]:5d} " +
+              f"{fit.ess3d[i]:5f} " +
               f"{fit.crsig3d[i]:13.5e}")
           
     nfilt = len(cfg.twod.filtfiles)

@@ -517,7 +517,7 @@ def fmap_to_tmap(fmap, wl, rp, rs, ts, scorr):
                           (np.pi * fmap * sfact))
     return tmap
 
-def ess(posterior):
+def ess(chain):
     '''
     Calculates the Steps Per Effectively-Independent Sample and
     Effective Sample Size (ESS) of an MCMC posterior distribution.
@@ -525,15 +525,15 @@ def ess(posterior):
     Adapted from some code I wrote for MC3 many years ago, and
     the SPEIS/ESS calculation in BART.
     '''
-    niter, npar = posterior.shape
+    nciter, npar = chain.shape
 
-    speis = np.zeros(npar, dtype=int)
-    ess   = np.zeros(npar, dtype=int)
+    speis = np.zeros(npar)
+    ess   = np.zeros(npar)
 
     for i in range(npar):
-        mean     = np.mean(posterior[:,i])
-        autocorr = np.correlate(posterior[:,i] - mean,
-                                posterior[:,i] - mean,
+        mean     = np.mean(chain[:,i])
+        autocorr = np.correlate(chain[:,i] - mean,
+                                chain[:,i] - mean,
                                 mode='full')
         # Keep lags >= 0 and normalize
         autocorr = autocorr[np.size(autocorr) // 2:] / np.max(autocorr)
@@ -547,8 +547,8 @@ def ess(posterior):
             print("WARNING: parameter {} did not decorrelate!"
                   "Do not trust ESS/SPEIS!".format(i))
         # Calculate SPEIS
-        speis[i] = int(np.ceil(-1 + 2 * np.sum(pairsum[:idx])))
-        ess[i]   = int(np.floor(niter / speis[i]))
+        speis[i] = -1 + 2 * np.sum(pairsum[:idx])
+        ess[i]   = nciter / speis[i]
 
     return speis, ess
 
