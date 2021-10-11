@@ -520,7 +520,8 @@ def fmap_to_tmap(fmap, wl, rp, rs, ts, scorr):
 def ess(chain):
     '''
     Calculates the Steps Per Effectively-Independent Sample and
-    Effective Sample Size (ESS) of an MCMC posterior distribution.
+    Effective Sample Size (ESS) of a chain from an MCMC posterior 
+    distribution.
 
     Adapted from some code I wrote for MC3 many years ago, and
     the SPEIS/ESS calculation in BART.
