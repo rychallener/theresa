@@ -394,7 +394,8 @@ def map3d(fit, system):
                          ncpu=cfg.threed.ncpu, sampler='snooker',
                          savefile=mc3npz, params=params,
                          indparams=indparams, pstep=pstep, pmin=pmin,
-                         pmax=pmax, pnames=pnames, leastsq=None,
+                         pmax=pmax, pnames=pnames,
+                         leastsq=cfg.threed.leastsq,
                          grbreak=cfg.threed.grbreak,
                          plots=cfg.threed.plots,
                          resume=cfg.threed.resume)
