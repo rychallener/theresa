@@ -103,8 +103,8 @@ def map2d(cfile):
                                                 180 - fit.dlon / 2.,
                                                cfg.twod.nlon, endpoint=True),
                                    indexing='ij')
-    fit.dlatgrid, fit.dlongrid = np.meshgrid(np.ones(nlat) * fit.dlat,
-                                             np.ones(nlon) * fit.dlon,
+    fit.dlatgrid, fit.dlongrid = np.meshgrid(np.ones(cfg.twod.nlat) * fit.dlat,
+                                             np.ones(cfg.twod.nlon) * fit.dlon,
                                              indexing='ij')
 
     # Indices of visible cells (only considers longitudes)
@@ -430,13 +430,13 @@ def map3d(fit, system):
     for i in range(nparams):
         fit.crsig3d[i] = utils.crsig(fit.ess3d[i])
 
-    print("\nParameter        SPEIS   ESS   68.3% Error"
-          "\n-------------- ------- ----- -------------")
+    print("\nParameter        SPEIS     ESS   68.3% Error"
+          "\n-------------- ------- ------- -------------")
     for i in range(nparams):
         print(f"{pnames[i]:<14s} " +
               f"{fit.speis3d[i]:7d} " +
-              f"{fit.ess3d[i]:5f} " +
-              f"{fit.crsig3d[i]:13.5e}")
+              f"{fit.ess3d[i]:7.1f} " +
+              f"{fit.crsig3d[i]:13.2e}")
           
     nfilt = len(cfg.twod.filtfiles)
     nt    = len(fit.t)
