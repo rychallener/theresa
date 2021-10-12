@@ -73,6 +73,11 @@ class Fit:
             self.cfg.twod.leastsq == 'False'):
             self.cfg.twod.leastsq = None
 
+        if self.cfg.cfg.has_option('2D', 'fgamma'):
+            self.cfg.twod.fgamma = self.cfg.cfg.getfloat('2D', 'fgamma')
+        else:
+            self.cfg.twod.fgamma = 1.0
+
         # 3D options
         self.cfg.threed.ncpu       = self.cfg.cfg.getint('3D', 'ncpu')
         self.cfg.threed.nsamples   = self.cfg.cfg.getint('3D', 'nsamples')
@@ -125,6 +130,11 @@ class Fit:
                 self.cfg.cfg.get('3D', 'pnames').split()
 
         self.cfg.threed.resume = self.cfg.cfg.getboolean('3D', 'resume')
+
+        if self.cfg.cfg.has_option('3D', 'fgamma'):
+            self.cfg.threed.fgamma = self.cfg.cfg.getfloat('3D', 'fgamma')
+        else:
+            self.cfg.threed.fgamma = 1.0
        
         # Star options
         self.cfg.star.m    = self.cfg.cfg.getfloat('Star', 'm')

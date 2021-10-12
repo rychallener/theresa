@@ -174,7 +174,7 @@ def map2d(cfile):
                             params=params, indparams=indparams,
                             pstep=pstep, leastsq=cfg.twod.leastsq,
                             plots=cfg.twod.plots, pmin=pmin, pmax=pmax,
-                            thinning=10)
+                            thinning=10, fgamma=cfg.twod.fgamma)
 
         # MC3 doesn't clear its plots >:(
         plt.close('all')
@@ -397,6 +397,7 @@ def map3d(fit, system):
                          pmax=pmax, pnames=pnames,
                          leastsq=cfg.threed.leastsq,
                          grbreak=cfg.threed.grbreak,
+                         fgamma=cfg.threed.fgamma,
                          plots=cfg.threed.plots,
                          resume=cfg.threed.resume)
 
