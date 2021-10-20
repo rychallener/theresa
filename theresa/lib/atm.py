@@ -424,7 +424,7 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
     
     temp3d = np.zeros((nlayers, nlat, nlon))
 
-    logp1d = np.linspace(np.log10(ptop), np.log10(pbot), nlayers)
+    logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
 
     for i in range(nlat):
         for j in range(nlon):
