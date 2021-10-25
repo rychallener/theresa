@@ -88,12 +88,14 @@ def specgrid(params, fit):
                          interptype=cfg.threed.interp,
                          oob=cfg.threed.oob, smooth=cfg.threed.smooth)
 
+    tic = time.time()
     abn, spec = atm.atminit(cfg.threed.atmtype, cfg.threed.mols, p,
                             tgrid, cfg.planet.m, cfg.planet.r,
                             cfg.planet.p0, cfg.threed.elemfile,
                             cfg.outdir, ilat=ilat, ilon=ilon,
                             cheminfo=fit.cheminfo)
-
+    print("Atm init: {} s".format(time.time()-tic))
+    
     negativeT = False
     
     if cfg.threed.rtfunc == 'taurex':
@@ -244,7 +246,7 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
     '''
     cfs = cf.contribution_filters(tgrid, wn, taugrid, p, fit.filtwn,
                                   fit.filttrans)
-    tic = time.time()
+
     # Where the maps "should" be
     # Find the roots of the derivative of a spline fit to
     # the contribution functions, then calculate some sort

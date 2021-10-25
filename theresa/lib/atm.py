@@ -105,7 +105,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
         nspec, nump, numt, numz = ggchemabn.shape
         abn = np.zeros((nspec, nlayers, nlat, nlon))
         
-        if not np.all(np.isclose(p, np.sort(np.unique(ggchemp))[::-1])):
+        if not np.all(np.isclose(p, ggchemp)):
             print("Pressures of fit and chemistry do not match. Exiting")
             sys.exit()
 
@@ -129,15 +129,14 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
         for s in range(nspec):
             if spec[s] in mols:
                 for k in range(nlayers):
-                    fcn = scipy.interpolate.interp2d(ggchemT,
-                                                     ggchemz,
-                                                     ggchemabn[s,k])
+                    fcn = spi.interp2d(ggchemz, ggchemT,
+                                       ggchemabn[s,k])
                     for i,j in zip(ilat, ilon):
-                        z = 1.0
-                        abn[s,k,i,j] = fcn(t[k,i,j], z)
+                        z = 0.0
+                        abn[s,k,i,j] = fcn(z, t[k,i,j])
 
     else:
-        print("Unrecognized atmopsphere type.")
+        print("Unrecognized atmosphere type.")
         sys.exit()
 
     return abn, spec
@@ -540,8 +539,8 @@ def pmaps(params, fit):
 def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz):
     # Temperatures
     tgrid = np.linspace(tmin, tmax, numt)
-    # Pressures (convert to Pa for taurex_ggchem)
-    pgrid = np.logspace(np.log10(pmin), np.log10(pmax), nump) * 1e5
+    # Pressures 
+    pgrid = np.logspace(np.log10(pmax), np.log10(pmin), nump)
     # Metallicities
     zgrid = np.linspace(zmin, zmax, numz)
 
@@ -575,9 +574,10 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz):
                                   equilibrium_condensation=condensates)
         for it, t in enumerate(tgrid):
             for ip, p in enumerate(pgrid):
+                # Convert to pascals
                 gg.initialize_chemistry(nlayers=1,
-                    temperature_profile=[tgrid[it]],
-                    pressure_profile=[pgrid[ip]])
+                    temperature_profile=[t],
+                    pressure_profile=[p * 1e5])
                 abn[:ng,ip,it,iz] = gg.mixProfile.squeeze()
                 if condensates:
                     abn[ng:ns,ip,it,iz] = gg.condensateMixProfile.squeeze()
