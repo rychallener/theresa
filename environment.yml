@@ -136,6 +136,7 @@ dependencies:
     - jupyter-client==6.1.12
     - jupyter-core==4.7.1
     - jupyterlab-pygments==0.1.2
+    - latexcodec==2.0.1
     - llvmlite==0.34.0
     - markupsafe==1.1.1
     - mc3==3.0.9
@@ -160,12 +161,14 @@ dependencies:
     - psutil==5.8.0
     - ptyprocess==0.6.0
     - pybind11==2.5.0
+    - pybtex==0.24.0
     - pygments==2.6.1
     - pymc3==3.9.3
     - pymc3-ext==0.0.2
     - pyrsistent==0.17.3
     - python-utils==2.4.0
     - pytz==2020.1
+    - pyyaml==6.0
     - pyzmq==22.0.3
     - setuptools-scm==4.1.2
     - snakeviz==2.1.0
@@ -175,7 +178,8 @@ dependencies:
     - sphinxcontrib-serializinghtml==1.1.4
     - starry==1.1.0
     - tabulate==0.8.7
-    - taurex==3.0.4a0
+    - taurex==3.1.1a0
+    - taurex-ggchem==1.0.0.dev0
     - testpath==0.4.4
     - theano==1.0.5
     - traitlets==4.3.3
