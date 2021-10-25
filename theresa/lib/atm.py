@@ -519,7 +519,8 @@ def pmaps(params, fit):
 
     return pmaps
 
-def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz):
+def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
+                 condensates=False):
     # Temperatures
     tgrid = np.linspace(tmin, tmax, numt)
     # Pressures 
@@ -530,7 +531,6 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz):
     # Stuff that should probably be up to the user
     elements = ['H', 'He', 'C', 'O', 'N']
     abundance_profile = 'solar'
-    condensates = False
 
     # Get molecules
     gg = taurex_ggchem.GGChem(metallicity=1.0,

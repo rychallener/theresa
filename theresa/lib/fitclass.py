@@ -143,6 +143,8 @@ class Fit:
             self.cfg.threed.zmin = self.cfg.cfg.getfloat('3D', 'zmin')
             self.cfg.threed.zmax = self.cfg.cfg.getfloat('3D', 'zmax')
             self.cfg.threed.numz = self.cfg.cfg.getint(  '3D', 'numz')
+            self.cfg.threed.condensates = \
+                self.cfg.cfg.getboolean('3D', 'condensates')
             
         # Star options
         self.cfg.star.m    = self.cfg.cfg.getfloat('Star', 'm')
