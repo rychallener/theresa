@@ -109,23 +109,6 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
             print("Pressures of fit and chemistry do not match. Exiting")
             sys.exit()
 
-        # for s in range(nspec):
-        #     if spec[s] in mols:
-        #         for k in range(nlayers):
-        #             where = np.where(np.isclose(p[k], ggchemp))
-        #             interpT   = ggchemT[where]
-        #             interpabn = ggchemabn[where,s][0]
-        #             tsorter = np.argsort(interpT)
-        #             for i, j in zip(ilat, ilon):
-        #                 idx1 = np.searchsorted(interpT[tsorter], t[k,i,j],
-        #                                        side='left')
-        #                 idx2 = idx1 - 1
-        #                 abn[s,k,i,j] = utils.fast_linear_interp(
-        #                     (interpT[tsorter][idx1],
-        #                      interpabn[tsorter][idx1]),
-        #                     (interpT[tsorter][idx2],
-        #                      interpabn[tsorter][idx2]),
-        #                     t[k,i,j])
         for s in range(nspec):
             if spec[s] in mols:
                 for k in range(nlayers):

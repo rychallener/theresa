@@ -88,13 +88,11 @@ def specgrid(params, fit):
                          interptype=cfg.threed.interp,
                          oob=cfg.threed.oob, smooth=cfg.threed.smooth)
 
-    tic = time.time()
     abn, spec = atm.atminit(cfg.threed.atmtype, cfg.threed.mols, p,
                             tgrid, cfg.planet.m, cfg.planet.r,
                             cfg.planet.p0, cfg.threed.elemfile,
                             cfg.outdir, ilat=ilat, ilon=ilon,
                             cheminfo=fit.cheminfo)
-    print("Atm init: {} s".format(time.time()-tic))
     
     negativeT = False
     

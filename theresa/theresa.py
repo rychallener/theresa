@@ -313,18 +313,15 @@ def map3d(fit, system):
     if cfg.threed.atmtype == 'ggchem':
         print("Precomputing chemistry grid.")
         # T, P, z, spec, abn
-        tmin =  500
-        tmax = 4000
-        numt =   10
-        pmin = 1e-6
-        pmax =  100
-        nump =  100
-        zmin = -1.0
-        zmax =  1.0
-        numz = 10
-        fit.cheminfo = atm.setup_GGchem(tmin, tmax, numt,
-                                        pmin, pmax, nump,
-                                        zmin, zmax, numz)
+        fit.cheminfo = atm.setup_GGchem(cfg.threed.tmin,
+                                        cfg.threed.tmax,
+                                        cfg.threed.numt,
+                                        cfg.threed.ptop,
+                                        cfg.threed.pbot,
+                                        cfg.threed.nlayers,
+                                        cfg.threed.zmin,
+                                        cfg.threed.zmax,
+                                        cfg.threed.numz)
     else:
         fit.cheminfo = None
         
