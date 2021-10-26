@@ -321,7 +321,8 @@ def map3d(fit, system):
                                         cfg.threed.nlayers,
                                         cfg.threed.zmin,
                                         cfg.threed.zmax,
-                                        cfg.threed.numz)
+                                        cfg.threed.numz,
+                                        condensates=cfg.threed.condensates)
     else:
         fit.cheminfo = None
         
