@@ -265,3 +265,70 @@ def freefree(fftbl1, fftbl2, T, wl_um):
              fftbl1[n,5] / wl_um[idx2]**4)
 
     return kff
+
+class LeeMieVaryMixContribution(taurex.contributions.LeeMieContribution):
+    
+    def __init__(self, lee_mie_radius=0.01, lee_mie_q=40,
+                 lee_mie_mix_ratio=1e-10, lee_mie_bottomP=-1,
+                 lee_mie_topP=-1):
+        super().__init__(lee_mie_radius=lee_mie_radius,
+                         lee_mie_q=lee_mie_q,
+                         lee_mie_mix_ratio=lee_mie_mix_ratio,
+                         lee_mie_bottomP=lee_mie_bottomP,
+                         lee_mie_topP=lee_mie_topP)
+
+    def prepare_each(self, model, wngrid):
+        """
+        Computes and weights the mie opacity for
+        the pressure regions given
+        Parameters
+        ----------
+        model: :class:`~taurex.model.model.ForwardModel`
+            Forward model
+        wngrid: :obj:`array`
+            Wavenumber grid
+        Yields
+        ------
+        component: :obj:`tuple` of type (str, :obj:`array`)
+            ``Lee`` and the weighted mie opacity.
+        """
+        self._nlayers = model.nLayers
+        self._ngrid = wngrid.shape[0]
+
+        pressure_profile = model.pressureProfile
+
+        bottom_pressure = self.mieBottomPressure
+        if bottom_pressure < 0:
+            bottom_pressure = pressure_profile[0]
+
+        top_pressure = self.mieTopPressure
+        if top_pressure < 0:
+            top_pressure = pressure_profile[-1]
+
+        cloud_idx = np.where((pressure_profile <= bottom_pressure) & \
+            (pressure_profile >= top_pressure))[0]
+
+        wltmp = 10000/wngrid
+
+        for idx in cloud_idx:        
+            a = self.mieRadius[idx]
+
+            x = 2.0 * np.pi * a / wltmp
+            self.debug('wngrid %s', wngrid)
+            self.debug('x %s', x)
+            Qext = 5.0 / (self.mieQ[idx] * x**(-4.0) + x**(0.2))
+
+            sigma_xsec = np.zeros(shape=(self._nlayers, wngrid.shape[0]))
+
+            # This must transform um to the xsec format in TauREx (m2)
+            am = a * 1e-6
+
+            sigma_mie = Qext * np.pi * (am**2.0)
+
+            sigma_xsec[idx, ...] = sigma_mie * self.mieMixing[idx]
+
+        self.sigma_xsec = sigma_xsec
+
+        self.debug('final xsec %s', self.sigma_xsec)
+
+        yield 'Lee', sigma_xsec

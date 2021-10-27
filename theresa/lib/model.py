@@ -139,6 +139,12 @@ def specgrid(params, fit):
                 nlayers=cfg.threed.nlayers)
             rt.add_contribution(taurex.contributions.AbsorptionContribution())
             rt.add_contribution(taurex.contributions.CIAContribution())
+            rt.add_contribution(trc.LeeMieVaryMixContribution(
+                lee_mie_radius=0.1*np.ones(cfg.threed.nlayers),
+                lee_mie_q=40*np.ones(cfg.threed.nlayers),
+                lee_mie_mix_ratio=1e-5*np.ones(cfg.threed.nlayers),
+                lee_mie_bottomP=cfg.threed.pbot*1e5,
+                lee_mie_topP=cfg.threed.ptop*1e5))
             if 'H-' in fit.cfg.threed.mols:
                 rt.add_contribution(trc.HMinusContribution())
 
