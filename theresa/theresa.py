@@ -340,9 +340,18 @@ def map3d(fit, system):
                               unpack=True)
 
     elif cfg.threed.rtfunc == 'taurex':
-        fit.wngrid = np.arange(cfg.cfg.getfloat('taurex', 'wnlow'),
-                               cfg.cfg.getfloat('taurex', 'wnhigh'),
-                               cfg.cfg.getfloat('taurex', 'wndelt'))
+        # Make sure the wn range is appropriate
+        wnlow  = cfg.cfg.getfloat('taurex', 'wnlow')
+        wnhigh = cfg.cfg.getfloat('taurex', 'wnhigh')
+        wndelt = 1.0
+        
+        for filtwn, filttrans in zip(fit.filtwn, fit.filttrans):
+            nonzero = filtwn[np.where(filttrans != 0.0)]
+            if not np.all((nonzero > wnlow) & (nonzero < wnhigh)):
+                print("ERROR: Wavenumber range does not cover all filters!")
+                sys.exit()
+                
+        fit.wngrid = np.arange(wnlow, wnhigh, wndelt)
 
         # Note: must do these things in the right order
         taurex.cache.OpacityCache().clear_cache()
