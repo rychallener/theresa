@@ -151,7 +151,7 @@ def map2d(cfile):
             intens = None
         
         indparams = (m.ecurves, fit.t, fit.pflux_y00, fit.sflux,
-                     m.ncurves, m.intens)
+                     m.ncurves, intens)
 
         npar = m.ncurves + 2
 
