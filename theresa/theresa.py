@@ -160,6 +160,18 @@ def map2d(cfile):
         pstep  = np.ones(npar) *  0.01
         pmin   = np.ones(npar) * -1.0
         pmax   = np.ones(npar) *  1.0
+        
+        pnames   = []
+        texnames = []
+        for j in range(m.ncurves):
+            pnames.append("C{}".format(j+1))
+            texnames.append("$C_{{{}}}$".format(j+1))
+            
+        pnames.append("C0")
+        texnames.append("$C_0$")
+        
+        pnames.append("scorr")
+        texnames.append("$s_{corr}$")
 
         mc3data = fit.flux[i]
         mc3unc  = fit.ferr[i]
@@ -174,6 +186,7 @@ def map2d(cfile):
                             params=params, indparams=indparams,
                             pstep=pstep, leastsq=cfg.twod.leastsq,
                             plots=cfg.twod.plots, pmin=pmin, pmax=pmax,
+                            pnames=pnames, texnames=texnames,
                             thinning=10, fgamma=cfg.twod.fgamma)
 
         # MC3 doesn't clear its plots >:(
