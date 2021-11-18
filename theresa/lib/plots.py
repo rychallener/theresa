@@ -194,6 +194,69 @@ def pltmaps(fit, proj='rect'):
                              'bestfit-{}-maps.png'.format(proj)))
     plt.close(fig)
 
+def tmap_unc(fit, proj='rect'):
+    nmaps = len(fit.wlmid)
+
+    ncols = np.int(np.sqrt(nmaps) // 1)
+    nrows = nmaps // ncols + (nmaps % ncols != 0)
+
+    xsize = 7. / 3. * ncols
+    if proj == 'rect':
+        ysize = 7. / 3. / 2. * nrows
+    elif proj == 'ortho':
+        ysize = 7. / 3. * nrows
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
+                             sharey=True, squeeze=False)
+
+    naxes = nrows * ncols
+    extra = nmaps % ncols
+
+    vmax = np.max([np.max(m.tmapunc[~np.isnan(m.tmap)]) for m in fit.maps])
+    vmin = np.min([np.min(m.tmapunc[~np.isnan(m.tmap)]) for m in fit.maps])
+    
+    if proj == 'rect':
+        extent = (-180, 180, -90, 90)
+    elif proj == 'ortho':
+        extent = (-90,   90, -90, 90)
+
+    # The weird placement of the subplots in this figure is a long-
+    # standing known bug in matplotlib with no straightforward
+    # solution.  Probably not worth fixing here.  See
+    # https://github.com/matplotlib/matplotlib/issues/5463
+    for i in range(naxes):            
+        irow = i // ncols
+        icol = i %  ncols
+        ax = axes[irow,icol]
+
+        if i >= nmaps:
+            ax.spines['top'].set_color('none')
+            ax.spines['bottom'].set_color('none')
+            ax.spines['left'].set_color('none')
+            ax.spines['right'].set_color('none')
+            ax.tick_params(labelcolor='w', top=False, bottom=False,
+                           left=False, right=False)
+            continue            
+        
+        im = ax.imshow(fit.maps[i].tmapunc, origin='lower', cmap='plasma',
+                       extent=extent, vmin=vmin, vmax=vmax)
+
+        ax.set_title('{:.2f} um'.format(fit.wlmid[i]))
+
+        if icol == 0:
+            ax.set_ylabel(r'Latitude ($^\circ$)')
+        if i >= naxes - ncols - (ncols - extra):
+            ax.set_xlabel(r'Longitude ($^\circ$)')
+
+    fig.tight_layout()
+
+    fig.subplots_adjust(right=0.8)
+    cax = fig.add_axes([0.85, 0.15, 0.03, 0.75])
+    fig.colorbar(im, cax=cax, label='Temperature Uncertainty (K)')
+    plt.savefig(os.path.join(fit.cfg.outdir,
+                             'bestfit-{}-maps-unc.png'.format(proj)))
+    plt.close(fig)
+    
 def bestfit(fit):
     t = fit.t
     

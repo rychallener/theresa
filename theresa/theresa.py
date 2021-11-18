@@ -142,7 +142,7 @@ def map2d(cfile):
                        ncurves=m.ncurves, method=cfg.twod.pca)
 
         print("Calculating intensities of visible grid cells of each eigenmap.")
-        m.intens, m.vislat, m.vislon = eigen.intensities(planet, fit, m)
+        m.intens, m.vislat, m.vislon = eigen.intensities(fit, m)
 
         # Set up for MCMC
         if cfg.twod.posflux:
@@ -151,33 +151,14 @@ def map2d(cfile):
             intens = None
         
         indparams = (m.ecurves, fit.t, fit.pflux_y00, fit.sflux,
-                     m.ncurves, intens)
+                     m.ncurves, intens, cfg.twod.baseline)
 
-        npar = m.ncurves + 2
-
-        params = np.zeros(npar)
-        params[m.ncurves] = 0.001
-        pstep  = np.ones(npar) *  0.01
-        pmin   = np.ones(npar) * -1.0
-        pmax   = np.ones(npar) *  1.0
-        
-        pnames   = []
-        texnames = []
-        for j in range(m.ncurves):
-            pnames.append("C{}".format(j+1))
-            texnames.append("$C_{{{}}}$".format(j+1))
-            
-        pnames.append("C0")
-        texnames.append("$C_0$")
-        
-        pnames.append("scorr")
-        texnames.append("$s_{corr}$")
+        params, pstep, pmin, pmax, pnames, texnames = model.get_par_2d(fit, m)
 
         mc3data = fit.flux[i]
         mc3unc  = fit.ferr[i]
         mc3npz = os.path.join(cfg.outdir,
                               '2dmcmc-{:.2f}um.npz'.format(fit.wlmid[i]))
-
 
         mc3out = mc3.sample(data=mc3data, uncert=mc3unc,
                             func=model.fit_2d, nsamples=cfg.twod.nsamples,
@@ -309,6 +290,7 @@ def map2d(cfile):
             plots.ecurvepower(m.evalues, outdir)
             
         plots.pltmaps(fit)
+        plots.tmap_unc(fit)
         plots.bestfit(fit)
         plots.ecurveweights(fit)
         plots.hshist(fit)
@@ -376,7 +358,7 @@ def map3d(fit, system):
         indparams = [fit]
 
         # Get sensible defaults
-        params, pstep, pmin, pmax, pnames = model.get_par(fit)
+        params, pstep, pmin, pmax, pnames = model.get_par_3d(fit)
 
         # Override if specified by the user
         if hasattr(cfg.threed, 'params'):

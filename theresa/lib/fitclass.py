@@ -78,6 +78,15 @@ class Fit:
         else:
             self.cfg.twod.fgamma = 1.0
 
+        if self.cfg.cfg.has_option('2D', 'baseline'):
+            self.cfg.twod.baseline = self.cfg.cfg.get('2D', 'baseline')
+            if (self.cfg.twod.baseline == 'None') or \
+               (self.cfg.twod.baseline == 'none'):
+                self.cfg.twod.baseline = None
+        else:
+            self.cfg.twod.baseline = None
+            
+
         # 3D options
         self.cfg.threed.ncpu       = self.cfg.cfg.getint('3D', 'ncpu')
         self.cfg.threed.nsamples   = self.cfg.cfg.getint('3D', 'nsamples')
