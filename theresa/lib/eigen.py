@@ -262,7 +262,7 @@ def intensities(fit, map):
     # would we), theano gets confused as it runs through those
     # assignments in the graph. Perhaps there's a more elegant
     # solution.
-    star, planet, system = utils.initsystem(fit, fit.cfg.twod.lmax)
+    star, planet, system = utils.initsystem(fit, map.lmax)
     
     wherevis = np.where((fit.lon + fit.dlon >= fit.minvislon) &
                         (fit.lon - fit.dlon <= fit.maxvislon))
