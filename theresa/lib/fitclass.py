@@ -88,7 +88,6 @@ class Fit:
         self.cfg.threed.ptop    = self.cfg.cfg.getfloat('3D', 'ptop')
         self.cfg.threed.pbot    = self.cfg.cfg.getfloat('3D', 'pbot')
         self.cfg.threed.atmtype = self.cfg.cfg.get(     '3D', 'atmtype')
-        self.cfg.threed.atmfile = self.cfg.cfg.get(     '3D', 'atmfile')
         self.cfg.threed.nlayers = self.cfg.cfg.getint(  '3D', 'nlayers')
         
         self.cfg.threed.rtfunc  = self.cfg.cfg.get('3D', 'rtfunc')

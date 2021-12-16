@@ -520,7 +520,7 @@ def pmaps(params, fit):
     return pmaps
 
 def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
-                 condensates=False):
+                 condensates=False, charges=True):
     # Temperatures
     tgrid = np.linspace(tmin, tmax, numt)
     # Pressures 
@@ -536,7 +536,8 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
     gg = taurex_ggchem.GGChem(metallicity=1.0,
                               selected_elements=elements,
                               abundance_profile=abundance_profile,
-                              equilibrium_condensation=condensates)
+                              equilibrium_condensation=condensates,
+                              include_charge=charges)
     ng = len(gg.gases)
     if condensates:
         nc = len(gg.condensates)
@@ -554,7 +555,8 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
         gg = taurex_ggchem.GGChem(metallicity=10**z,
                                   selected_elements=elements,
                                   abundance_profile=abundance_profile,
-                                  equilibrium_condensation=condensates)
+                                  equilibrium_condensation=condensates,
+                                  include_charge=charges)
         for it, t in enumerate(tgrid):
             for ip, p in enumerate(pgrid):
                 # Convert to pascals
