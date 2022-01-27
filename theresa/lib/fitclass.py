@@ -97,7 +97,6 @@ class Fit:
         self.cfg.threed.ptop    = self.cfg.cfg.getfloat('3D', 'ptop')
         self.cfg.threed.pbot    = self.cfg.cfg.getfloat('3D', 'pbot')
         self.cfg.threed.atmtype = self.cfg.cfg.get(     '3D', 'atmtype')
-        self.cfg.threed.atmfile = self.cfg.cfg.get(     '3D', 'atmfile')
         self.cfg.threed.nlayers = self.cfg.cfg.getint(  '3D', 'nlayers')
         
         self.cfg.threed.rtfunc  = self.cfg.cfg.get('3D', 'rtfunc')
@@ -144,7 +143,17 @@ class Fit:
             self.cfg.threed.fgamma = self.cfg.cfg.getfloat('3D', 'fgamma')
         else:
             self.cfg.threed.fgamma = 1.0
-       
+
+        if self.cfg.threed.atmtype == 'ggchem':
+            self.cfg.threed.tmin = self.cfg.cfg.getfloat('3D', 'tmin')
+            self.cfg.threed.tmax = self.cfg.cfg.getfloat('3D', 'tmax')
+            self.cfg.threed.numt = self.cfg.cfg.getint(  '3D', 'numt')
+            self.cfg.threed.zmin = self.cfg.cfg.getfloat('3D', 'zmin')
+            self.cfg.threed.zmax = self.cfg.cfg.getfloat('3D', 'zmax')
+            self.cfg.threed.numz = self.cfg.cfg.getint(  '3D', 'numz')
+            self.cfg.threed.condensates = \
+                self.cfg.cfg.getboolean('3D', 'condensates')
+            
         # Star options
         self.cfg.star.m    = self.cfg.cfg.getfloat('Star', 'm')
         self.cfg.star.r    = self.cfg.cfg.getfloat('Star', 'r')

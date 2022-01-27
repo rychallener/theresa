@@ -304,13 +304,24 @@ def map2d(cfile):
 
 def map3d(fit, system):
     cfg = fit.cfg
-    print("Fitting spectrum.")
     # Handle any atmosphere setup
     if cfg.threed.atmtype == 'ggchem':
-        fit.cheminfo = atm.read_GGchem(cfg.threed.atmfile)
+        print("Precomputing chemistry grid.")
+        # T, P, z, spec, abn
+        fit.cheminfo = atm.setup_GGchem(cfg.threed.tmin,
+                                        cfg.threed.tmax,
+                                        cfg.threed.numt,
+                                        cfg.threed.ptop,
+                                        cfg.threed.pbot,
+                                        cfg.threed.nlayers,
+                                        cfg.threed.zmin,
+                                        cfg.threed.zmax,
+                                        cfg.threed.numz,
+                                        condensates=cfg.threed.condensates)
     else:
         fit.cheminfo = None
         
+    print("Fitting spectrum.")
     if cfg.threed.rtfunc == 'transit':
         tcfg = mkcfg.mktransit(cfile, cfg.outdir)
         rtcall = os.path.join(transitdir, 'transit', 'transit')

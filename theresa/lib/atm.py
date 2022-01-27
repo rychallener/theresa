@@ -7,6 +7,8 @@ import constants as c
 import utils
 import scipy.interpolate as spi
 import time
+import taurex_ggchem
+import progressbar
 
 libdir = os.path.dirname(os.path.realpath(__file__))
 moddir = os.path.join(libdir, 'modules')
@@ -98,35 +100,34 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
             abn[:,:,i,j] = robj.solve(t[:,i,j], p)
 
     elif atmtype == 'ggchem':
-        ggchemT, ggchemp, spec, ggchemabn = cheminfo
+        ggchemT, ggchemp, ggchemz, spec, ggchemabn = cheminfo
         tic = time.time()
-        ngrid, nspec = ggchemabn.shape
+        nspec, nump, numt, numz = ggchemabn.shape
         abn = np.zeros((nspec, nlayers, nlat, nlon))
         
-        if not np.all(np.isclose(p, np.sort(np.unique(ggchemp))[::-1])):
-            print("Pressures of fit and atmosphere file do not match. Exiting")
+        if not np.all(np.isclose(p, ggchemp)):
+            print("Pressures of fit and chemistry do not match. Exiting")
             sys.exit()
 
         for s in range(nspec):
             if spec[s] in mols:
                 for k in range(nlayers):
-                    where = np.where(np.isclose(p[k], ggchemp))
-                    interpT   = ggchemT[where]
-                    interpabn = ggchemabn[where,s][0]
-                    tsorter = np.argsort(interpT)
-                    for i, j in zip(ilat, ilon):
-                        idx1 = np.searchsorted(interpT[tsorter], t[k,i,j],
-                                               side='left')
-                        idx2 = idx1 - 1
-                        abn[s,k,i,j] = utils.fast_linear_interp(
-                            (interpT[tsorter][idx1],
-                             interpabn[tsorter][idx1]),
-                            (interpT[tsorter][idx2],
-                             interpabn[tsorter][idx2]),
-                            t[k,i,j])
+                    z = 0.0
+                    if z in ggchemz:
+                        iz = np.where(ggchemz == z)
+                        fcn = spi.interp1d(ggchemT,
+                                           ggchemabn[s,k,:,iz])
+                        for i,j in zip(ilat, ilon):
+                            abn[s,k,i,j] = fcn(t[k,i,j])
+                    else:
+                        fcn = spi.interp2d(ggchemz, ggchemT,
+                                           ggchemabn[s,k])
+                        for i,j in zip(ilat, ilon):
+                            z = 0.0
+                            abn[s,k,i,j] = fcn(z, t[k,i,j])
 
     else:
-        print("Unrecognized atmopsphere type.")
+        print("Unrecognized atmosphere type.")
         sys.exit()
 
     return abn, spec
@@ -525,7 +526,64 @@ def pmaps(params, fit):
         print("WARNING: Unrecognized pmap model.")
 
     return pmaps
-        
+
+def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
+                 condensates=False, charges=True,
+                 elements=['H', 'He', 'C', 'O', 'N'], dustfile=None,
+                 dispolfiles=None):
+    # Temperatures
+    tgrid = np.linspace(tmin, tmax, numt)
+    # Pressures 
+    pgrid = np.logspace(np.log10(pmax), np.log10(pmin), nump)
+    # Metallicities
+    zgrid = np.linspace(zmin, zmax, numz)
+
+    # Stuff that should probably be up to the user
+    abundance_profile = 'solar'
+
+    # Get molecules
+    gg = taurex_ggchem.GGChem(metallicity=1.0,
+                              selected_elements=elements,
+                              abundance_profile=abundance_profile,
+                              equilibrium_condensation=condensates,
+                              include_charge=charges,
+                              dustchem_file=dustfile,
+                              dispol_files=dispolfiles)
+    ng = len(gg.gases)
+    if condensates:
+        nc = len(gg.condensates)
+        spec = np.concatenate((gg.gases, gg.condensates))
+    else:
+        nc = 0
+        spec = gg.gases
+
+    ns = ng + nc
+
+    abn = np.zeros((ns, nump, numt, numz))
+
+    pbar = progressbar.ProgressBar(max_value=nump*numt*numz)
+    for iz, z in enumerate(zgrid):
+        gg = taurex_ggchem.GGChem(metallicity=10**z,
+                                  selected_elements=elements,
+                                  abundance_profile=abundance_profile,
+                                  equilibrium_condensation=condensates,
+                                  include_charge=charges,
+                                  dustchem_file=dustfile,
+                                  dispol_files=dispolfiles)
+        for it, t in enumerate(tgrid):
+            for ip, p in enumerate(pgrid):
+                # Convert to pascals
+                gg.initialize_chemistry(nlayers=1,
+                    temperature_profile=[t],
+                    pressure_profile=[p * 1e5])
+                abn[:ng,ip,it,iz] = gg.mixProfile.squeeze()
+                if condensates:
+                    abn[ng:ns,ip,it,iz] = gg.condensateMixProfile.squeeze()
+                pbar.update(ip+it*nump+iz*numt*nump)
+
+    return tgrid, pgrid, zgrid, spec, abn
+
+    
 def read_GGchem(fname):
     '''
     Read a GGchem output file.

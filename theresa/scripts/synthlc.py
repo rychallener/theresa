@@ -11,6 +11,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 plt.rcParams['axes.formatter.useoffset'] = True
 import numpy as np
+import calcq
 import starry
 import progressbar
 import scipy.interpolate as sci
@@ -74,10 +75,34 @@ inc  = cfg.getfloat('synthlc', 'inc')
 
 # Atmosphere parameters
 atmtype = cfg.get('synthlc', 'atmtype')
-atmfile = cfg.get('synthlc', 'atmfile')
-mols    = cfg.get('synthlc', 'mols').split()
+gases   = cfg.get('synthlc', 'gases').split()
 opacdir = cfg.get('synthlc', 'opacdir')
 ciadir  = cfg.get('synthlc', 'ciadir')
+elem    = cfg.get('synthlc', 'elem').split()
+
+# Cloud parameters
+clouds       = cfg.getboolean('synthlc', 'clouds')
+if clouds:
+     eqcond       = cfg.getboolean('synthlc', 'eqcond')
+     taufile      = cfg.get('synthlc', 'taufile')
+     massfile     = cfg.get('synthlc', 'massfile')
+     partsizefile = cfg.get('synthlc', 'partsizefile')
+     densityfile  = cfg.get('synthlc', 'densityfile')
+     dustfile     = cfg.get('synthlc', 'dustfile')
+     dispolfiles  = cfg.get('synthlc', 'dispolfiles').split()
+     fcond        = cfg.getfloat('synthlc', 'fcond')
+     tempcloudmol = cfg.get('synthlc', 'cloudmol').split()
+     cloudmol = []
+     if eqcond:
+          for i in range(len(tempcloudmol)):
+               cloudmol.append(tempcloudmol[i] + '[s]')
+               cloudmol.append(tempcloudmol[i] + '[l]')
+     else:
+          cloudmol = tempcloudmol
+     cloudmol = np.array(cloudmol)
+
+     Q0 = np.array([float(a) for a in cfg.get('synthlc', 'Q0').split()])
+          
 
 # Observation parameters
 pstart = cfg.getfloat('synthlc', 'phasestart')
@@ -89,14 +114,72 @@ filtdir = cfg.get('synthlc', 'filtdir')
 filters = [os.path.join(filtdir, a) for a in \
            cfg.get('synthlc', 'filters').split()]
 
-# GCM parameters
-path = '.'
-runname = ''
-oom =   cfg.getfloat('synthlc', 'oom')
-surfp = cfg.getfloat('synthlc', 'surfp')
-topp  = 10.**(np.log10(surfp) - oom)
-ver = False
-savet = False
+# Clouds (with cloud file) or no clouds (with fort.26 file)?
+# Note we want pressure to be highest to lowest, because that's
+# how taurex likes it. Hence the sorting.
+if clouds:
+     print("Generating light curves from cloudy GCM...")
+     # nlat, nlon, nlev, ncloud
+     lat, lon, lev, _, taudata  = calcq.readcloudsfile(taufile)
+     lat, lon, lev, _, massdata = calcq.readcloudsfile(massfile)
+     density  = np.loadtxt(densityfile)
+     partsize = np.loadtxt(partsizefile)
+     p = taudata[0,0,:,1]
+
+     # Descending
+     psort = np.argsort(p)[::-1]
+     
+     Q, n, qspec = calcq.calcq(taufile, massfile, partsizefile,
+                               densityfile, rp)
+
+     # Sort
+     p = p[psort]
+     Q = Q[:,:,psort]
+     taudata = taudata[:,:,psort,:]
+     massdata = massdata[:,:,psort,:]
+     partsize = partsize[psort]
+
+     nlat, nlon, nlev, npar = taudata.shape
+     tgrid = np.zeros((nlev, nlat, nlon))
+
+     # Create temperature grid in the format atminit expects
+     for i in range(nlev):
+          for j in range(nlat):
+               for k in range(nlon):
+                    tgrid[i,j,k] = taudata[j,k,i,2]
+
+     # Index where tau entries begin in taudata/massdata
+     itau = 21
+else:
+     print("Generating light curves from clear GCM...")
+     # GCM parameters
+     path = '.'
+     runname = ''
+     oom =   cfg.getfloat('synthlc', 'oom')
+     surfp = cfg.getfloat('synthlc', 'surfp')
+     topp  = 10.**(np.log10(surfp) - oom)
+     ver = False
+     savet = False
+     
+     _, oom, surfp, lon, lat, p, d = fff.fort26(path, runname, oom,
+                                                surfp, ver, savet,
+                                                fortfile)
+
+     # Descending
+     psort = np.argsort(p)[::-1]
+
+     # Sort
+     p = p[psort]
+     d = d[psort,:,:,:]
+     
+     nlev, nlon, nlat, npar = d.shape
+     tgrid = np.zeros((nlev, nlat, nlon))
+
+     # Create temperature grid in the format atminit expects
+     for i in range(nlev):
+          for j in range(nlat):
+               for k in range(nlon):
+                    tgrid[i,j,k] = d[i,k,j,5]
 
 taurex.cache.OpacityCache().clear_cache()
 taurex.cache.OpacityCache().set_opacity_path(opacdir)
@@ -116,11 +199,6 @@ wnlo = 10000 / wlhi
 wnhi = 10000 / wllo
 wngrid = np.linspace(wnlo, wnhi, 100000)
 
-_, oom, surfp, lon, lat, p, d = fff.fort26(path, runname, oom, surfp, ver,
-                                           savet, fortfile)
-
-nlev, nlon, nlat, npar = d.shape
-
 # Longitudes are evenly distributed
 dlon = np.ones(len(lon)) * np.abs(lon[1] - lon[0])
 
@@ -132,26 +210,56 @@ lat_edges[-1] = -90
 for i in range(1, len(lat_edges) -1):
      lat_edges[i] = (lat[i] + lat[i-1]) / 2.
 
-dlat = -1 * np.diff(lat_edges)
+dlat = np.abs(np.diff(lat_edges))
 
 # Want longitude from -180 to 180 (vis function assumes -90 to 90 is visible)
 lon = (lon + 180.) % 360. - 180.
 
-tgrid = np.zeros((nlev, nlat, nlon))
+# Calculate min/max visible longitudes
+centlon = 180 - t / prot * 360
+limb1 = centlon - 90
+limb2 = centlon + 90
+limb1 = (limb1 + 180) % 360 - 180
+limb2 = (limb2 + 180) % 360 - 180
 
-# Create temperature grid in the format atminit expects
-for i in range(nlev):
-     for j in range(nlat):
-          for k in range(nlon):
-               tgrid[i,j,k] = d[i,k,j,5]
+minvislon = np.min(limb1)
+maxvislon = np.max(limb2)
+
+ivislon = np.where((lon + dlon[0] / 2. > minvislon) &
+                   (lon - dlon[0] / 2. < maxvislon))
 
 # Equilibrium chemistry
 # (elemfile and refpress are unimportant for this application, but are
 #  required inputs)
 elemfile = '/home/rchallen/ast/3dmap/code/3dmap/3dmap/inputs/abundances_Asplund2009.txt'
 refpress = 0.1
-cheminfo = atm.read_GGchem(atmfile)
-abn, spec = atm.atminit(atmtype, mols, p, tgrid, mp/Msun, rp/Rsun,
+tmin = np.min(tgrid) - 10
+tmax = np.max(tgrid) + 10
+numt =  100
+ptop = np.min(p)
+pbot = np.max(p)
+nump = len(p)
+zmin =    0.0
+zmax =    0.0
+numz =    1
+
+print('Calculating equilibrium chemistry.')
+cheminfo = atm.setup_GGchem(tmin, tmax, numt,
+                            ptop, pbot, nump,
+                            zmin, zmax, numz,
+                            condensates=eqcond,
+                            charges=False,
+                            elements=elem,
+                            dustfile=dustfile,
+                            dispolfiles=dispolfiles)
+
+if (clouds and eqcond):
+     opacspec = np.concatenate((gases, cloudmol))
+else:
+     opacspec = gases
+
+print('Interpolating chemistry to GCM temperature grid.')
+abn, spec = atm.atminit(atmtype, opacspec, p, tgrid, mp/Msun, rp/Rsun,
                         0.1, elemfile, '.', cheminfo=cheminfo)
 
 # Planet
@@ -168,21 +276,22 @@ rtstar = taurex.stellar.Star(
      distance=ds,
      metallicity=zs)
 # This is a log(p) profile, same as the GCM output
-rtp = taurex.pressure.SimplePressureProfile(nlev, topp*1e5, surfp*1e5) # pascals
+rtp = taurex.pressure.SimplePressureProfile(nlev, ptop*1e5, pbot*1e5) # pascals
 
 fluxgrid = np.empty((nlat, nlon), dtype=list)
 taugrid  = np.empty((nlat, nlon), dtype=list)
 
 # Run radiative transfer
 print("Running radiative transfer.")
+warn = True
 pbar = progressbar.ProgressBar(max_value=nlat*nlon)
 for i in range(nlat):
      for j in range(nlon):
-          rtt = TemperatureArray(tgrid[:,i,j][::-1])
+          rtt = TemperatureArray(tgrid[:,i,j])
           rtchem = taurex.chemistry.TaurexChemistry()
           for k in range(len(spec)):
-               if (spec[k] in mols):
-                    gas = trc.ArrayGas(spec[k], abn[k,:,i,j][::-1])
+               if (spec[k] in gases):
+                    gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
                     rtchem.addGas(gas)
           rt = trc.EmissionModel3D(
                planet=rtplan,
@@ -192,7 +301,42 @@ for i in range(nlat):
                chemistry=rtchem)
           rt.add_contribution(taurex.contributions.AbsorptionContribution())
           rt.add_contribution(taurex.contributions.CIAContribution())
-
+          if clouds:
+               if eqcond:
+                    for cmol in cloudmol:
+                         if cmol not in spec:
+                              if warn:
+                                   print(cmol + ' not found!')
+                              continue
+                         iabn = np.where(spec == cmol)[0][0]
+                         for iqs, qs in enumerate(qspec):
+                              if (cmol[:-3] == qs):
+                                   iq = iqs
+                         rt.add_contribution(
+                              trc.LeeMieVaryMixContribution(
+                                   molname=cmol,
+                                   lee_mie_radius=partsize*1e6,
+                                   lee_mie_q=Q[i,j,:,iqs],
+                                   lee_mie_mix_ratio=abn[iabn,:,i,j]*fcond,
+                                   lee_mie_bottomP=pbot*1e5,
+                                   lee_mie_topP=ptop*1e5)
+                              )
+               else:
+                    for ic, cmol in enumerate(cloudmol):
+                         for iqs, qs in enumerate(qspec):
+                              if (cmol == qs):
+                                   iq = iqs
+                         rt.add_contribution(
+                              trc.CloudTauContribution(
+                                   tau=taudata[i,j,:,itau+iq],
+                                   Q0=Q0[ic],
+                                   particle_size=partsize*1e6,
+                                   knowntauwl=5.0,
+                                   name=cmol)
+                         )
+                    
+               warn = False
+               
           rt.build()
 
           wn, flux, tau, ex = rt.model(wngrid=wngrid)
@@ -494,7 +638,6 @@ for i in range(nfilt):
      interptrans = interp(wn)
      integtrans  = np.trapz(interptrans)
      for j in range(nlat):
-          print(j)
           for k in range(nlon):
               cf_trans[j, k, :, :] = \
                    cf[j, k, :, :] * interptrans
@@ -573,7 +716,7 @@ fig, axes = plt.subplots(ncols=nfilt+1, gridspec_kw=gridspec_kw)
 fig.set_size_inches(16,5)
 vmin = np.min(filter_cf)
 vmax = np.max(filter_cf)
-extent = (-180, 180, 2, -6)
+extent = (-180, 180, maxlogp, minlogp)
 for i in range(nfilt):     
      ax = axes[i]
      im = ax.imshow(np.roll(filter_cf[nlat//2,:,:,i].T, nlon//2,
