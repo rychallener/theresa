@@ -5,6 +5,7 @@ import scipy.interpolate as sci
 import matplotlib.pyplot as plt
 import mc3
 import gc
+import sys
 from numba import jit
 
 # Lib imports
@@ -29,7 +30,7 @@ from taurex import optimizer
 from taurex.data.profiles.temperature.temparray import TemperatureArray
 
 @jit(nopython=True)
-def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens):
+def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, baseline):
     """
     Basic 2D fitting routine for a single wavelength.
     """
@@ -56,6 +57,12 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens):
     f += params[i+2]
 
     f += sflux
+
+    if baseline == 'linear':
+        f += params[i+3] * (t - params[i+4])
+    elif baseline == 'quadratic':
+        f += params[i+3] * (t - params[i+5])**2 + \
+             params[i+4] * (t - params[i+5])
 
     return f
 
@@ -290,9 +297,60 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
 
     return cfsigdiff
 
-def get_par(fit):
+def get_par_2d(fit, m):
     '''
-    Returns sensible parameter settings for each model
+    Returns sensible parameter settings for each 2D model
+    '''
+    cfg = fit.cfg
+    
+    # Necessary parameters
+    npar = m.ncurves + 2
+
+    params = np.zeros(npar)
+    params[m.ncurves] = 0.001
+    
+    pstep = np.ones(npar) *  0.01
+    pmin  = np.ones(npar) * -1.0
+    pmax  = np.ones(npar) *  1.0
+
+    pnames   = []
+    texnames = []
+    for j in range(m.ncurves):
+        pnames.append("C{}".format(j+1))
+        texnames.append("$C_{{{}}}$".format(j+1))
+
+    pnames.append("C0")
+    texnames.append("$C_0$")
+
+    pnames.append("scorr")
+    texnames.append("$s_{corr}$")
+
+    # Parse baseline models
+    if cfg.twod.baseline is None:
+        pass
+    elif cfg.twod.baseline == 'linear':
+        params   = np.concatenate((params,   ( 0.0,  0.0)))
+        pstep    = np.concatenate((pstep,    ( 0.01, 0.0)))
+        pmin     = np.concatenate((pmin,     (-1.0,  -10.0)))
+        pmax     = np.concatenate((pmax,     ( 1.0,   10.0)))
+        pnames   = np.concatenate((pnames,   ('b1', 't0')))
+        texnames = np.concatenate((texnames, ('$b_1$', '$t_0$')))
+    elif cfg.twod.baseline == 'quadratic':
+        params   = np.concatenate((params,   ( 0.0,  0.0,   0.0)))
+        pstep    = np.concatenate((pstep,    ( 0.01, 0.01,  0.0)))
+        pmin     = np.concatenate((pmin,     (-1.0,  -1.0, -10.0)))
+        pmax     = np.concatenate((pmax,     ( 1.0,   1.0,  10.0)))
+        pnames   = np.concatenate((pnames,   ('b2', 'b1', 't0')))
+        texnames = np.concatenate((texnames, ('$b_2$', '$b_1$', '$t_0$')))
+    else:
+        print("Unrecognized baseline model.")
+        sys.exit()
+
+    return params, pstep, pmin, pmax, pnames, texnames
+
+def get_par_3d(fit):
+    '''
+    Returns sensible parameter settings for each 3D model
     '''
     nmaps = len(fit.maps)
     if fit.cfg.threed.mapfunc == 'isobaric':

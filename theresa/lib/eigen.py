@@ -1,6 +1,10 @@
 import numpy as np
 import pca
+import time
 import utils
+import starry
+import theano
+import theano.tensor as tt
 import scipy.constants as sc
 
 def mkcurves(system, t, lmax, y00, ncurves=None, method='pca'):
@@ -45,21 +49,31 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca'):
     planet = system.bodies[1]
 
     nt = len(t)
+
+    # Set up a theano function for S P E E D
+    def evalflux(yval):
+        planet.map[1:,:] = yval
+        starflux, planetflux = system.flux(t, total=False)
+        return starflux, planetflux
+
+    arg1 = tt.dvector('yval')
+    t_evalflux = theano.function([arg1], evalflux(arg1))   
     
     # Create harmonic maps of the planet, excluding Y00
     # (lmax**2 maps, plus a negative version for all but Y00)
     nharm = 2 * ((lmax + 1)**2 - 1)
     lcs = np.zeros((nharm, nt))
-    ind = 0
+    ilc = 0
     for i, l in enumerate(range(1, lmax + 1)):
-        for j, m in enumerate(range(-l, l + 1)):           
-            planet.map[l, m] =  1.0
-            sflux, lcs[ind]   = [a.eval() for a in system.flux(t, total=False)]
-            planet.map[l, m] = -1.0
-            sflux, lcs[ind+1] = [a.eval() for a in system.flux(t, total=False)]
-            planet.map[l, m] = 0.0
-            ind += 2
+        for j, m in enumerate(range(-l, l + 1)):
+            yval = np.zeros(nharm // 2)
+            yval[ilc // 2] =  1.0
+            sflux, lcs[ilc]   = t_evalflux(yval)
+            yval[ilc // 2] = -1.0
+            sflux, lcs[ilc+1] = t_evalflux(yval)
+            ilc += 2
 
+    planet.map[1:,:] = 0.0
     # Subtact uniform map contribution (starry includes this in all
     # light curves)
     lcs -= y00
@@ -241,7 +255,15 @@ def emapminmax(planet, eigeny, ncurves):
             
     return lat, lon, intens
 
-def intensities(planet, fit, map):
+def intensities(fit, map):
+    # We reinitialize the planet object here because the yval
+    # assignments in the mkcurves theano function are tracked, so if
+    # we don't pass that yval into the theano function here (and why
+    # would we), theano gets confused as it runs through those
+    # assignments in the graph. Perhaps there's a more elegant
+    # solution.
+    star, planet, system = utils.initsystem(fit, map.lmax)
+    
     wherevis = np.where((fit.lon + fit.dlon >= fit.minvislon) &
                         (fit.lon - fit.dlon <= fit.maxvislon))
 
@@ -252,20 +274,24 @@ def intensities(planet, fit, map):
     
     intens = np.zeros((map.ncurves, nloc))
 
+    def evalintensity(yval):
+        planet.map[1:,:] = yval
+        intensity  = planet.map.intensity(lat=vislat,
+                                          lon=vislon)
+        planet.map[1:,:] = 0.0
+        intensity -= planet.map.intensity(lat=vislat,
+                                          lon=vislon)
+
+        return intensity
+
+    arg1 = tt.dvector()
+    t_evalintensity = theano.function([arg1], evalintensity(arg1))
+
     for k in range(map.ncurves):
-        planet.map[1:,:] = 0
-        yi = 1
-        for l in range(1, map.lmax + 1):
-            for m in range(-l, l + 1):
-                planet.map[l,m] = map.eigeny[k,yi]
-                yi += 1
-
-        intens[k] = planet.map.intensity(lat=vislat,
-                                         lon=vislon).eval()
-        planet.map[1:,:] = 0
-        intens[k] -= planet.map.intensity(lat=vislat,
-                                          lon=vislon).eval()
-
+        intens[k] = t_evalintensity(map.eigeny[k,1:])
+            
+    planet.map[1:,:] = 0.0
+        
     return intens, vislat, vislon
 
             

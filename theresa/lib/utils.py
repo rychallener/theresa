@@ -394,7 +394,8 @@ def hotspotloc_driver(fit, map):
     hslat = np.zeros(ncalc)
     thinning = nsamp // ncalc
 
-    bounds = (-45, 45),(fit.minvislon, fit.maxvislon)
+    bounds = None
+    bounds = (-90, 90),(-360, 360)
     smap = starry.Map(ydeg=map.lmax)
     # Function defined in this way to avoid passing non-numeric arguments
     def hotspotloc(yval):       
@@ -431,10 +432,16 @@ def hotspotloc_driver(fit, map):
     hslonbest = hslonbest.eval()
     hslatbest = hslatbest.eval()
 
+    # Constrain longitudes to [-180, 180]
+    hslonbest = (hslonbest + 180.) % 360. - 180.
+    hslon     = (hslon     + 180.) % 360. - 180.
+    hslatbest = (hslatbest +  90.) % 180. -  90.
+    hslat     = (hslat     +  90.) % 180. -  90.
+    
     hslonstd = np.std(hslon)
     hslatstd = np.std(hslat)
 
-    # Two-sided errors 
+    # Two-sided errors
     pdf, xpdf, hpdmin = ms.cred_region(hslon)
     crlo = np.amin(xpdf[pdf>hpdmin])
     crhi = np.amax(xpdf[pdf>hpdmin])

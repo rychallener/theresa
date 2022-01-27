@@ -142,7 +142,7 @@ def map2d(cfile):
                        ncurves=m.ncurves, method=cfg.twod.pca)
 
         print("Calculating intensities of visible grid cells of each eigenmap.")
-        m.intens, m.vislat, m.vislon = eigen.intensities(planet, fit, m)
+        m.intens, m.vislat, m.vislon = eigen.intensities(fit, m)
 
         # Set up for MCMC
         if cfg.twod.posflux:
@@ -151,21 +151,14 @@ def map2d(cfile):
             intens = None
         
         indparams = (m.ecurves, fit.t, fit.pflux_y00, fit.sflux,
-                     m.ncurves, m.intens)
+                     m.ncurves, intens, cfg.twod.baseline)
 
-        npar = m.ncurves + 2
-
-        params = np.zeros(npar)
-        params[m.ncurves] = 0.001
-        pstep  = np.ones(npar) *  0.01
-        pmin   = np.ones(npar) * -1.0
-        pmax   = np.ones(npar) *  1.0
+        params, pstep, pmin, pmax, pnames, texnames = model.get_par_2d(fit, m)
 
         mc3data = fit.flux[i]
         mc3unc  = fit.ferr[i]
         mc3npz = os.path.join(cfg.outdir,
                               '2dmcmc-{:.2f}um.npz'.format(fit.wlmid[i]))
-
 
         mc3out = mc3.sample(data=mc3data, uncert=mc3unc,
                             func=model.fit_2d, nsamples=cfg.twod.nsamples,
@@ -174,6 +167,7 @@ def map2d(cfile):
                             params=params, indparams=indparams,
                             pstep=pstep, leastsq=cfg.twod.leastsq,
                             plots=cfg.twod.plots, pmin=pmin, pmax=pmax,
+                            pnames=pnames, texnames=texnames,
                             thinning=10, fgamma=cfg.twod.fgamma)
 
         # MC3 doesn't clear its plots >:(
@@ -296,6 +290,7 @@ def map2d(cfile):
             plots.ecurvepower(m.evalues, outdir)
             
         plots.pltmaps(fit)
+        plots.tmap_unc(fit)
         plots.bestfit(fit)
         plots.ecurveweights(fit)
         plots.hshist(fit)
@@ -351,9 +346,18 @@ def map3d(fit, system):
                               unpack=True)
 
     elif cfg.threed.rtfunc == 'taurex':
-        fit.wngrid = np.arange(cfg.cfg.getfloat('taurex', 'wnlow'),
-                               cfg.cfg.getfloat('taurex', 'wnhigh'),
-                               cfg.cfg.getfloat('taurex', 'wndelt'))
+        # Make sure the wn range is appropriate
+        wnlow  = cfg.cfg.getfloat('taurex', 'wnlow')
+        wnhigh = cfg.cfg.getfloat('taurex', 'wnhigh')
+        wndelt = 1.0
+        
+        for filtwn, filttrans in zip(fit.filtwn, fit.filttrans):
+            nonzero = filtwn[np.where(filttrans != 0.0)]
+            if not np.all((nonzero > wnlow) & (nonzero < wnhigh)):
+                print("ERROR: Wavenumber range does not cover all filters!")
+                sys.exit()
+                
+        fit.wngrid = np.arange(wnlow, wnhigh, wndelt)
 
         # Note: must do these things in the right order
         taurex.cache.OpacityCache().clear_cache()
@@ -365,7 +369,7 @@ def map3d(fit, system):
         indparams = [fit]
 
         # Get sensible defaults
-        params, pstep, pmin, pmax, pnames = model.get_par(fit)
+        params, pstep, pmin, pmax, pnames = model.get_par_3d(fit)
 
         # Override if specified by the user
         if hasattr(cfg.threed, 'params'):
