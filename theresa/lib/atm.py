@@ -112,11 +112,19 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
         for s in range(nspec):
             if spec[s] in mols:
                 for k in range(nlayers):
-                    fcn = spi.interp2d(ggchemz, ggchemT,
-                                       ggchemabn[s,k])
-                    for i,j in zip(ilat, ilon):
-                        z = 0.0
-                        abn[s,k,i,j] = fcn(z, t[k,i,j])
+                    z = 0.0
+                    if z in ggchemz:
+                        iz = np.where(ggchemz == z)
+                        fcn = spi.interp1d(ggchemT,
+                                           ggchemabn[s,k,:,iz])
+                        for i,j in zip(ilat, ilon):
+                            abn[s,k,i,j] = fcn(t[k,i,j])
+                    else:
+                        fcn = spi.interp2d(ggchemz, ggchemT,
+                                           ggchemabn[s,k])
+                        for i,j in zip(ilat, ilon):
+                            z = 0.0
+                            abn[s,k,i,j] = fcn(z, t[k,i,j])
 
     else:
         print("Unrecognized atmosphere type.")
@@ -520,7 +528,9 @@ def pmaps(params, fit):
     return pmaps
 
 def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
-                 condensates=False, charges=True):
+                 condensates=False, charges=True,
+                 elements=['H', 'He', 'C', 'O', 'N'], dustfile=None,
+                 dispolfiles=None):
     # Temperatures
     tgrid = np.linspace(tmin, tmax, numt)
     # Pressures 
@@ -529,7 +539,6 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
     zgrid = np.linspace(zmin, zmax, numz)
 
     # Stuff that should probably be up to the user
-    elements = ['H', 'He', 'C', 'O', 'N']
     abundance_profile = 'solar'
 
     # Get molecules
@@ -537,7 +546,9 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
                               selected_elements=elements,
                               abundance_profile=abundance_profile,
                               equilibrium_condensation=condensates,
-                              include_charge=charges)
+                              include_charge=charges,
+                              dustchem_file=dustfile,
+                              dispol_files=dispolfiles)
     ng = len(gg.gases)
     if condensates:
         nc = len(gg.condensates)
@@ -556,7 +567,9 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
                                   selected_elements=elements,
                                   abundance_profile=abundance_profile,
                                   equilibrium_condensation=condensates,
-                                  include_charge=charges)
+                                  include_charge=charges,
+                                  dustchem_file=dustfile,
+                                  dispol_files=dispolfiles)
         for it, t in enumerate(tgrid):
             for ip, p in enumerate(pgrid):
                 # Convert to pascals
