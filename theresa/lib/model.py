@@ -248,7 +248,6 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
     The sigma distance is computed for every visible grid cell
     and returned in a flattened array.
     '''
-    print(taugrid[fit.ivislat[0], fit.ivislon[0]])
     cfs = cf.contribution_filters(tgrid, wn, taugrid, p, fit.filtwn,
                                   fit.filttrans)
 
