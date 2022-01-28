@@ -1,4 +1,4 @@
-## ThERESA
+# ThERESA
 
 A code for retrieving three-dimensional maps of exoplanets.
 
@@ -9,13 +9,15 @@ grid, and integrates over the grid (combined with the visibility
 function) to generate light curves. These light curves are compared
 against the input light curves behind MCMC to explore parameter space.
 
-# Developers
+## Developers
 
 Ryan C. Challener (rchallen@umich.edu)
+
 Emily Rauscher
+
 Lucas Brefka
 
-# Citation
+## Citation
 
 If you use this code in your work, please cite our paper. Thanks!
 
