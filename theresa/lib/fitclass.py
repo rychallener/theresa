@@ -104,6 +104,14 @@ class Fit:
         self.cfg.threed.oob     = self.cfg.cfg.get('3D', 'oob')
         self.cfg.threed.interp  = self.cfg.cfg.get('3D', 'interp')
 
+        self.cfg.threed.z = self.cfg.cfg.get('3D', 'z')
+        if self.cfg.threed.z != 'fit':
+            try:
+                self.cfg.threed.z = float(self.cfg.threed.z)
+            except ValueError:
+                print("Error: Metallicity must be either 'fit' or a number.")
+                sys.exit()
+
         self.cfg.threed.mols = self.cfg.cfg.get('3D', 'mols').split()
 
         self.cfg.threed.plots      = self.cfg.cfg.getboolean('3D', 'plots')

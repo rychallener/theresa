@@ -727,6 +727,7 @@ def tgrid_unc(fit):
                                     pmaps, fit.cfg.threed.pbot,
                                     fit.cfg.threed.ptop,
                                     fit.posterior3d[ipost],
+                                    fit.nparams3d, fit.modeltype3d,
                                     interptype=fit.cfg.threed.interp,
                                     oob=fit.cfg.threed.oob,
                                     smooth=fit.cfg.threed.smooth)
