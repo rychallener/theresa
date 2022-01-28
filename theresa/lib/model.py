@@ -92,13 +92,21 @@ def specgrid(params, fit):
     tgrid, p = atm.tgrid(cfg.threed.nlayers, cfg.twod.nlat,
                          cfg.twod.nlon, fit.tmaps, pmaps,
                          cfg.threed.pbot, cfg.threed.ptop, params,
+                         fit.nparams3d, fit.modeltype3d,
                          interptype=cfg.threed.interp,
                          oob=cfg.threed.oob, smooth=cfg.threed.smooth)
+
+    if cfg.threed.z == 'fit':
+        izmodel = np.where(fit.modeltype3d == 'z')[0][0]
+        istart = np.sum(fit.nparams3d[:izmodel])
+        z = params[istart]
+    else:
+        z = cfg.threed.z
 
     abn, spec = atm.atminit(cfg.threed.atmtype, cfg.threed.mols, p,
                             tgrid, cfg.planet.m, cfg.planet.r,
                             cfg.planet.p0, cfg.threed.elemfile,
-                            cfg.outdir, ilat=ilat, ilon=ilon,
+                            cfg.outdir, z, ilat=ilat, ilon=ilon,
                             cheminfo=fit.cheminfo)
     
     negativeT = False
@@ -353,6 +361,9 @@ def get_par_3d(fit):
     Returns sensible parameter settings for each 3D model
     '''
     nmaps = len(fit.maps)
+    nparams = []
+    modeltype = []
+    
     if fit.cfg.threed.mapfunc == 'isobaric':
         npar  = nmaps
         # Guess that higher temps are deeper
@@ -362,6 +373,8 @@ def get_par_3d(fit):
         pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
         pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
         pnames = ['log(p{})'.format(a) for a in np.arange(1,nmaps+1)]
+        nparams.append(npar)
+        modeltype.append('pmap')
     elif fit.cfg.threed.mapfunc == 'sinusoidal':
         # For a single wavelength
         npar = 4
@@ -390,6 +403,9 @@ def get_par_3d(fit):
         ipar = np.argsort(np.max(fit.tmaps, axis=(1,2)))
         for i in range(nwl):
             par[i*npar]   = np.linspace(-2, 0, nwl)[ipar][i]
+
+        nparams.append(npar * nwl)
+        modeltype.append('pmap')
     elif fit.cfg.threed.mapfunc == 'flexible':
         ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
                               (fit.lon - fit.dlon / 2. < fit.maxvislon))
@@ -404,6 +420,8 @@ def get_par_3d(fit):
                   for i in np.arange(1, nmaps+1) \
                   for j in ilat \
                   for k in ilon]
+        nparams.append(npar * nwl)
+        modeltype.append('pmap')
     elif fit.cfg.threed.mapfunc == 'quadratic':
         # For a single wavelength
         npar  = 6
@@ -427,6 +445,8 @@ def get_par_3d(fit):
         pmax  = np.tile(pmax,  nwl)
         pnames = np.concatenate([[pname.format(a) for pname in pnames] \
                                  for a in np.arange(1, nmaps+1)]) # Trust me
+        nparams.append(npar * nwl)
+        modeltype.append('pmap')
     elif fit.cfg.threed.mapfunc == 'cubic':
         # For a single wavelength
         npar  = 10
@@ -456,6 +476,8 @@ def get_par_3d(fit):
         pmax  = np.tile(pmax,  nwl)
         pnames = np.concatenate([[pname.format(a) for pname in pnames] \
                                  for a in np.arange(1, nmaps+1)]) # Trust me
+        nparams.append(npar * nwl)
+        modeltype.append('pmap')
     else:
         print("Warning: Unrecognized mapping function.")
 
@@ -465,21 +487,39 @@ def get_par_3d(fit):
         pmin   = np.concatenate((pmin,  (   0.,    0.)))
         pmax   = np.concatenate((pmax,  (4000., 4000.)))
         pnames = np.concatenate((pnames, ('Ttop', 'Tbot')))
+        nparams.append(2)
+        modeltype.append('oob')
     elif fit.cfg.threed.oob == 'top':
         par    = np.concatenate((par,   (1000.,)))
         pstep  = np.concatenate((pstep, (   1.,)))
         pmin   = np.concatenate((pmin,  (   0.,)))
         pmax   = np.concatenate((pmax,  (4000.,)))
         pnames = np.concatenate((pnames, ('Ttop',)))
+        nparams.append(1)
+        modeltype.append('oob')
     elif fit.cfg.threed.oob == 'bot':
         par    = np.concatenate((par,   (2000.,)))
         pstep  = np.concatenate((pstep, (   1.,)))
         pmin   = np.concatenate((pmin,  (   0.,)))
         pmax   = np.concatenate((pmax,  (4000.,)))
         pnames = np.concatenate((pnames, ('Tbot',)))
+        nparams.append(1)
+        modeltype.append('oob')
     else:
         print("Unrecognized out-of-bounds rule.")
 
-    return par, pstep, pmin, pmax, pnames
+    if fit.cfg.threed.z == 'fit':
+        par    = np.concatenate((par,   (   0. ,)))
+        pstep  = np.concatenate((pstep, (   0.1,)))
+        pmin   = np.concatenate((pmin,  (  -1.0,)))
+        pmax   = np.concatenate((pmax,  (   1.0,)))
+        pnames = np.concatenate((pnames, ('z',)))
+        nparams.append(1)
+        modeltype.append('z')
+
+    nparams = np.array(nparams)
+    modeltype = np.array(modeltype)
+        
+    return par, pstep, pmin, pmax, pnames, nparams, modeltype
         
     

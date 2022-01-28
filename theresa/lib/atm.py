@@ -17,7 +17,7 @@ ratedir = os.path.join(moddir, 'rate')
 sys.path.append(ratedir)
 import rate
 
-def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
+def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir, z,
             ilat=None, ilon=None, cheminfo=None):
     """
     Initializes atmospheres of various types.
@@ -51,6 +51,9 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
 
     outdir: string
         Directory where atmospheric file will be written.
+
+    z: float
+        Metallicity. E.g., z=0 is solar.
 
     ilat: 2d array
         Optional array of latitude indices where atmosphere should 
@@ -92,7 +95,10 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir,
     
     # Equilibrium atmosphere
     if atmtype == 'rate':
-        robj = rate.Rate(C=2.5e-4, N=1.0e-4, O=5.0e-4, fHe=0.0851)
+        robj = rate.Rate(C=2.5e-4*(10**z),
+                         N=1.0e-4*(10**z),
+                         O=5.0e-4*(10**z),
+                         fHe=0.0851)
         spec = robj.species
         nspec = len(spec)
         abn = np.zeros((nspec, nlayers, nlat, nlon))
@@ -404,7 +410,8 @@ def calcrad(p, t, mu, r0, mp, p0):
         
 
 def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
-          interptype='linear', oob='extrapolate', smooth=None):
+          nparams, modeltype, interptype='linear', oob='extrapolate',
+          smooth=None):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
     placed at the supplied pressures. Dimensions are (nlayers, nlat,
@@ -415,6 +422,11 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
     temp3d = np.zeros((nlayers, nlat, nlon))
 
     logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
+
+    imodel = np.where(modeltype == 'oob')[0][0]
+    istart = np.sum(nparams[:imodel])
+    iend   = istart + nparams[imodel]
+    oobparams = params[istart:iend]
 
     for i in range(nlat):
         for j in range(nlon):
@@ -429,20 +441,20 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
                 p_interp = np.copy(pmaps[:,i,j])
                 t_interp = np.copy(tmaps[:,i,j])
             elif oob == 'top':
-                ttop = params[-1]
+                ttop = oobparams[0]
                 p_interp = np.concatenate((pmaps[:,i,j], (ptop,)))
                 t_interp = np.concatenate((tmaps[:,i,j], (ttop,)))
                 imax = np.argsort(pmaps[:,i,j])[-1]
                 fill_value = (ttop, tmaps[:,i,j][imax])
             elif oob == 'bot':
-                tbot = params[-1]
+                tbot = oobparams[0]
                 p_interp = np.concatenate((pmaps[:,i,j], (pbot,)))
                 t_interp = np.concatenate((tmaps[:,i,j], (tbot,)))
                 imin = np.argsort(pmaps[:,i,j])[0]
                 fill_value = (tmaps[:,i,j][imin], tbot)
             elif oob == 'both':
-                ttop = params[-2]
-                tbot = params[-1]
+                ttop = oobparams[0]
+                tbot = oobparams[1]
                 p_interp = np.concatenate((pmaps[:,i,j],
                                            (ptop, pbot)))
                 t_interp = np.concatenate((tmaps[:,i,j],
