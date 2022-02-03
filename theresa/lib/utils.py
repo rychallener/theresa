@@ -548,7 +548,7 @@ def ess(chain):
         # Sum adjacent pairs (Geyer, 1993)
         pairsum = autocorr[:-1:2] + autocorr[1::2]
         # Find where the sum goes negative, or use the whole thing
-        if np.any(pairsum > 0):
+        if np.any(pairsum < 0):
             idx = np.where(pairsum < 0)[0][0]
         else:
             idx = len(pairsum)
