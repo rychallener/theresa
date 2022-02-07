@@ -369,11 +369,12 @@ def map3d(fit, system):
         indparams = [fit]
 
         # Get sensible defaults
-        params, pstep, pmin, pmax, pnames, nparams, modeltype = \
+        params, pstep, pmin, pmax, pnames, nparams, modeltype, imodel = \
             model.get_par_3d(fit)
 
-        fit.nparams3d = nparams
+        fit.nparams3d   = nparams
         fit.modeltype3d = modeltype
+        fit.imodel3d    = imodel
 
         # Override if specified by the user
         if hasattr(cfg.threed, 'params'):

@@ -100,17 +100,20 @@ class Fit:
         self.cfg.threed.nlayers = self.cfg.cfg.getint(  '3D', 'nlayers')
         
         self.cfg.threed.rtfunc  = self.cfg.cfg.get('3D', 'rtfunc')
-        self.cfg.threed.mapfunc = self.cfg.cfg.get('3D', 'mapfunc')
-        self.cfg.threed.oob     = self.cfg.cfg.get('3D', 'oob')
+
+        self.cfg.threed.modelnames = np.array(
+            self.cfg.cfg.get('3D', 'models').split())
+
         self.cfg.threed.interp  = self.cfg.cfg.get('3D', 'interp')
 
-        self.cfg.threed.z = self.cfg.cfg.get('3D', 'z')
-        if self.cfg.threed.z != 'fit':
+        if 'z' not in self.cfg.threed.modelnames:
             try:
-                self.cfg.threed.z = float(self.cfg.threed.z)
-            except ValueError:
-                print("Error: Metallicity must be either 'fit' or a number.")
+                self.cfg.threed.z = self.cfg.cfg.getfloat('3D', 'z')
+            except:
+                print("Must specify metallicity if not fitting to it.")
                 sys.exit()
+        else:
+            self.cfg.threed.z = 'fit'
 
         self.cfg.threed.mols = self.cfg.cfg.get('3D', 'mols').split()
 

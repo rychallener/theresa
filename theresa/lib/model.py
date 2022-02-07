@@ -92,9 +92,9 @@ def specgrid(params, fit):
     tgrid, p = atm.tgrid(cfg.threed.nlayers, cfg.twod.nlat,
                          cfg.twod.nlon, fit.tmaps, pmaps,
                          cfg.threed.pbot, cfg.threed.ptop, params,
-                         fit.nparams3d, fit.modeltype3d,
+                         fit.nparams3d, fit.modeltype3d, fit.imodel3d,
                          interptype=cfg.threed.interp,
-                         oob=cfg.threed.oob, smooth=cfg.threed.smooth)
+                         smooth=cfg.threed.smooth)
 
     if cfg.threed.z == 'fit':
         izmodel = np.where(fit.modeltype3d == 'z')[0][0]
@@ -154,12 +154,14 @@ def specgrid(params, fit):
                 nlayers=cfg.threed.nlayers)
             rt.add_contribution(taurex.contributions.AbsorptionContribution())
             rt.add_contribution(taurex.contributions.CIAContribution())
-            #rt.add_contribution(trc.LeeMieVaryMixContribution(
-            #    lee_mie_radius=0.1*np.ones(cfg.threed.nlayers),
-            #    lee_mie_q=40*np.ones(cfg.threed.nlayers),
-            #    lee_mie_mix_ratio=1e-5*np.ones(cfg.threed.nlayers),
-            #    lee_mie_bottomP=cfg.threed.pbot*1e5,
-            #    lee_mie_topP=cfg.threed.ptop*1e5))
+            if 'leemie' in fit.modeltype3d:
+                rt.add_contribution(
+                    taurex.contributions.LeeMieContribution(
+                        lee_mie_radius=0.1,
+                        lee_mie_q=40,
+                        lee_mie_mix_ratio=1e-10,
+                        lee_mie_bottomP=1e7,
+                        lee_mie_topP=1e2))
             if 'H-' in fit.cfg.threed.mols:
                 rt.add_contribution(trc.HMinusContribution())
 
@@ -358,168 +360,237 @@ def get_par_2d(fit, m):
 
 def get_par_3d(fit):
     '''
-    Returns sensible parameter settings for each 3D model
+    Returns sensible parameter settings for each 3D model.
+
+    This function should be edited when additional models are created.
     '''
     nmaps = len(fit.maps)
-    nparams = []
+
+    # Number of parameters for each model, in order.
+    nparams   = np.zeros(len(fit.cfg.threed.modelnames), dtype=int)
+    # Model type. Occasionally models are handled by their types.
+    # If unsure, creating a new model type is safest.
     modeltype = []
-    
-    if fit.cfg.threed.mapfunc == 'isobaric':
-        npar  = nmaps
-        # Guess that higher temps are deeper
-        ipar  = np.argsort(np.max(fit.tmaps, axis=(1,2)))
-        par   = np.linspace(-2, 0, npar)[ipar]
-        pstep = np.ones(npar) * 1e-3
-        pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
-        pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
-        pnames = ['log(p{})'.format(a) for a in np.arange(1,nmaps+1)]
-        nparams.append(npar)
-        modeltype.append('pmap')
-    elif fit.cfg.threed.mapfunc == 'sinusoidal':
-        # For a single wavelength
-        npar = 4
-        par   = np.zeros(npar)
-        pstep = np.ones(npar) * 1e-3
-        pmin  = np.array([np.log10(fit.cfg.threed.ptop),
-                          -np.inf, -np.inf, -180.0])
-        pmax  = np.array([np.log10(fit.cfg.threed.pbot),
-                          np.inf,  np.inf,  180.0])
-        pnames = ['log(p{})',
-                  'Lat. Amp. {}',
-                  'Lon. Amp. {}',
-                  'Lon. Phase {}']
-        # Repeat for each wavelength
-        nwl = len(fit.maps)
-        par   = np.tile(par,   nwl)
-        pstep = np.tile(pstep, nwl)
-        pmin  = np.tile(pmin,  nwl)
-        pmax  = np.tile(pmax,  nwl)
-        pnames = np.concatenate([[pname.format(a) for pname in pnames] \
-                                 for a in np.arange(1, nmaps+1)]) # Trust me
-        # Guess that longitudinal sinusoid follows the hotpost
-        for i in range(nwl):
-            par[3+i*npar] = fit.maps[i].hslocbest[1]
-        # Guess that higher temps are deeper
-        ipar = np.argsort(np.max(fit.tmaps, axis=(1,2)))
-        for i in range(nwl):
-            par[i*npar]   = np.linspace(-2, 0, nwl)[ipar][i]
+    # List of indexing arrays which will pull out the parameters
+    # of each model. E.g., params[imodel[i]] will get the parameters
+    # associated with the ith model
+    imodel    = []
+    # Lists for parameter setting. Will be converted to 1D arrays later,
+    # but we don't know their sizes a priori
+    allparams = []
+    allpmin   = []
+    allpmax   = []
+    allpstep  = []
+    allpnames = []
 
-        nparams.append(npar * nwl)
-        modeltype.append('pmap')
-    elif fit.cfg.threed.mapfunc == 'flexible':
-        ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
-                              (fit.lon - fit.dlon / 2. < fit.maxvislon))
-        nvislat = len(np.unique(ilat))
-        nvislon = len(np.unique(ilon))
-        npar = nvislat * nvislon * len(fit.maps)
-        par   = np.zeros(npar)
-        pstep = np.ones(npar) * 1e-3
-        pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
-        pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
-        pnames = ['log(p{},{},{})'.format(i,j,k) \
-                  for i in np.arange(1, nmaps+1) \
-                  for j in ilat \
-                  for k in ilon]
-        nparams.append(npar * nwl)
-        modeltype.append('pmap')
-    elif fit.cfg.threed.mapfunc == 'quadratic':
-        # For a single wavelength
-        npar  = 6
-        par   = np.zeros(npar)
-        pstep = np.ones(npar) * 1e-3
-        pmin  = np.array([np.log10(fit.cfg.threed.ptop),
-                          -np.inf, -np.inf, -np.inf, -np.inf, -np.inf])
-        pmax  = np.array([np.log10(fit.cfg.threed.pbot),
-                          np.inf, np.inf, np.inf, np.inf, np.inf])
-        pnames = ['log(p{})',
-                  'LatLat {}',
-                  'LonLon {}',
-                  'Lat {}',
-                  'Lon {}',
-                  'LatLon {}']
-        # Repeat for each wavelength
-        nwl = len(fit.maps)
-        par   = np.tile(par,   nwl)
-        pstep = np.tile(pstep, nwl)
-        pmin  = np.tile(pmin,  nwl)
-        pmax  = np.tile(pmax,  nwl)
-        pnames = np.concatenate([[pname.format(a) for pname in pnames] \
-                                 for a in np.arange(1, nmaps+1)]) # Trust me
-        nparams.append(npar * nwl)
-        modeltype.append('pmap')
-    elif fit.cfg.threed.mapfunc == 'cubic':
-        # For a single wavelength
-        npar  = 10
-        par   = np.zeros(npar)
-        pstep = np.ones(npar) * 1e-3
-        pmin  = np.array([np.log10(fit.cfg.threed.ptop),
-                          -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,
-                          -np.inf, -np.inf, -np.inf, -np.inf])
-        pmax  = np.array([np.log10(fit.cfg.threed.pbot),
-                          np.inf, np.inf, np.inf, np.inf, np.inf,
-                          np.inf, np.inf, np.inf, np.inf])
-        pnames = ['log(p{})',
-                  'LatLatLat {}',
-                  'LonLonLon {}',
-                  'LatLat {}',
-                  'LonLon {}',
-                  'Lat {}',
-                  'Lon {}',
-                  'LatLatLon {}',
-                  'LatLonLon {}',
-                  'LatLon {}']
-        # Repeat for each wavelength
-        nwl = len(fit.maps)
-        par   = np.tile(par,   nwl)
-        pstep = np.tile(pstep, nwl)
-        pmin  = np.tile(pmin,  nwl)
-        pmax  = np.tile(pmax,  nwl)
-        pnames = np.concatenate([[pname.format(a) for pname in pnames] \
-                                 for a in np.arange(1, nmaps+1)]) # Trust me
-        nparams.append(npar * nwl)
-        modeltype.append('pmap')
-    else:
-        print("Warning: Unrecognized mapping function.")
+    # Loops through all the given models, setting their number of
+    # parameters, as well as sensible initial guesses, parameter
+    # boundaries, and step sizes.
+    for im, mname in enumerate(fit.cfg.threed.modelnames):   
+        if mname == 'isobaric':
+            npar  = nmaps
+            # Guess that higher temps are deeper
+            ipar  = np.argsort(np.max(fit.tmaps, axis=(1,2)))
+            par   = np.linspace(-2, 0, npar)[ipar]
+            pstep = np.ones(npar) * 1e-3
+            pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
+            pmax  = np.ones(npar) * np.log10(fit.cfg.threed.pbot)
+            pnames = ['log(p{})'.format(a) for a in np.arange(1,nmaps+1)]
+            modeltype.append('pmap')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        elif mname == 'sinusoidal':
+            # For a single wavelength
+            nppwl = 4
+            npar  = nppwl * nwl 
+            par   = np.zeros(nppwl)
+            pstep = np.ones(npwl) * 1e-3
+            pmin  = np.array([np.log10(fit.cfg.threed.ptop),
+                              -np.inf, -np.inf, -180.0])
+            pmax  = np.array([np.log10(fit.cfg.threed.pbot),
+                              np.inf,  np.inf,  180.0])
+            pnames = ['log(p{})',
+                      'Lat. Amp. {}',
+                      'Lon. Amp. {}',
+                      'Lon. Phase {}']
+            # Repeat for each wavelength
+            nwl = len(fit.maps)
+            par   = np.tile(par,   nwl)
+            pstep = np.tile(pstep, nwl)
+            pmin  = np.tile(pmin,  nwl)
+            pmax  = np.tile(pmax,  nwl)
+            pnames = np.concatenate([[pname.format(a) for pname in pnames] \
+                                     for a in np.arange(1, nmaps+1)]) # Trust me
+            # Guess that longitudinal sinusoid follows the hotpost
+            for i in range(nwl):
+                par[3+i*npar] = fit.maps[i].hslocbest[1]
+            # Guess that higher temps are deeper
+            ipar = np.argsort(np.max(fit.tmaps, axis=(1,2)))
+            for i in range(nwl):
+                par[i*npar]   = np.linspace(-2, 0, nwl)[ipar][i]
 
-    if fit.cfg.threed.oob == 'both':
-        par    = np.concatenate((par,   (1000., 2000.)))
-        pstep  = np.concatenate((pstep, (   1.,    1.)))
-        pmin   = np.concatenate((pmin,  (   0.,    0.)))
-        pmax   = np.concatenate((pmax,  (4000., 4000.)))
-        pnames = np.concatenate((pnames, ('Ttop', 'Tbot')))
-        nparams.append(2)
-        modeltype.append('oob')
-    elif fit.cfg.threed.oob == 'top':
-        par    = np.concatenate((par,   (1000.,)))
-        pstep  = np.concatenate((pstep, (   1.,)))
-        pmin   = np.concatenate((pmin,  (   0.,)))
-        pmax   = np.concatenate((pmax,  (4000.,)))
-        pnames = np.concatenate((pnames, ('Ttop',)))
-        nparams.append(1)
-        modeltype.append('oob')
-    elif fit.cfg.threed.oob == 'bot':
-        par    = np.concatenate((par,   (2000.,)))
-        pstep  = np.concatenate((pstep, (   1.,)))
-        pmin   = np.concatenate((pmin,  (   0.,)))
-        pmax   = np.concatenate((pmax,  (4000.,)))
-        pnames = np.concatenate((pnames, ('Tbot',)))
-        nparams.append(1)
-        modeltype.append('oob')
-    else:
-        print("Unrecognized out-of-bounds rule.")
+            modeltype.append('pmap')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        elif mname == 'flexible':
+            ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
+                                  (fit.lon - fit.dlon / 2. < fit.maxvislon))
+            nvislat = len(np.unique(ilat))
+            nvislon = len(np.unique(ilon))
+            nppwl = nvislat * nvislon * len(fit.maps)
+            npar  = nppwl * npar
+            par   = np.zeros(nppwl)
+            pstep = np.ones(nppwl) * 1e-3
+            pmin  = np.ones(nppwl) * np.log10(fit.cfg.threed.ptop)
+            pmax  = np.ones(nppwl) * np.log10(fit.cfg.threed.pbot)
+            pnames = ['log(p{},{},{})'.format(i,j,k) \
+                      for i in np.arange(1, nmaps+1) \
+                      for j in ilat \
+                      for k in ilon]
+            modeltype.append('pmap')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        elif mname == 'quadratic':
+            # For a single wavelength
+            nppwl = 6
+            npar  = nppwl * nwl
+            par   = np.zeros(nppwl)
+            pstep = np.ones(nppwl) * 1e-3
+            pmin  = np.array([np.log10(fit.cfg.threed.ptop),
+                              -np.inf, -np.inf, -np.inf, -np.inf, -np.inf])
+            pmax  = np.array([np.log10(fit.cfg.threed.pbot),
+                              np.inf, np.inf, np.inf, np.inf, np.inf])
+            pnames = ['log(p{})',
+                      'LatLat {}',
+                      'LonLon {}',
+                      'Lat {}',
+                      'Lon {}',
+                      'LatLon {}']
+            # Repeat for each wavelength
+            nwl = len(fit.maps)
+            par   = np.tile(par,   nwl)
+            pstep = np.tile(pstep, nwl)
+            pmin  = np.tile(pmin,  nwl)
+            pmax  = np.tile(pmax,  nwl)
+            pnames = np.concatenate([[pname.format(a) for pname in pnames] \
+                                     for a in np.arange(1, nmaps+1)]) # Trust me
+            modeltype.append('pmap')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        elif mname == 'cubic':
+            # For a single wavelength
+            nppwl = 10
+            npar  = nppwl * nwl
+            par   = np.zeros(nppwl)
+            pstep = np.ones(nppwl) * 1e-3
+            pmin  = np.array([np.log10(fit.cfg.threed.ptop),
+                              -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,
+                              -np.inf, -np.inf, -np.inf, -np.inf])
+            pmax  = np.array([np.log10(fit.cfg.threed.pbot),
+                              np.inf, np.inf, np.inf, np.inf, np.inf,
+                              np.inf, np.inf, np.inf, np.inf])
+            pnames = ['log(p{})',
+                      'LatLatLat {}',
+                      'LonLonLon {}',
+                      'LatLat {}',
+                      'LonLon {}',
+                      'Lat {}',
+                      'Lon {}',
+                      'LatLatLon {}',
+                      'LatLonLon {}',
+                      'LatLon {}']
+            # Repeat for each wavelength
+            nwl = len(fit.maps)
+            par   = np.tile(par,   nwl)
+            pstep = np.tile(pstep, nwl)
+            pmin  = np.tile(pmin,  nwl)
+            pmax  = np.tile(pmax,  nwl)
+            pnames = np.concatenate([[pname.format(a) for pname in pnames] \
+                                     for a in np.arange(1, nmaps+1)]) # Trust me
+            modeltype.append('pmap')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        # Temperature profile options
+        elif mname == 'ttop':
+            npar   = 1
+            par    = [1000.]
+            pstep  = [   1.]
+            pmin   = [   0.]
+            pmax   = [4000.]
+            pnames = ['Ttop']
+            modeltype.append('ttop')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        elif mname == 'tbot':
+            npar   = 1
+            par    = [2000.]
+            pstep  = [   1.]
+            pmin   = [   0.]
+            pmax   = [4000.]
+            pnames = ['Tbot']
+            modeltype.append('tbot')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        # Chemistry models
+        elif mname == 'z':
+            npar   = 1
+            par    = [ 0.0]
+            pstep  = [ 0.1]
+            pmin   = [-1.0]
+            pmax   = [ 1.0]
+            pnames = ['z']
+            modeltype.append('z')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+            
+        cumpar = np.sum(nparams[:im])
+        print(mname)
+        print(npar)
+        print(cumpar, nparams[im])
+        imodel.append(range(cumpar, cumpar + nparams[im]))
 
-    if fit.cfg.threed.z == 'fit':
-        par    = np.concatenate((par,   (   0. ,)))
-        pstep  = np.concatenate((pstep, (   0.1,)))
-        pmin   = np.concatenate((pmin,  (  -1.0,)))
-        pmax   = np.concatenate((pmax,  (   1.0,)))
-        pnames = np.concatenate((pnames, ('z',)))
-        nparams.append(1)
-        modeltype.append('z')
-
-    nparams = np.array(nparams)
+    # Turn into 1D arrays (MC3 likes them this way)
     modeltype = np.array(modeltype)
+    imodel    = np.array(imodel, dtype=object)
+    allparams = np.array([i for item in allparams for i in item])
+    allpstep  = np.array([i for item in allpstep  for i in item])
+    allpmin   = np.array([i for item in allpmin   for i in item])
+    allpmax   = np.array([i for item in allpmax   for i in item])
+    allpnames = np.array([i for item in allpnames for i in item])
         
-    return par, pstep, pmin, pmax, pnames, nparams, modeltype
+    return (allparams, allpstep, allpmin, allpmax, allpnames, nparams,
+            modeltype, imodel)
         
     

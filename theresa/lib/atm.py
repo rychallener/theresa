@@ -410,7 +410,7 @@ def calcrad(p, t, mu, r0, mp, p0):
         
 
 def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
-          nparams, modeltype, interptype='linear', oob='extrapolate',
+          nparams, modeltype, imodel, interptype='linear',
           smooth=None):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
@@ -423,10 +423,25 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
 
     logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
 
-    imodel = np.where(modeltype == 'oob')[0][0]
-    istart = np.sum(nparams[:imodel])
-    iend   = istart + nparams[imodel]
-    oobparams = params[istart:iend]
+    if 'tbot' in modeltype:
+        if 'ttop' in modeltype:
+            oob = 'both'
+            itop = np.where(modeltype == 'ttop')[0][0]
+            ibot = np.where(modeltype == 'tbot')[0][0]
+            oobparams = \
+                (params[imodel[itop]],
+                 params[imodel[ibot]])
+        else:
+            oob = 'bot'
+            ibot = np.where(modeltype == 'tbot')[0][0]
+            oobparams = (params[imodel[ibot]])
+    else:
+        if 'ttop' in modeltype3d:
+            oob = 'top'
+            itop = np.where(modeltype == 'ttop')[0][0]
+            oobparams = (params[imodel[ibot]])
+        else:
+            oob = 'isothermal'
 
     for i in range(nlat):
         for j in range(nlon):
@@ -485,20 +500,22 @@ def pmaps(params, fit):
     lon   = fit.lon
     dlat  = fit.dlat
     dlon  = fit.dlon
-    mapfunc = fit.cfg.threed.mapfunc
+    im = np.where(fit.modeltype3d == 'pmap')[0][0]
+    mapfunc = fit.cfg.threed.modelnames[im]
+    mapparams = params[fit.imodel3d[im]]
     
     pmaps = np.zeros(tmaps.shape)
     nmap, nlat, nlon = pmaps.shape
     if   mapfunc == 'isobaric':
         for i in range(nmap):
-            pmaps[i] = 10.**params[i]
+            pmaps[i] = 10.**mapparams[i]
     elif mapfunc == 'sinusoidal':
         npar = 4
         for i in range(nmap):
             ip = npar * i
-            pmaps[i] = 10.**(params[ip] + \
-                params[ip+1]*np.cos((lat             )*np.pi/180.) + \
-                params[ip+2]*np.cos((lon-params[ip+3])*np.pi/180.))
+            pmaps[i] = 10.**(mapparams[ip] + \
+                mapparams[ip+1]*np.cos((lat                )*np.pi/180.) + \
+                mapparams[ip+2]*np.cos((lon-mapparams[ip+3])*np.pi/180.))
     elif mapfunc == 'flexible':
         ilat, ilon = np.where((lon + dlon / 2. > fit.minvislon) &
                               (lon - dlon / 2. < fit.maxvislon))
@@ -506,34 +523,34 @@ def pmaps(params, fit):
         for i in range(nmap):
             ip = 0
             for j, k in zip(ilat, ilon):
-                pmaps[i,j,k] = 10.**params[i*nvis+ip]
+                pmaps[i,j,k] = 10.**mapparams[i*nvis+ip]
                 ip += 1
     elif mapfunc == 'quadratic':
         npar = 6
         for i in range(nmap):
             ip = npar*i
             pmaps[i] = 10.**(
-                params[ip  ]          +
-                params[ip+1] * lat**2 +
-                params[ip+2] * lon**2 +
-                params[ip+3] * lat    +
-                params[ip+4] * lon    +
-                params[ip+5] * lat*lon)
+                mapparams[ip  ]          +
+                mapparams[ip+1] * lat**2 +
+                mapparams[ip+2] * lon**2 +
+                mapparams[ip+3] * lat    +
+                mapparams[ip+4] * lon    +
+                mapparams[ip+5] * lat*lon)
     elif mapfunc == 'cubic':
         npar = 10
         for i in range(nmap):
             ip = npar*i
             pmaps[i] = 10.**(
-                params[ip  ]              +
-                params[ip+1] * lat**3     +
-                params[ip+2] * lon**3     +
-                params[ip+3] * lat**2     +
-                params[ip+4] * lon**2     +
-                params[ip+5] * lat        +
-                params[ip+6] * lon        +
-                params[ip+7] * lat**2*lon +
-                params[ip+8] * lat*lon**2 +
-                params[ip+9] * lat*lon)
+                mapparams[ip  ]              +
+                mapparams[ip+1] * lat**3     +
+                mapparams[ip+2] * lon**3     +
+                mapparams[ip+3] * lat**2     +
+                mapparams[ip+4] * lon**2     +
+                mapparams[ip+5] * lat        +
+                mapparams[ip+6] * lon        +
+                mapparams[ip+7] * lat**2*lon +
+                mapparams[ip+8] * lat*lon**2 +
+                mapparams[ip+9] * lat*lon)
     else:
         print("WARNING: Unrecognized pmap model.")
 

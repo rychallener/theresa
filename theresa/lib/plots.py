@@ -728,8 +728,8 @@ def tgrid_unc(fit):
                                     fit.cfg.threed.ptop,
                                     fit.posterior3d[ipost],
                                     fit.nparams3d, fit.modeltype3d,
+                                    fit.imodel3d,
                                     interptype=fit.cfg.threed.interp,
-                                    oob=fit.cfg.threed.oob,
                                     smooth=fit.cfg.threed.smooth)
 
     # Collapse to 1D for easier indexing
