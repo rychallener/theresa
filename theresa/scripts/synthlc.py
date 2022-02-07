@@ -260,7 +260,7 @@ else:
 
 print('Interpolating chemistry to GCM temperature grid.')
 abn, spec = atm.atminit(atmtype, opacspec, p, tgrid, mp/Msun, rp/Rsun,
-                        0.1, elemfile, '.', cheminfo=cheminfo)
+                        0.1, elemfile, '.', 0.0, cheminfo=cheminfo)
 
 # Planet
 rtplan = taurex.planet.Planet(
@@ -328,7 +328,7 @@ for i in range(nlat):
                                    iq = iqs
                          rt.add_contribution(
                               trc.CloudTauContribution(
-                                   tau=taudata[i,j,:,itau+iq],
+                                   tau=massdata[i,j,:,itau+iq],
                                    Q0=Q0[ic],
                                    particle_size=partsize*1e6,
                                    knowntauwl=5.0,
