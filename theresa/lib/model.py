@@ -154,14 +154,16 @@ def specgrid(params, fit):
                 nlayers=cfg.threed.nlayers)
             rt.add_contribution(taurex.contributions.AbsorptionContribution())
             rt.add_contribution(taurex.contributions.CIAContribution())
-            if 'leemie' in fit.modeltype3d:
+            if 'leemie' in fit.cfg.threed.modelnames:
+                im = np.where(fit.cfg.threed.modelnames == 'leemie')[0][0]
+                leepar = params[fit.imodel3d[im]]
                 rt.add_contribution(
                     taurex.contributions.LeeMieContribution(
-                        lee_mie_radius=0.1,
-                        lee_mie_q=40,
-                        lee_mie_mix_ratio=1e-10,
-                        lee_mie_bottomP=1e7,
-                        lee_mie_topP=1e2))
+                        lee_mie_radius=leepar[0],
+                        lee_mie_q=leepar[1],
+                        lee_mie_mix_ratio=10**leepar[2],
+                        lee_mie_bottomP=10**leepar[3]*1e5,
+                        lee_mie_topP=10**leepar[4]*1e5))
             if 'H-' in fit.cfg.threed.mols:
                 rt.add_contribution(trc.HMinusContribution())
 
@@ -574,11 +576,27 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)
+        # Cloud models
+        elif mname == 'leemie':
+            npar    = 5
+            # Parameters: part. size, Q0, mix ratio (log),
+            #             bottom p (log), top p (log)
+            logpbot = np.log10(fit.cfg.threed.pbot)
+            logptop = np.log10(fit.cfg.threed.ptop)
+            par     = [  0.1,  40.0, -10.0,     2.0,    -1.0]
+            pstep   = [  0.1,   1.0,   1.0,     0.1,     0.1]
+            pmin    = [  0.0,   0.0, -20.0, logptop, logptop]
+            pmax    = [100.0, 100.0,   0.0, logpbot, logpbot]
+            pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)']
+            modeltype.append('clouds')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
             
         cumpar = np.sum(nparams[:im])
-        print(mname)
-        print(npar)
-        print(cumpar, nparams[im])
         imodel.append(range(cumpar, cumpar + nparams[im]))
 
     # Turn into 1D arrays (MC3 likes them this way)
