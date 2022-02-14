@@ -348,8 +348,8 @@ class LeeMieVaryMixContribution(taurex.contributions.LeeMieContribution):
 def calctau(Q0, am, wlm, kwlm, tau):
     x = 2 * np.pi * am / wlm
     xkwl = 2 * np.pi * am / kwlm
-    numer = Q0 * x**-4 + x**0.2
-    denom = Q0 * xkwl**-4 + xkwl**0.2
+    denom = Q0 * x**-4 + x**0.2
+    numer = Q0 * xkwl**-4 + xkwl**0.2
     f = numer / denom
     return f * tau
 
