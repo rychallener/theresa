@@ -585,8 +585,8 @@ def get_par_3d(fit):
             logptop = np.log10(fit.cfg.threed.ptop)
             par     = [  0.1,  40.0, -10.0,     2.0,    -1.0]
             pstep   = [  0.1,   1.0,   1.0,     0.1,     0.1]
-            pmin    = [  0.0,   0.0, -20.0, logptop, logptop]
-            pmax    = [100.0, 100.0,   0.0, logpbot, logpbot]
+            pmin    = [  0.0,   0.0, -20.0, -np.inf, -np.inf]
+            pmax    = [100.0, 100.0,   0.0,  np.inf,  np.inf]
             pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)']
             modeltype.append('clouds')
             nparams[im] = npar
