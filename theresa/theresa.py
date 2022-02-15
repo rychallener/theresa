@@ -496,8 +496,14 @@ def map3d(fit, system):
     fit.save(cfg.outdir)
         
 if __name__ == "__main__":
+    print("#######################################################")
+    print("ThERESA: Three-dimensional Exoplanet Retrieval from    ")
+    print("         Eclipse Spectroscopy of Atmospheres           ")
+    print("Copyright 2021-2022 Ryan C. Challener & collaborators  ")
+    print("#######################################################")
+    
     if len(sys.argv) < 3:
-        print("ERROR: Call structure is run.py <mode> <configuration file>.")
+        print("ERROR: Call structure is theresa.py <mode> <configuration file>.")
         sys.exit()
     else:
         mode  = sys.argv[1]
