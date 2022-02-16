@@ -141,8 +141,8 @@ def map2d(cfile):
                 # default
                 if n > (l+1)**2 - 1:
                     continue
+                
                 print("Fitting lmax={}, n={}".format(l,n))
-                # FINDME: set a condition to skip invalid l-n combos
                 setattr(m, 'l{}n{}'.format(l, n), fc.LN())
                 ln = getattr(m, 'l{}n{}'.format(l, n))
 
@@ -317,6 +317,8 @@ def map2d(cfile):
         print("Making plots.")
         for m in fit.maps:
             outdir = os.path.join(cfg.outdir, m.subdir)
+            # Make sure the planet has the right lmax
+            star, planet, system = utils.initsystem(fit, m.bestln.lmax)
             plots.emaps(planet, m.bestln.eigeny, outdir, proj='ortho')
             plots.emaps(planet, m.bestln.eigeny, outdir, proj='rect')
             plots.emaps(planet, m.bestln.eigeny, outdir, proj='moll')
