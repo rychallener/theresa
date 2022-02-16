@@ -309,17 +309,17 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
 
     return cfsigdiff
 
-def get_par_2d(fit, m):
+def get_par_2d(fit, ln):
     '''
     Returns sensible parameter settings for each 2D model
     '''
     cfg = fit.cfg
     
     # Necessary parameters
-    npar = m.ncurves + 2
+    npar = ln.ncurves + 2
 
     params = np.zeros(npar)
-    params[m.ncurves] = 0.001
+    params[ln.ncurves] = 0.001
     
     pstep = np.ones(npar) *  0.01
     pmin  = np.ones(npar) * -1.0
@@ -327,7 +327,7 @@ def get_par_2d(fit, m):
 
     pnames   = []
     texnames = []
-    for j in range(m.ncurves):
+    for j in range(ln.ncurves):
         pnames.append("C{}".format(j+1))
         texnames.append("$C_{{{}}}$".format(j+1))
 

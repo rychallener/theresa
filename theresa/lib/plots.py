@@ -276,7 +276,8 @@ def bestfit(fit):
     nt = len(t)
     
     for i in range(nfilt):
-        axes[0].plot(t, fit.maps[i].bestfit, zorder=2, color=colors[i],
+        axes[0].plot(t, fit.maps[i].bestln.bestfit, zorder=2,
+                     color=colors[i],
                      label='{:.2f} um'.format(fit.wlmid[i]))
         axes[0].scatter(t, fit.flux[i], s=0.1, zorder=1, color=colors[i])
 
@@ -284,7 +285,7 @@ def bestfit(fit):
     axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
 
     for i in range(nfilt):
-        axes[i+1].scatter(t, fit.flux[i] - fit.maps[i].bestfit, s=0.1,
+        axes[i+1].scatter(t, fit.flux[i] - fit.maps[i].bestln.bestfit, s=0.1,
                           color=colors[i])
         axes[i+1].set_ylabel('Residuals')
         axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
@@ -301,7 +302,7 @@ def ecurveweights(fit):
     maxweight = -np.inf
     minweight =  np.inf
 
-    maxcurves = np.max([m.ncurves for m in fit.maps])
+    maxcurves = np.max([m.bestln.ncurves for m in fit.maps])
 
     if nwl == 1:
         shifts = [0]
@@ -311,10 +312,10 @@ def ecurveweights(fit):
     fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
 
     for i in range(nwl):
-        ncurves = fit.maps[i].ncurves
+        ncurves = fit.maps[i].bestln.ncurves
         npar = ncurves + 2
-        weights = fit.maps[i].bestp[:ncurves]
-        uncs    = fit.maps[i].stdp[:ncurves]
+        weights = fit.maps[i].bestln.bestp[:ncurves]
+        uncs    = fit.maps[i].bestln.stdp[:ncurves]
         axes[0].errorbar(np.arange(ncurves) + shifts[i] + 1,
                          weights, uncs, fmt='o',
                          label="{:.2f} um".format(fit.wlmid[i]))

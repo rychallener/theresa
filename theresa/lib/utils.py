@@ -348,7 +348,7 @@ def mapintensity(map, lat, lon, amp):
     return grid
 
 
-def hotspotloc_driver(fit, map):
+def hotspotloc_driver(fit, ln):
     """
     Calculates a distribution of hotspot locations based on the MCMC
     posterior distribution.
@@ -377,7 +377,7 @@ def hotspotloc_driver(fit, map):
         Marginalized posterior distributions of latitude and longitude
     """
     
-    post = map.post[map.zmask]
+    post = ln.post[ln.zmask]
 
     nsamp, nfree = post.shape
 
@@ -396,7 +396,7 @@ def hotspotloc_driver(fit, map):
 
     bounds = None
     bounds = (-90, 90),(-360, 360)
-    smap = starry.Map(ydeg=map.lmax)
+    smap = starry.Map(ydeg=ln.lmax)
     # Function defined in this way to avoid passing non-numeric arguments
     def hotspotloc(yval):       
         smap[1:,:] = yval
@@ -415,17 +415,17 @@ def hotspotloc_driver(fit, map):
     pbar = progressbar.ProgressBar(max_value=ncalc)
     for i in range(0, ncalc):
         ipost = i * thinning
-        yval = np.zeros((map.lmax+1)**2-1)
-        for j in range(map.ncurves):
-            yval += -1 * post[ipost,j] * map.eigeny[j,1:]
+        yval = np.zeros((ln.lmax+1)**2-1)
+        for j in range(ln.ncurves):
+            yval += -1 * post[ipost,j] * ln.eigeny[j,1:]
 
         hslat[i], hslon[i], _ = t_hotspotloc(yval)
         pbar.update(i+1)
 
-    star, planet, system = initsystem(fit, map.lmax)
+    star, planet, system = initsystem(fit, ln.lmax)
     planet.map[1:,:] = 0.0
-    for j in range(map.ncurves):
-        planet.map[1:,:] += -1 * map.bestp[j] * map.eigeny[j,1:]
+    for j in range(ln.ncurves):
+        planet.map[1:,:] += -1 * ln.bestp[j] * ln.eigeny[j,1:]
     hslatbest, hslonbest, _ = planet.map.minimize(oversample=oversample,
                                                   bounds=bounds,
                                                   ntries=ntries)
@@ -461,11 +461,11 @@ def hotspotloc_driver(fit, map):
     
     return hslocbest, hslocstd, hslocpost, hsloctserr
 
-def tmappost(fit, map):
-    post = map.post[map.zmask]
+def tmappost(fit, ln):
+    post = ln.post[ln.zmask]
 
     nsamp, nfree = post.shape
-    ncurves = map.ncurves
+    ncurves = ln.ncurves
 
     if fit.cfg.twod.ncalc > nsamp:
         print("Warning: ncalc reduced to match burned-in sample.")
@@ -478,7 +478,7 @@ def tmappost(fit, map):
     fmaps = np.zeros((ncalc, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
     tmaps = np.zeros((ncalc, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
     
-    star, planet, system = initsystem(fit, map.lmax)
+    star, planet, system = initsystem(fit, ln.lmax)
 
     def calcfmap(yval, unifamp):
         planet.map[1:,:] = 0.0
@@ -499,12 +499,12 @@ def tmappost(fit, map):
     pbar = progressbar.ProgressBar(max_value=ncalc)
     for i in range(ncalc):
         ipost = i * thinning
-        yval = np.zeros((map.lmax+1)**2-1)
-        for j in range(map.ncurves):
-            yval += post[ipost,j] * map.eigeny[j,1:]
+        yval = np.zeros((ln.lmax+1)**2-1)
+        for j in range(ln.ncurves):
+            yval += post[ipost,j] * ln.eigeny[j,1:]
             
         fmaps[i] = t_calcfmap(yval, post[ipost, ncurves]).reshape(fit.lat.shape)
-        tmaps[i] = fmap_to_tmap(fmaps[i], map.wlmid*1e-6,
+        tmaps[i] = fmap_to_tmap(fmaps[i], ln.wlmid*1e-6,
                                 fit.cfg.planet.r, fit.cfg.star.r,
                                 fit.cfg.star.t, post[ipost,ncurves+1])
         

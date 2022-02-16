@@ -222,6 +222,13 @@ class Map:
     '''
     pass
 
+class LN:
+    '''
+    A class to hold result from a fit with a single combination of 
+    lmax and ncurves.
+    '''
+    pass
+
 def load(outdir=None, filename=None):
     """
     Load a Fit object from file.
