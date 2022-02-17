@@ -146,6 +146,8 @@ def map2d(cfile):
                 setattr(m, 'l{}n{}'.format(l, n), fc.LN())
                 ln = getattr(m, 'l{}n{}'.format(l, n))
 
+                ln.subdir = 'l{}n{}'.format(l,n)
+
                 ln.wlmid = fit.wlmid[i]
                 
                 ln.ncurves = n
@@ -178,7 +180,11 @@ def map2d(cfile):
                 mc3data = fit.flux[i]
                 mc3unc  = fit.ferr[i]
                 mc3npz = os.path.join(cfg.outdir,
-                                      '2dmcmc-{:.2f}um.npz'.format(
+                                      m.subdir,
+                                      ln.subdir,
+                                      '2dmcmc-l{}n{}-{:.2f}um.npz'.format(
+                                          l,
+                                          n,
                                           fit.wlmid[i]))
 
                 mc3out = mc3.sample(data=mc3data, uncert=mc3unc,
