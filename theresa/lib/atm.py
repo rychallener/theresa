@@ -17,7 +17,7 @@ ratedir = os.path.join(moddir, 'rate')
 sys.path.append(ratedir)
 import rate
 
-def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, outdir, z,
+def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, z,
             ilat=None, ilon=None, cheminfo=None):
     """
     Initializes atmospheres of various types.

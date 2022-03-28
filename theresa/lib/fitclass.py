@@ -28,11 +28,10 @@ class Fit:
 
         self.cfg.cfile = cfile
         self.cfg.cfg   = config
-
-        # General options
-        self.cfg.outdir     = self.cfg.cfg.get('General', 'outdir')
        
         # 2D options
+        self.cfg.twod.outdir = self.cfg.cfg.get('2D', 'outdir')
+        
         self.cfg.twod.timefile = self.cfg.cfg.get('2D', 'timefile')
         self.cfg.twod.fluxfile = self.cfg.cfg.get('2D', 'fluxfile')
         self.cfg.twod.ferrfile = self.cfg.cfg.get('2D', 'ferrfile')
@@ -88,6 +87,9 @@ class Fit:
             
 
         # 3D options
+        self.cfg.threed.outdir = self.cfg.cfg.get('3D', 'outdir')
+        self.cfg.threed.indir  = self.cfg.cfg.get('3D', 'indir')
+        
         self.cfg.threed.ncpu       = self.cfg.cfg.getint('3D', 'ncpu')
         self.cfg.threed.nsamples   = self.cfg.cfg.getint('3D', 'nsamples')
         self.cfg.threed.burnin     = self.cfg.cfg.getint('3D', 'burnin')

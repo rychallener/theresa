@@ -190,7 +190,7 @@ def pltmaps(fit, proj='rect'):
     fig.subplots_adjust(right=0.8)
     cax = fig.add_axes([0.85, 0.15, 0.03, 0.75])
     fig.colorbar(im, cax=cax, label='Temperature (K)')
-    plt.savefig(os.path.join(fit.cfg.outdir,
+    plt.savefig(os.path.join(fit.cfg.twod.outdir,
                              'bestfit-{}-maps.png'.format(proj)))
     plt.close(fig)
 
@@ -253,7 +253,7 @@ def tmap_unc(fit, proj='rect'):
     fig.subplots_adjust(right=0.8)
     cax = fig.add_axes([0.85, 0.15, 0.03, 0.75])
     fig.colorbar(im, cax=cax, label='Temperature Uncertainty (K)')
-    plt.savefig(os.path.join(fit.cfg.outdir,
+    plt.savefig(os.path.join(fit.cfg.twod.outdir,
                              'bestfit-{}-maps-unc.png'.format(proj)))
     plt.close(fig)
     
@@ -293,7 +293,7 @@ def bestfit(fit):
             axes[i+1].set_xlabel('Time (days)')
 
     fig.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-lcs.png'))
+    plt.savefig(os.path.join(fit.cfg.twod.outdir, 'bestfit-lcs.png'))
     plt.close(fig)
 
 def ecurveweights(fit):
@@ -342,7 +342,7 @@ def ecurveweights(fit):
     axes[1].legend()
 
     plt.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'ecurveweight.png'))
+    plt.savefig(os.path.join(fit.cfg.twod.outdir, 'ecurveweight.png'))
     plt.close(fig)
 
 def hshist(fit):
@@ -374,10 +374,10 @@ def hshist(fit):
             ax.set_ylabel('Samples')
 
     plt.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'hotspot-hist.png'))
+    plt.savefig(os.path.join(fit.cfg.twod.outdir, 'hotspot-hist.png'))
     plt.close(fig)
 
-def bestfitlcsspec(fit):
+def bestfitlcsspec(fit, outdir=''):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     
     nfilt, nt = fit.specbestmodel.shape
@@ -410,10 +410,10 @@ def bestfitlcsspec(fit):
             axes[i+1].set_xlabel('Time (days)')
 
     plt.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-lcs-spec.png'))
+    plt.savefig(os.path.join(outdir, 'bestfit-lcs-spec.png'))
     plt.close(fig)
 
-def bestfittgrid(fit):
+def bestfittgrid(fit, outdir=''):
     fig, ax = plt.subplots(figsize=(6,8))
 
     # Match colors to light curves
@@ -499,7 +499,7 @@ def bestfittgrid(fit):
     cax.yaxis.set_ticks_position('left')
     cax.yaxis.set_label_position('left')
     
-    plt.savefig(os.path.join(fit.cfg.outdir, 'bestfit-tp.png'))
+    plt.savefig(os.path.join(outdir, 'bestfit-tp.png'))
     plt.close(fig)
 
 def visanimation(fit, fps=60, step=10):
@@ -577,7 +577,7 @@ def fluxmapanimation(fit, fps=60, step=10):
     plt.close(fig)
 
 
-def tau(fit, ilat=None, ilon=None):
+def tau(fit, ilat=None, ilon=None, outdir=''):
     fig, ax = plt.subplots()
     
     cfg = fit.cfg
@@ -634,10 +634,10 @@ def tau(fit, ilat=None, ilon=None):
         text.set_color("white")
         
     plt.colorbar(label=r'$e^{-\tau}$')
-    plt.savefig(os.path.join(fit.cfg.outdir, 'transmission.png'))
+    plt.savefig(os.path.join(outdir, 'transmission.png'))
     plt.close(fig)
 
-def pmaps3d(fit, animate=False):
+def pmaps3d(fit, animate=False, outdir=''):
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
 
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -697,12 +697,12 @@ def pmaps3d(fit, animate=False):
     anim = animation.FuncAnimation(fig, animate, init_func=init,
                                    frames=nframes, interval=20, blit=True)
 
-    anim.save(os.path.join(fit.cfg.outdir, 'pmaps3d.gif'), dpi=300,
+    anim.save(os.path.join(outdir, 'pmaps3d.gif'), dpi=300,
               writer=writer)
 
     plt.close(fig)
     
-def tgrid_unc(fit):
+def tgrid_unc(fit, outdir=''):
     '''
     Plots the temperature profiles of the atmosphere at various
     important locations, with uncertainties.
@@ -789,52 +789,10 @@ def tgrid_unc(fit):
 
 
     plt.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'tgrid_unc.png'))
+    plt.savefig(os.path.join(outdir, 'tgrid_unc.png'))
     plt.close(fig)
 
-
-def tmapunc(fit):
-    nmaps = len(fit.maps)
-
-    ncols = np.int(np.sqrt(nmaps) // 1)
-    nrows = np.int((nmaps // ncols) + (nmaps % ncols != 0))
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
-                             sharey=True)
-
-    fig.set_size_inches(2*ncols, 2*nrows)
-    
-    for i in range(nmaps):
-        irow = i // ncols
-        icol = i %  ncols
-                                 
-        ax = axes[irow, icol]
-
-        map = fit.maps[i]
-        npost, nlat, nlon = map.tmappost.shape
-        ilat = nlat // 2
-
-        for j in range(npost):
-            ax.plot(fit.lon[ilat], map.tmappost[j,ilat], color='gray',
-                    alpha=0.01)
-        
-        ax.errorbar(fit.lon[ilat], map.tmap[ilat], map.tmapunc[ilat])
-
-        #plt.autoscale(False)
-        #ax.vlines((fit.minvislon, fit.maxvislon), 0.0, 5000.,
-        #          color='red')
-        #plt.autoscale(True)
-        
-        ax.set_title(r"{:.2f} $\mu$m".format(map.wlmid))
-        if irow == nrows:
-            ax.set_xlabel("Longitude (deg)")
-        if icol == 0:
-            ax.set_ylabel("Temperature (K)")
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'tmapunc.png'))
-    plt.close(fig)
-
-def cf_by_location(fit):
+def cf_by_location(fit, outdir=''):
     nlat, nlon, nlev, nfilt = fit.cf.shape
     fig, axes = plt.subplots(nrows=nlat, ncols=nlon, sharey=True, sharex=True)
     fig.set_size_inches(16, 8)
@@ -878,10 +836,10 @@ def cf_by_location(fit):
     #plt.legend()
     
     plt.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'cf.png'))
+    plt.savefig(os.path.join(outdir, 'cf.png'))
     plt.close(fig)
 
-def cf_by_filter(fit):
+def cf_by_filter(fit, outdir=''):
     nlat, nlon, nlev, nfilt = fit.cf.shape
     
     ncols = np.int(np.sqrt(nfilt) // 1)
@@ -940,11 +898,11 @@ def cf_by_filter(fit):
 
     plt.gca().invert_yaxis()
     plt.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'cf-by-filter.png'))
+    plt.savefig(os.path.join(outdir, 'cf-by-filter.png'))
     plt.close(fig)
 
         
-def cf_slice(fit, ilat=None, ilon=None, fname=None):   
+def cf_slice(fit, ilat=None, ilon=None, fname=None, outdir=''):   
     if ilat is not None and ilon is not None:
         print("Must specify either ilat or ilon, not both.")
         return
@@ -1009,7 +967,7 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None):
     fig.colorbar(im, cax=axes[-1], label='Contribution')
 
     plt.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.outdir, fname))
+    plt.savefig(os.path.join(outdir, fname))
     plt.close(fig)
         
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72

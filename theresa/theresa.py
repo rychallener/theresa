@@ -112,8 +112,8 @@ def map2d(cfile):
                     (fit.lon - fit.dlon / 2. < fit.maxvislon))
     fit.ivislat, fit.ivislon = ivis
     
-    if not os.path.isdir(cfg.outdir):
-        os.mkdir(cfg.outdir)
+    if not os.path.isdir(cfg.twod.outdir):
+        os.mkdir(cfg.twod.outdir)
 
     # List of 2d map fits
     fit.maps = []
@@ -128,8 +128,8 @@ def map2d(cfile):
 
         # Where to put wl-specific outputs
         m.subdir = 'filt{}'.format(i+1)
-        if not os.path.isdir(os.path.join(cfg.outdir, m.subdir)):
-            os.mkdir(os.path.join(cfg.outdir, m.subdir))
+        if not os.path.isdir(os.path.join(cfg.twod.outdir, m.subdir)):
+            os.mkdir(os.path.join(cfg.twod.outdir, m.subdir))
 
         minbic = np.inf
 
@@ -179,7 +179,7 @@ def map2d(cfile):
 
                 mc3data = fit.flux[i]
                 mc3unc  = fit.ferr[i]
-                mc3npz = os.path.join(cfg.outdir,
+                mc3npz = os.path.join(cfg.twod.outdir,
                                       m.subdir,
                                       ln.subdir,
                                       '2dmcmc-l{}n{}-{:.2f}um.npz'.format(
@@ -322,7 +322,7 @@ def map2d(cfile):
     if cfg.twod.plots:
         print("Making plots.")
         for m in fit.maps:
-            outdir = os.path.join(cfg.outdir, m.subdir)
+            outdir = os.path.join(cfg.twod.outdir, m.subdir)
             # Make sure the planet has the right lmax
             star, planet, system = utils.initsystem(fit, m.bestln.lmax)
             plots.emaps(planet, m.bestln.eigeny, outdir, proj='ortho')
@@ -344,10 +344,11 @@ def map2d(cfile):
         plots.visanimation(fit)
         plots.fluxmapanimation(fit)
 
-    fit.save(cfg.outdir)
+    fit.save(cfg.twod.outdir)
 
 def map3d(fit, system):
     cfg = fit.cfg
+    outdir = os.path.join(cfg.threed.indir, cfg.threed.outdir)
     # Handle any atmosphere setup
     if cfg.threed.atmtype == 'ggchem':
         print("Precomputing chemistry grid.")
@@ -367,25 +368,25 @@ def map3d(fit, system):
         
     print("Fitting spectrum.")
     if cfg.threed.rtfunc == 'transit':
-        tcfg = mkcfg.mktransit(cfile, cfg.outdir)
+        tcfg = mkcfg.mktransit(cfile, outdir)
         rtcall = os.path.join(transitdir, 'transit', 'transit')
         opacfile = cfg.cfg.get('transit', 'opacityfile')
         if not os.path.isfile(opacfile):
             print("  Generating opacity grid.")
             subprocess.call(["{:s} -c {:s} --justOpacity".format(rtcall, tcfg)],
-                            shell=True, cwd=cfg.outdir)
+                            shell=True, cwd=outdir)
         else:
             print("  Copying opacity grid: {}".format(opacfile))
             try:
-                shutil.copy2(opacfile, os.path.join(cfg.outdir,
+                shutil.copy2(opacfile, os.path.join(outdir,
                                                     os.path.basename(opacfile)))
             except shutil.SameFileError:
                 print("  Files match. Skipping.")
                 pass
         subprocess.call(["{:s} -c {:s}".format(rtcall, tcfg)],
-                        shell=True, cwd=cfg.outdir)
+                        shell=True, cwd=outdir)
 
-        wl, flux = np.loadtxt(os.path.join(cfg.outdir,
+        wl, flux = np.loadtxt(os.path.join(outdir,
                                            cfg.cfg.get('transit', 'outspec')),
                               unpack=True)
 
@@ -434,7 +435,7 @@ def map3d(fit, system):
 
         nparams = len(params)
 
-        mc3npz = os.path.join(cfg.outdir, '3dmcmc.npz')
+        mc3npz = os.path.join(outdir, '3dmcmc.npz')
         
 
         # Build data and uncert arrays for mc3
@@ -525,26 +526,26 @@ def map3d(fit, system):
                                      fit.filttrans)
 
     if cfg.threed.plots:
-        plots.bestfitlcsspec(fit)
-        plots.bestfittgrid(fit)
-        plots.tau(fit)
-        plots.pmaps3d(fit)
-        plots.tgrid_unc(fit)
-        plots.cf_by_location(fit)
-        plots.cf_by_filter(fit)
-        plots.cf_slice(fit)
+        plots.bestfitlcsspec(fit, outdir=outdir)
+        plots.bestfittgrid(fit, outdir=outdir)
+        plots.tau(fit, outdir=outdir)
+        plots.pmaps3d(fit, outdir=outdir)
+        plots.tgrid_unc(fit, outdir=outdir)
+        plots.cf_by_location(fit, outdir=outdir)
+        plots.cf_by_filter(fit, outdir=outdir)
+        plots.cf_slice(fit, outdir=outdir)
 
     if cfg.threed.animations:
-        plots.pmaps3d(fit, animate=True)
+        plots.pmaps3d(fit, animate=True, outdir=outdir)
     
-    fit.save(cfg.outdir)
+    fit.save(outdir)
         
 if __name__ == "__main__":
-    print("#######################################################")
-    print("ThERESA: Three-dimensional Exoplanet Retrieval from    ")
-    print("         Eclipse Spectroscopy of Atmospheres           ")
-    print("Copyright 2021-2022 Ryan C. Challener & collaborators  ")
-    print("#######################################################")
+    print("#########################################################")
+    print("  ThERESA: Three-dimensional Exoplanet Retrieval from    ")
+    print("           Eclipse Spectroscopy of Atmospheres           ")
+    print("  Copyright 2021-2022 Ryan C. Challener & collaborators  ")
+    print("#########################################################")
     
     if len(sys.argv) < 3:
         print("ERROR: Call structure is theresa.py <mode> <configuration file>.")
@@ -560,7 +561,7 @@ if __name__ == "__main__":
         # then read config again to get any changes from 2d run.
         fit = fc.Fit()
         fit.read_config(cfile)
-        fit = fc.load(outdir=fit.cfg.outdir)
+        fit = fc.load(outdir=fit.cfg.threed.indir)
         fit.read_config(cfile)
         # 3D mapping doesn't care about the degree of harmonics, so
         # just use 1

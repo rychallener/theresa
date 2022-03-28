@@ -105,8 +105,8 @@ def specgrid(params, fit):
 
     abn, spec = atm.atminit(cfg.threed.atmtype, cfg.threed.mols, p,
                             tgrid, cfg.planet.m, cfg.planet.r,
-                            cfg.planet.p0, cfg.threed.elemfile,
-                            cfg.outdir, z, ilat=ilat, ilon=ilon,
+                            cfg.planet.p0, cfg.threed.elemfile, z,
+                            ilat=ilat, ilon=ilon,
                             cheminfo=fit.cheminfo)
     
     negativeT = False
