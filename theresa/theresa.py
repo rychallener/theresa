@@ -341,8 +341,8 @@ def map2d(cfile):
 
     if cfg.twod.animations:
         print("Making animations.")
-        plots.visanimation(fit)
-        plots.fluxmapanimation(fit)
+        plots.visanimation(fit, outdir=cfg.twod.outdir)
+        plots.fluxmapanimation(fit, outdir=cfg.twod.outdir)
 
     fit.save(cfg.twod.outdir)
 
