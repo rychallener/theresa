@@ -502,7 +502,7 @@ def bestfittgrid(fit, outdir=''):
     plt.savefig(os.path.join(outdir, 'bestfit-tp.png'))
     plt.close(fig)
 
-def visanimation(fit, fps=60, step=10):
+def visanimation(fit, fps=60, step=10, outdir=''):
     fig = plt.figure()
     ims = []
 
@@ -525,11 +525,11 @@ def visanimation(fit, fps=60, step=10):
     ani = animation.ArtistAnimation(fig, ims, interval=50,
                                     blit=True, repeat_delay=1000)
 
-    ani.save(os.path.join(fit.cfg.outdir, 'vis.gif'), dpi=300, writer=writer)
+    ani.save(os.path.join(outdir, 'vis.gif'), dpi=300, writer=writer)
 
     plt.close(fig)
 
-def fluxmapanimation(fit, fps=60, step=10):
+def fluxmapanimation(fit, fps=60, step=10, outdir=''):
     nmaps = len(fit.wlmid)
 
     ncols = np.min((nmaps, 3))
@@ -572,7 +572,7 @@ def fluxmapanimation(fit, fps=60, step=10):
     ani = animation.ArtistAnimation(fig, all_ims, interval=50,
                                     blit=True, repeat_delay=1000)
 
-    ani.save(os.path.join(fit.cfg.outdir, 'fmaps.gif'), dpi=300, writer=writer)
+    ani.save(os.path.join(outdir, 'fmaps.gif'), dpi=300, writer=writer)
 
     plt.close(fig)
 
@@ -664,7 +664,7 @@ def pmaps3d(fit, animate=False, outdir=''):
         return fig,
 
     init()
-    plt.savefig(os.path.join(fit.cfg.outdir, 'pmaps.png'))
+    plt.savefig(os.path.join(outdir, 'pmaps.png'))
     plt.close(fig)
     
     if not animate:
@@ -712,7 +712,7 @@ def tgrid_unc(fit, outdir=''):
     fig, axes = plt.subplots(ncols=ncols, nrows=nrows, sharex=True,
                              sharey=True)
 
-    mcmcout = np.load(fit.cfg.outdir + '/3dmcmc.npz')
+    mcmcout = np.load(outdir + '/3dmcmc.npz')
 
     niter, npar = fit.posterior3d.shape
     nlev, nlat, nlon = fit.besttgrid.shape
