@@ -164,12 +164,6 @@ def specgrid(params, fit):
                         lee_mie_mix_ratio=10**leepar[2],
                         lee_mie_bottomP=10**leepar[3]*1e5,
                         lee_mie_topP=10**leepar[4]*1e5))
-            if 'thickcloud' in fit.cfg.threed.modelnames:
-                im = np.where(fit.cfg.threed.modelnames == 'thickcloud')[0][0]
-                cloudpar = params[fit.imodel3d[im]]
-                rt.add_contribution(
-                    taurex.contributions.SimpleCloudsContribution(
-                        clouds_pressure=10**cloudpar[0]))
             if 'H-' in fit.cfg.threed.mols:
                 rt.add_contribution(trc.HMinusContribution())
 
