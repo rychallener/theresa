@@ -607,7 +607,7 @@ def get_par_3d(fit):
             par    = [-1.0]
             pstep  = [ 0.1]
             pmin   = [-np.inf]
-            pmax   = [ np..inf]
+            pmax   = [ np.inf]
             pnames = ['log(p)']
             modeltype.append('clouds')
             nparams[im] = npar
