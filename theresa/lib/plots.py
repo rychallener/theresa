@@ -973,7 +973,7 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None, outdir=''):
     plt.close(fig)
 
 def clouds(fit, outdir=''):
-    radii_list, mix_list = utils.cloudmodel_to_grid(fit)
+    radii_list, mix_list, q_list = utils.cloudmodel_to_grid(fit)
 
     nlayer, nlat, nlon = fit.besttgrid.shape
     

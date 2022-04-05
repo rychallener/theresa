@@ -110,6 +110,11 @@ def specgrid(params, fit):
                             cheminfo=fit.cheminfo)
     
     negativeT = False
+
+    # Set up cloud grid(s)
+    if 'cloud' in fit.modeltypes3d:
+        # Cloud radius list, cloud mix ratio list, Q0 list
+        crl, cml, ql = utils.cloudmodel_to_grid(fit)
     
     if cfg.threed.rtfunc == 'taurex':
         # Cell-independent Tau-REx objects
@@ -154,16 +159,15 @@ def specgrid(params, fit):
                 nlayers=cfg.threed.nlayers)
             rt.add_contribution(taurex.contributions.AbsorptionContribution())
             rt.add_contribution(taurex.contributions.CIAContribution())
-            if 'leemie' in fit.cfg.threed.modelnames:
-                im = np.where(fit.cfg.threed.modelnames == 'leemie')[0][0]
-                leepar = params[fit.imodel3d[im]]
-                rt.add_contribution(
-                    taurex.contributions.LeeMieContribution(
-                        lee_mie_radius=leepar[0],
-                        lee_mie_q=leepar[1],
-                        lee_mie_mix_ratio=10**leepar[2],
-                        lee_mie_bottomP=10**leepar[3]*1e5,
-                        lee_mie_topP=10**leepar[4]*1e5))
+            if 'cloud' in fit.modeltypes3d:
+                for icloud in range(len(crl)):
+                    rt.add_contribution(
+                        trc.LeeMieVaryMixContribution(
+                            lee_mie_radius=crl[icloud][:,i,j],
+                            lee_mie_q=ql[icloud],
+                            lee_mie_mix_ratio=cml[icloud][:,i,j],
+                            lee_mie_bottomP=-1,
+                            lee_mie_topP=-1))
             if 'H-' in fit.cfg.threed.mols:
                 rt.add_contribution(trc.HMinusContribution())
 

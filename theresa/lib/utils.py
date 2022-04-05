@@ -615,6 +615,7 @@ def cloudmodel_to_grid(fit):
 
     radii_list = []
     mix_list   = []
+    q_list     = []
     
     for i, mtype in enumerate(fit.modeltype3d):
         if mtype != 'clouds':
@@ -638,9 +639,10 @@ def cloudmodel_to_grid(fit):
 
             radii_list.append(radii)
             mix_list.append(mix)
+            q_list.append(q)
         else:
             print("Cloud model {} not recognized for plotting.".format(
                 mnames[i]))
 
-    return radii_list, mix_list
+    return radii_list, mix_list, q_list
     
