@@ -7,8 +7,10 @@ import matplotlib.animation as animation
 import matplotlib.collections as collections
 import matplotlib.lines as mpll
 import matplotlib.colors as mplc
+import matplotlib.ticker as mplt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import atm
+import utils
 
 
 def emaps(planet, eigeny, outdir, proj='ortho'):
@@ -969,6 +971,77 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None, outdir=''):
     plt.tight_layout()
     plt.savefig(os.path.join(outdir, fname))
     plt.close(fig)
+
+def clouds(fit, outdir=''):
+    radii_list, mix_list = utils.cloudmodel_to_grid(fit)
+
+    nlayer, nlat, nlon = fit.besttgrid.shape
+    
+    maxrad = np.max(radii_list)
+    minrad = np.min(radii_list)
+    
+    cmap = mpl.cm.get_cmap('hsv')
+
+    ieq = nlat // 2
+
+    def partrad_to_plotrad(partrad):
+        s = 5 * (1 + np.log10(partrad) - np.log10(minrad))
+        return s
+
+    def plotrad_to_partrad(plotrad):
+        s = 10.**(plotrad / 5.0 - 1.0 + np.log10(minrad))
+        return s
+    
+    for i in range(len(radii_list)):
+        for j in range(nlat):
+            for k in range(nlon):
+                if j == ieq:
+                    ic = fit.lon[j,k] / 360.
+                    if ic < 0:
+                        ic += 1
+
+                    color = cmap(ic)
+                    zorder = 2
+                else:
+                    color = 'gray'
+                    zorder = 1
+                s = partrad_to_plotrad(radii_list[i][:,j,k])
+                scatter = plt.scatter(mix_list[i][:,j,k], fit.p, s=s,
+                                      color=color, zorder=zorder)
+
+    ax = plt.gca()
+    ax.set_yscale('log')
+    ax.invert_yaxis()
+
+    ax.set_ylabel('Pressure (bar)')
+    ax.set_xlabel('Mixing Ratio')
+
+    # Make room for legend, colorbar, etc
+    orig_xlim = ax.get_xlim()
+    orig_dx   = np.diff(orig_xlim)
+    new_xlim  = (orig_xlim[0], orig_xlim[0] + orig_dx * 1.2)
+    ax.set_xlim(new_xlim)
+
+    # Longitude color bar
+    cax = inset_axes(ax, width='5%', height='25%',
+                     loc='lower right')
+    sm = plt.cm.ScalarMappable(cmap=cmap,
+                               norm=plt.Normalize(vmin=0, vmax=360))
+    cbar = plt.colorbar(sm, cax=cax, label=r'Longitude ($^\circ$)')
+    cbar.set_ticks(np.linspace(0, 360, 5, endpoint=True))
+    cax.yaxis.set_ticks_position('left')
+    cax.yaxis.set_label_position('left')
+
+    # Particle size legend
+    loc = mplt.LogLocator(base=10.0, numticks=5)
+    kw = dict(prop='sizes', num=loc, color='gray',
+              func=lambda s: plotrad_to_partrad(s)) 
+    pslegend = ax.legend(*scatter.legend_elements(**kw),
+                         loc='upper right', title="Part. Size \n($\mu$m)")
+
+    plt.savefig(os.path.join(outdir, 'clouds.png'))
+
+    plt.close(plt.gcf())
         
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
 def gradient_cmap(color):

@@ -604,3 +604,43 @@ def blackbody(T, wn):
             * 1/(np.exp(sc.h * sc.c * wn_m / sc.k / T[i]) - 1.0)
 
     return bb    
+
+def cloudmodel_to_grid(fit):
+    '''
+    Function to turn cloud models into physical properties in the
+    3D grid. Models must be present in this function to be
+    plotted in the ThERESA output.
+    '''
+    mnames = fit.cfg.threed.modelnames
+
+    radii_list = []
+    mix_list   = []
+    
+    for i, mtype in enumerate(fit.modeltype3d):
+        if mtype != 'clouds':
+            continue
+
+        if mnames[i] == 'leemie':
+            im = np.where(fit.cfg.threed.modelnames == 'leemie')[0][0]
+            leepar = fit.specbestp[fit.imodel3d[im]]
+            radius  =     leepar[0]
+            q       =     leepar[1]
+            mixrat  =     leepar[2]
+            bottomp = 10**leepar[3]
+            topp    = 10**leepar[4]
+
+            radii = np.zeros(fit.besttgrid.shape)
+            mix   = np.zeros(fit.besttgrid.shape)
+
+            where = np.where((fit.p >= topp) & (fit.p <= bottomp))
+            radii[where,:,:] = radius
+            mix[where,:,:] = mixrat
+
+            radii_list.append(radii)
+            mix_list.append(mix)
+        else:
+            print("Cloud model {} not recognized for plotting.".format(
+                mnames[i]))
+
+    return radii_list, mix_list
+    

@@ -534,6 +534,8 @@ def map3d(fit, system):
         plots.cf_by_location(fit, outdir=outdir)
         plots.cf_by_filter(fit, outdir=outdir)
         plots.cf_slice(fit, outdir=outdir)
+        if 'clouds' in cfg.modeltype3d:
+            plots.clouds(fit, outdir=outdir)
 
     if cfg.threed.animations:
         plots.pmaps3d(fit, animate=True, outdir=outdir)
