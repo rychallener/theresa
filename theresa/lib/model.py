@@ -114,7 +114,7 @@ def specgrid(params, fit):
     # Set up cloud grid(s)
     if 'cloud' in fit.modeltypes3d:
         # Cloud radius list, cloud mix ratio list, Q0 list
-        crl, cml, ql = utils.cloudmodel_to_grid(fit)
+        crl, cml, ql = utils.cloudmodel_to_grid(fit, params)
     
     if cfg.threed.rtfunc == 'taurex':
         # Cell-independent Tau-REx objects
