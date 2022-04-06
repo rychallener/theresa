@@ -555,7 +555,7 @@ def get_par_3d(fit):
             npar   = 1
             par    = [2000.]
             pstep  = [   1.]
-            pmin   = [   0.]
+            pmin   = [ 100.]
             pmax   = [4000.]
             pnames = ['Tbot']
             modeltype.append('tbot')
