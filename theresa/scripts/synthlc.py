@@ -260,7 +260,7 @@ else:
 
 print('Interpolating chemistry to GCM temperature grid.')
 abn, spec = atm.atminit(atmtype, opacspec, p, tgrid, mp/Msun, rp/Rsun,
-                        0.1, elemfile, '.', 0.0, cheminfo=cheminfo)
+                        0.1, elemfile, 0.0, cheminfo=cheminfo)
 
 # Planet
 rtplan = taurex.planet.Planet(
