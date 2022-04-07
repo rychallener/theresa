@@ -112,7 +112,7 @@ def specgrid(params, fit):
     negativeT = False
 
     # Set up cloud grid(s)
-    if 'cloud' in fit.modeltypes3d:
+    if 'cloud' in fit.modeltype3d:
         # Cloud radius list, cloud mix ratio list, Q0 list
         crl, cml, ql = utils.cloudmodel_to_grid(fit, params)
     
@@ -159,7 +159,7 @@ def specgrid(params, fit):
                 nlayers=cfg.threed.nlayers)
             rt.add_contribution(taurex.contributions.AbsorptionContribution())
             rt.add_contribution(taurex.contributions.CIAContribution())
-            if 'cloud' in fit.modeltypes3d:
+            if 'cloud' in fit.modeltype3d:
                 for icloud in range(len(crl)):
                     rt.add_contribution(
                         trc.LeeMieVaryMixContribution(
