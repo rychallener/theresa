@@ -139,7 +139,7 @@ dependencies:
     - latexcodec==2.0.1
     - llvmlite==0.34.0
     - markupsafe==1.1.1
-    - mc3==3.0.9
+    - mc3==3.0.12
     - memory-profiler==0.58.0
     - mistune==0.8.4
     - nbclient==0.5.3
