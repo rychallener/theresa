@@ -317,20 +317,25 @@ class LeeMieVaryMixContribution(taurex.contributions.LeeMieContribution):
 
         sigma_xsec = np.zeros(shape=(self._nlayers, wngrid.shape[0]))
         
-        for idx in cloud_idx:        
-            a = self.mieRadius[idx]
+        for idx in cloud_idx:
+            if ((self.mieRadius[idx] != 0.0) and
+                (self.mieMixing[idx] != 0.0) and
+                (self.mieQ[idx]      != 0.0)):
+                a = self.mieRadius[idx]
 
-            x = 2.0 * np.pi * a / wltmp
-            self.debug('wngrid %s', wngrid)
-            self.debug('x %s', x)
-            Qext = 5.0 / (self.mieQ[idx] * x**(-4.0) + x**(0.2))
+                x = 2.0 * np.pi * a / wltmp
+                self.debug('wngrid %s', wngrid)
+                self.debug('x %s', x)
+                Qext = 5.0 / (self.mieQ[idx] * x**(-4.0) + x**(0.2))
 
-            # This must transform um to the xsec format in TauREx (m2)
-            am = a * 1e-6
+                # This must transform um to the xsec format in TauREx (m2)
+                am = a * 1e-6
 
-            sigma_mie = Qext * np.pi * (am**2.0)
+                sigma_mie = Qext * np.pi * (am**2.0)
 
-            sigma_xsec[idx, ...] = sigma_mie * self.mieMixing[idx]
+                sigma_xsec[idx, ...] = sigma_mie * self.mieMixing[idx]
+            else:
+                sigma_xsec[idx, ...] = 0.0
 
         if np.any(sigma_xsec < 0):
             print(self.name + " has negative sigmas!")

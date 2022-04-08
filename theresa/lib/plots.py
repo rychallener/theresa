@@ -973,7 +973,8 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None, outdir=''):
     plt.close(fig)
 
 def clouds(fit, outdir=''):
-    radii_list, mix_list, q_list = atm.cloudmodel_to_grid(fit, fit.specbestp)
+    radii_list, mix_list, q_list = atm.cloudmodel_to_grid(fit, fit.p,
+                                                          fit.specbestp)
 
     nlayer, nlat, nlon = fit.besttgrid.shape
     
@@ -986,10 +987,12 @@ def clouds(fit, outdir=''):
 
     def partrad_to_plotrad(partrad):
         s = 5 * (1 + np.log10(partrad) - np.log10(minrad))
+        s = np.nan_to_num(s) # NaNs confuse the legend
         return s
 
     def plotrad_to_partrad(plotrad):
         s = 10.**(plotrad / 5.0 - 1.0 + np.log10(minrad))
+        s = np.nan_to_num(s) # NaNs confuse the legend
         return s
     
     for i in range(len(radii_list)):
@@ -1006,6 +1009,7 @@ def clouds(fit, outdir=''):
                     color = 'gray'
                     zorder = 1
                 s = partrad_to_plotrad(radii_list[i][:,j,k])
+                print(s)
                 scatter = plt.scatter(mix_list[i][:,j,k], fit.p, s=s,
                                       color=color, zorder=zorder)
 
@@ -1032,8 +1036,8 @@ def clouds(fit, outdir=''):
     cax.yaxis.set_ticks_position('left')
     cax.yaxis.set_label_position('left')
 
-    # Particle size legend
-    loc = mplt.LogLocator(base=10.0, numticks=5)
+    numticks = 5
+    loc = mplt.LogLocator(base=10.0, numticks=numticks)
     kw = dict(prop='sizes', num=loc, color='gray',
               func=lambda s: plotrad_to_partrad(s)) 
     pslegend = ax.legend(*scatter.legend_elements(**kw),

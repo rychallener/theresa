@@ -667,7 +667,7 @@ def read_GGchem(fname):
     return T, p, spec, abn
 
 
-def cloudmodel_to_grid(fit, params):
+def cloudmodel_to_grid(fit, p, params):
     '''
     Function to turn cloud models into physical properties in the
     3D grid. Models must be present in this function to be
@@ -688,17 +688,22 @@ def cloudmodel_to_grid(fit, params):
             leepar = params[fit.imodel3d[im]]
             
             radius  =     leepar[0]
-            q       =     leepar[1]
+            q0      =     leepar[1]
             mixrat  =     leepar[2]
             bottomp = 10**leepar[3]
             topp    = 10**leepar[4]
 
-            radii = np.zeros(fit.besttgrid.shape)
-            mix   = np.zeros(fit.besttgrid.shape)
+            shape = (fit.cfg.threed.nlayers,
+                     fit.cfg.twod.nlat,
+                     fit.cfg.twod.nlon)
+            radii = np.zeros(shape)
+            mix   = np.zeros(shape)
+            q     = np.zeros(shape)
 
-            where = np.where((fit.p >= topp) & (fit.p <= bottomp))
+            where = np.where((p >= topp) & (p <= bottomp))
             radii[where,:,:] = radius
-            mix[where,:,:] = mixrat
+            mix[  where,:,:] = mixrat
+            q[    where,:,:] = q0
 
             radii_list.append(radii)
             mix_list.append(mix)

@@ -525,6 +525,10 @@ def map3d(fit, system):
                                      fit.taugrid, fit.p, fit.filtwn,
                                      fit.filttrans)
 
+    # Save before plots, in case of crashes
+    # Do not add attributes to fit after this
+    fit.save(outdir)
+    
     if cfg.threed.plots:
         plots.bestfitlcsspec(fit, outdir=outdir)
         plots.bestfittgrid(fit, outdir=outdir)
@@ -539,8 +543,7 @@ def map3d(fit, system):
 
     if cfg.threed.animations:
         plots.pmaps3d(fit, animate=True, outdir=outdir)
-    
-    fit.save(outdir)
+
         
 if __name__ == "__main__":
     print("#########################################################")
