@@ -1009,7 +1009,6 @@ def clouds(fit, outdir=''):
                     color = 'gray'
                     zorder = 1
                 s = partrad_to_plotrad(radii_list[i][:,j,k])
-                print(s)
                 scatter = plt.scatter(mix_list[i][:,j,k], fit.p, s=s,
                                       color=color, zorder=zorder)
 
