@@ -599,14 +599,17 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)
-        elif mname == 'thickcloud':
-            npar    = 1
-            # Parameters: pressure level (log)
-            par    = [-1.0]
-            pstep  = [ 0.1]
-            pmin   = [-np.inf]
-            pmax   = [ np.inf]
-            pnames = ['log(p)']
+        elif mname == 'leemie-clearspot':          
+            npar    = 7
+            # Parameters: part. size, Q0, mix ratio (log),
+            #             bottom p (log), top p (log)
+            logpbot = np.log10(fit.cfg.threed.pbot)
+            logptop = np.log10(fit.cfg.threed.ptop)
+            par     = [  0.1,  40.0, -10.0,     2.0,    -1.0,  -20.,    20.]
+            pstep   = [  0.1,   1.0,   1.0,     0.1,     0.1,    0.1,    0.1]
+            pmin    = [  0.0,   0.0, -20.0, -np.inf, -np.inf, -180.0, -180.0]
+            pmax    = [100.0, 100.0,   0.0,  np.inf,  np.inf,  180.0,  180.0]
+            pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)', 'W.Cl.Edge', 'E.Cl.Edge']
             modeltype.append('clouds')
             nparams[im] = npar
             allparams.append(par)
@@ -614,7 +617,6 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)            
-            
         cumpar = np.sum(nparams[:im])
         imodel.append(range(cumpar, cumpar + nparams[im]))
 

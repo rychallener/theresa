@@ -675,16 +675,24 @@ def cloudmodel_to_grid(fit, p, params):
     '''
     mnames = fit.cfg.threed.modelnames
 
-    radii_list = []
-    mix_list   = []
-    q_list     = []
+    nclouds = np.sum(fit.modeltype3d == 'clouds')
+
+    allshape = (nclouds, fit.cfg.threed.nlayers, fit.cfg.twod.nlat,
+                fit.cfg.twod.nlon)
     
+    allrad = np.zeros(allshape)
+    allmix = np.zeros(allshape)
+    allq   = np.zeros(allshape)
+
+    ic = -1
     for i, mtype in enumerate(fit.modeltype3d):
         if mtype != 'clouds':
             continue
+        else:
+            ic += 1
 
         if mnames[i] == 'leemie':
-            im = np.where(fit.cfg.threed.modelnames == 'leemie')[0][0]
+            im = np.where(fit.cfg.threed.modelnames == mnames[i])[0][0]
             leepar = params[fit.imodel3d[im]]
             
             radius  =     leepar[0]
@@ -705,14 +713,51 @@ def cloudmodel_to_grid(fit, p, params):
             mix[  where,:,:] = mixrat
             q[    where,:,:] = q0
 
-            radii_list.append(radii)
-            mix_list.append(mix)
-            q_list.append(q)
-        else:
-            print("Cloud model {} not recognized for plotting.".format(
-                mnames[i]))
+            allrad[ic] = radii
+            allmix[ic] = mix
+            allq[ic]   = q
 
-    return radii_list, mix_list, q_list
+        if mnames[i] == 'leemie-clearspot':
+            im = np.where(fit.cfg.threed.modelnames == mnames[i])[0][0]
+            leepar = params[fit.imodel3d[im]]
+            
+            radius  =     leepar[0]
+            q0      =     leepar[1]
+            mixrat  =     leepar[2]
+            bottomp = 10**leepar[3]
+            topp    = 10**leepar[4]
+            lon1    =     leepar[5]
+            lon2    =     leepar[6]
+
+            shape = (fit.cfg.threed.nlayers,
+                     fit.cfg.twod.nlat,
+                     fit.cfg.twod.nlon)
+            radii = np.zeros(shape)
+            mix   = np.zeros(shape)
+            q     = np.zeros(shape)
+
+            # Not efficient to do this all the time...
+            p3d = p.reshape((fit.cfg.threed.nlayers, 1, 1))
+            p3d = np.tile(p3d, (1, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+
+            lon3d = fit.lon.reshape((1, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+            lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1, 1))
+
+            pcond   = (p3d >= topp)   & (p3d <= bottomp)
+            loncond = (lon3d <= lon1) | (lon3d >= lon2)
+            where = np.where(pcond & loncond)
+
+            radii[where] = radius
+            mix[  where] = mixrat
+            q[    where] = q0
+
+            allrad[ic] = radii
+            allmix[ic] = mix
+            allq[ic]   = q          
+        else:
+            print("Cloud model {} not recognized.".format( mnames[i]))
+
+    return allrad, allmix, allq
     
         
         

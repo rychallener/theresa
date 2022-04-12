@@ -11,6 +11,7 @@ import matplotlib.ticker as mplt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import atm
 import utils
+import copy
 
 
 def emaps(planet, eigeny, outdir, proj='ortho'):
@@ -973,15 +974,16 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None, outdir=''):
     plt.close(fig)
 
 def clouds(fit, outdir=''):
-    radii_list, mix_list, q_list = atm.cloudmodel_to_grid(fit, fit.p,
-                                                          fit.specbestp)
+    allrad, allmix, allq = atm.cloudmodel_to_grid(fit, fit.p,
+                                                  fit.specbestp)
 
-    nlayer, nlat, nlon = fit.besttgrid.shape
+    ncloud, nlayer, nlat, nlon = allrad.shape
     
-    maxrad = np.max(radii_list)
-    minrad = np.min(radii_list)
+    maxrad = np.max(allrad)
+    minrad = np.min(allrad[np.nonzero(allrad)])
     
-    cmap = mpl.cm.get_cmap('hsv')
+    cmap = copy.copy(mpl.cm.get_cmap('hsv'))
+    cmap.set_over(color='gray')
 
     ieq = nlat // 2
 
@@ -994,23 +996,32 @@ def clouds(fit, outdir=''):
         s = 10.**(plotrad / 5.0 - 1.0 + np.log10(minrad))
         s = np.nan_to_num(s) # NaNs confuse the legend
         return s
-    
-    for i in range(len(radii_list)):
+
+    # This makes one call to plt.scatter() so we can easily
+    # make the particle size legend.
+    x = np.zeros((ncloud, nlayer, nlat, nlon))
+    y = np.zeros((ncloud, nlayer, nlat, nlon))
+    c = np.zeros((ncloud, nlayer, nlat, nlon))
+    r = np.zeros((ncloud, nlayer, nlat, nlon))    
+    for i in range(ncloud):
         for j in range(nlat):
             for k in range(nlon):
                 if j == ieq:
                     ic = fit.lon[j,k] / 360.
                     if ic < 0:
                         ic += 1
-
-                    color = cmap(ic)
-                    zorder = 2
                 else:
-                    color = 'gray'
-                    zorder = 1
-                s = partrad_to_plotrad(radii_list[i][:,j,k])
-                scatter = plt.scatter(mix_list[i][:,j,k], fit.p, s=s,
-                                      color=color, zorder=zorder)
+                    ic = 2
+                c[i,:,j,k] = ic
+                x[i,:,j,k] = allmix[i,:,j,k]
+                y[i,:,j,k] = fit.p
+                r[i,:,j,k] = allrad[i,:,j,k]
+
+    s = partrad_to_plotrad(r)
+    scatter = plt.scatter(x.flatten(),
+                          y.flatten(),
+                          s=s.flatten(),
+                          c=c.flatten(), cmap=cmap)
 
     ax = plt.gca()
     ax.set_yscale('log')
@@ -1035,16 +1046,23 @@ def clouds(fit, outdir=''):
     cax.yaxis.set_ticks_position('left')
     cax.yaxis.set_label_position('left')
 
-    numticks = 5
-    loc = mplt.LogLocator(base=10.0, numticks=numticks)
-    kw = dict(prop='sizes', num=loc, color='gray',
-              func=lambda s: plotrad_to_partrad(s)) 
-    pslegend = ax.legend(*scatter.legend_elements(**kw),
-                         loc='upper right', title="Part. Size \n($\mu$m)")
+    # Particle size legend
+    nsize = len(np.unique(allrad[np.nonzero(allrad)]))
+    if nsize == 1:
+        pass
+    else:
+        numticks = 5
+        loc = mplt.LogLocator(base=10.0, numticks=numticks)
+        kw = dict(prop='sizes', num=loc, color='gray',
+                  func=lambda s: plotrad_to_partrad(s)) 
+        pslegend = ax.legend(*scatter.legend_elements(**kw),
+                             loc='upper right',
+                             title="Part. Size \n($\mu$m)")
 
     plt.savefig(os.path.join(outdir, 'clouds.png'))
 
     plt.close(plt.gcf())
+    
         
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
 def gradient_cmap(color):
