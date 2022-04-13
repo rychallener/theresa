@@ -716,8 +716,62 @@ def cloudmodel_to_grid(fit, p, params):
             allrad[ic] = radii
             allmix[ic] = mix
             allq[ic]   = q
+        elif mnames[i] == 'leemie2':
+            im = np.where(fit.cfg.threed.modelnames == mnames[i])[0][0]
+            leepar = params[fit.imodel3d[im]]
 
-        if mnames[i] == 'leemie-clearspot':
+            # Cloud 1
+            radius1  =     leepar[0]
+            q01      =     leepar[1]
+            mixrat1  =     leepar[2]
+            bottomp1 = 10**leepar[3]
+            topp1    = 10**leepar[4]
+            # Cloud 2
+            radius2  =     leepar[5]
+            q02      =     leepar[6]
+            mixrat2  =     leepar[7]
+            bottomp2 = 10**leepar[8]
+            topp2    = 10**leepar[9]
+            # Boundaries between clouds
+            lon1     =     leepar[10]
+            lon2     =     leepar[11]
+
+            shape = (fit.cfg.threed.nlayers,
+                     fit.cfg.twod.nlat,
+                     fit.cfg.twod.nlon)
+            radii = np.zeros(shape)
+            mix   = np.zeros(shape)
+            q     = np.zeros(shape)
+
+            # Not efficient to do this all the time...
+            p3d = p.reshape((fit.cfg.threed.nlayers, 1, 1))
+            p3d = np.tile(p3d, (1, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+
+            lon3d = fit.lon.reshape((1, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+            lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1, 1))
+
+            # Cloud 1
+            pcond1   = (p3d >= topp1)   & (p3d <= bottomp1)
+            loncond1 = (lon3d <= lon1) | (lon3d >= lon2)
+            where1 = np.where(pcond1 & loncond1)
+
+            radii[where1] = radius1
+            mix[  where1] = mixrat1
+            q[    where1] = q01
+
+            # Cloud 2
+            pcond1   = (p3d >= topp2)   & (p3d <= bottomp2)
+            loncond1 = (lon3d >= lon1) | (lon3d <= lon2)
+            where2 = np.where(pcond1 & loncond1)
+
+            radii[where2] = radius2
+            mix[  where2] = mixrat2
+            q[    where2] = q02
+        
+            allrad[ic] = radii
+            allmix[ic] = mix
+            allq[ic]   = q              
+        elif mnames[i] == 'leemie-clearspot':
             im = np.where(fit.cfg.threed.modelnames == mnames[i])[0][0]
             leepar = params[fit.imodel3d[im]]
             

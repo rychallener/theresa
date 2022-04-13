@@ -599,6 +599,24 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)
+        elif mname == 'leemie2':
+            npar    = 12
+            # Parameters: part. size, Q0, mix ratio (log),
+            #             bottom p (log), top p (log)
+            logpbot = np.log10(fit.cfg.threed.pbot)
+            logptop = np.log10(fit.cfg.threed.ptop)
+            par     = [  0.1,  40.0, -10.0,     2.0,    -1.0,   0.1,  40.0, -10.0,     2.0,    -1.0, -90., 90.]
+            pstep   = [  0.1,   1.0,   1.0,     0.1,     0.1,   0.1,   1.0,   1.0,     0.1,     0.1, 10., 10.]
+            pmin    = [  0.0,   0.0, -20.0, -np.inf, -np.inf,   0.0,   0.0, -20.0, -np.inf, -np.inf, -180., -180.]
+            pmax    = [100.0, 100.0,   0.0,  np.inf,  np.inf, 100.0, 100.0,   0.0,  np.inf,  np.inf,  180.,  180.]
+            pnames  = ['a1', 'Q01', 'mix1', 'log(cloud bottom)1', 'log(cloud top)1', 'a2', 'Q02', 'mix2', 'log(cloud bottom)2', 'log(cloud top)2', 'W.Cl.Edge', 'E.Cl.Edge']
+            modeltype.append('clouds')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
         elif mname == 'leemie-clearspot':          
             npar    = 7
             # Parameters: part. size, Q0, mix ratio (log),
@@ -606,7 +624,7 @@ def get_par_3d(fit):
             logpbot = np.log10(fit.cfg.threed.pbot)
             logptop = np.log10(fit.cfg.threed.ptop)
             par     = [  0.1,  40.0, -10.0,     2.0,    -1.0,  -20.,    20.]
-            pstep   = [  0.1,   1.0,   1.0,     0.1,     0.1,    0.1,    0.1]
+            pstep   = [  0.1,   1.0,   1.0,     0.1,     0.1,   10.,    10.]
             pmin    = [  0.0,   0.0, -20.0, -np.inf, -np.inf, -180.0, -180.0]
             pmax    = [100.0, 100.0,   0.0,  np.inf,  np.inf,  180.0,  180.0]
             pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)', 'W.Cl.Edge', 'E.Cl.Edge']
