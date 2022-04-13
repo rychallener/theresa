@@ -466,6 +466,9 @@ def map3d(fit, system):
                          plots=cfg.threed.plots,
                          resume=cfg.threed.resume)
 
+        # MC3 doesn't clear its plots >:(
+        plt.close('all')
+
     fit.specbestp  = out['bestp']
     fit.chisq3d    = out['best_chisq']
     fit.redchisq3d = out['red_chisq']

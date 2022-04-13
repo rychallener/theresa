@@ -755,7 +755,7 @@ def cloudmodel_to_grid(fit, p, params):
             allmix[ic] = mix
             allq[ic]   = q          
         else:
-            print("Cloud model {} not recognized.".format( mnames[i]))
+            print("Cloud model {} not recognized.".format(mnames[i]))
 
     return allrad, allmix, allq
     
