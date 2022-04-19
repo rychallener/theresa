@@ -751,7 +751,7 @@ def cloudmodel_to_grid(fit, p, params):
             lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1, 1))
 
             # Cloud 1
-            pcond1   = (p3d >= topp1)   & (p3d <= bottomp1)
+            pcond1   = (p3d >= topp1)  & (p3d <= bottomp1)
             loncond1 = (lon3d <= lon1) | (lon3d >= lon2)
             where1 = np.where(pcond1 & loncond1)
 
@@ -760,9 +760,9 @@ def cloudmodel_to_grid(fit, p, params):
             q[    where1] = q01
 
             # Cloud 2
-            pcond1   = (p3d >= topp2)   & (p3d <= bottomp2)
-            loncond1 = (lon3d >= lon1) | (lon3d <= lon2)
-            where2 = np.where(pcond1 & loncond1)
+            pcond2   = (p3d >= topp2)  & (p3d <= bottomp2)
+            loncond2 = (lon3d >  lon1) & (lon3d <  lon2)
+            where2 = np.where(pcond2 & loncond2)
 
             radii[where2] = radius2
             mix[  where2] = mixrat2

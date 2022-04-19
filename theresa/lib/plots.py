@@ -989,7 +989,7 @@ def clouds(fit, outdir=''):
 
     def partrad_to_plotrad(partrad):
         s = 5 * (1 + np.log10(partrad) - np.log10(minrad))
-        s = np.nan_to_num(s) # NaNs confuse the legend
+        s = np.nan_to_num(s, neginf=0) # NaNs confuse the legend
         return s
 
     def plotrad_to_partrad(plotrad):
@@ -1018,10 +1018,14 @@ def clouds(fit, outdir=''):
                 r[i,:,j,k] = allrad[i,:,j,k]
 
     s = partrad_to_plotrad(r)
-    scatter = plt.scatter(x.flatten(),
-                          y.flatten(),
-                          s=s.flatten(),
-                          c=c.flatten(), cmap=cmap)
+
+    # Filter out locations where there are no clouds
+    x = x.flatten()
+    y = y.flatten()
+    s = s.flatten()
+    c = c.flatten()
+    wc = np.where((x != 0.0) & (s != 0.0))
+    scatter = plt.scatter(x[wc], y[wc], s=s[wc], c=c[wc], cmap=cmap)
 
     ax = plt.gca()
     ax.set_yscale('log')
@@ -1048,7 +1052,7 @@ def clouds(fit, outdir=''):
 
     # Particle size legend
     nsize = len(np.unique(allrad[np.nonzero(allrad)]))
-    if nsize == 1:
+    if nsize <= 2:
         pass
     else:
         numticks = 5
