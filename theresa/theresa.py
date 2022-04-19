@@ -492,7 +492,10 @@ def map3d(fit, system):
     for i in range(nchains):
         where = np.where(fit.zchain3d[fit.zmask3d] == i)
         chain = fit.posterior3d[fit.zmask3d][where]
-        fit.cspeis3d[i], fit.cess3d[i] = utils.ess(chain)
+        if len(chain) == 0:
+            print('WARNING: Chain {} has no accepted iterations!'.format(i))
+        else:
+            fit.cspeis3d[i], fit.cess3d[i] = utils.ess(chain)
 
     fit.ess3d   = np.sum(fit.cess3d, axis=0) # Overall ESS
     fit.speis3d = np.ceil(niter / fit.ess3d).astype(int) # Overall SPEIS
