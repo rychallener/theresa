@@ -509,6 +509,18 @@ def pmaps(params, fit):
     if   mapfunc == 'isobaric':
         for i in range(nmap):
             pmaps[i] = 10.**mapparams[i]
+    elif mapfunc == 'isobaric2':
+        npar = 4
+        for i in range(nmap):
+            ip = npar * i
+            lev1 = mapparams[ip]
+            lev2 = mapparams[ip+1]
+            lon1 = mapparams[ip+2]
+            lon2 = mapparams[ip+3]
+            where1 = np.where((lon <= lon1) | (lon >= lon2))
+            where2 = np.where((lon >  lon1) & (lon <  lon2))
+            pmaps[i][where1] = 10**lev1
+            pmaps[i][where2] = 10**lev2
     elif mapfunc == 'sinusoidal':
         npar = 4
         for i in range(nmap):

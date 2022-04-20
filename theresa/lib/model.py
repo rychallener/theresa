@@ -409,6 +409,45 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)
+        elif mname == 'isobaric2':
+            nppwl = 4
+            npar  = nppwl * nmaps
+            par   = np.zeros(nppwl)
+            pstep = np.array([1e-3, 1e-3, 1.0, 1.0])
+            pmin  = np.array([np.log10(fit.cfg.threed.ptop),
+                              np.log10(fit.cfg.threed.ptop),
+                              -180.0,
+                              -180.0])
+            pmax  = np.array([np.log10(fit.cfg.threed.pbot),
+                              np.log10(fit.cfg.threed.pbot),
+                              180.0,
+                              180.0])
+            pnames = ['log(p{})_1',
+                      'log(p{})_2',
+                      'W.Disc.{}',
+                      'E.Disc.{}']
+            # Repeat for each wavelength
+            nwl = len(fit.maps)
+            par   = np.tile(par,   nwl)
+            pstep = np.tile(pstep, nwl)
+            pmin  = np.tile(pmin,  nwl)
+            pmax  = np.tile(pmax,  nwl)
+            pnames = np.concatenate([[pname.format(a) for pname in pnames] \
+                                     for a in np.arange(1, nmaps+1)]) # Trust me
+
+            # Guess that higher temps are deeper
+            ipar = np.argsort(np.max(fit.tmaps, axis=(1,2)))
+            for i in range(nwl):
+                par[i*nppwl]   = np.linspace(-2, 0, nwl)[ipar][i]
+                par[i*nppwl+1] = np.linspace(-2, 0, nwl)[ipar][i]
+
+            modeltype.append('pmap')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
         elif mname == 'sinusoidal':
             # For a single wavelength
             nppwl = 4
@@ -433,11 +472,11 @@ def get_par_3d(fit):
                                      for a in np.arange(1, nmaps+1)]) # Trust me
             # Guess that longitudinal sinusoid follows the hotpost
             for i in range(nwl):
-                par[3+i*npar] = fit.maps[i].hslocbest[1]
+                par[3+i*nppwl] = fit.maps[i].hslocbest[1]
             # Guess that higher temps are deeper
             ipar = np.argsort(np.max(fit.tmaps, axis=(1,2)))
             for i in range(nwl):
-                par[i*npar]   = np.linspace(-2, 0, nwl)[ipar][i]
+                par[i*nppwl]   = np.linspace(-2, 0, nwl)[ipar][i]
 
             modeltype.append('pmap')
             nparams[im] = npar
@@ -634,7 +673,9 @@ def get_par_3d(fit):
             allpmin.append(pmin)
             allpmax.append(pmax)
             allpstep.append(pstep)
-            allpnames.append(pnames)            
+            allpnames.append(pnames)
+        else:
+            print('WARNING: {} model not recognized in model.get_par_3d()!')
         cumpar = np.sum(nparams[:im])
         imodel.append(range(cumpar, cumpar + nparams[im]))
 
