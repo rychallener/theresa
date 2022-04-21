@@ -31,8 +31,10 @@ class EmissionModel3D(taurex.model.EmissionModel):
     grid cell size considerations.
 
     path_integral() has been modified to return the true optical
-    depth array. Otherwise, functionality is the same as the
-    standard Tau-REx EmissionModel.
+    depth array. Also, the emission spectrum is calculated from
+    the top of the atmoshere down, and calculation ends when an
+    optical depth limit is reached. The bottom of the returned
+    optical depth array matches the deepest layer that is computed.
     """
     def __init__(self,
                  planet=None,
@@ -43,6 +45,7 @@ class EmissionModel3D(taurex.model.EmissionModel):
                  nlayers=100,
                  atm_min_pressure=1e-4,
                  atm_max_pressure=1e6,
+                 taulimit=5,
                  ngauss=4,
                  ):
         super().__init__(planet,
@@ -54,6 +57,8 @@ class EmissionModel3D(taurex.model.EmissionModel):
                          atm_min_pressure,
                          atm_max_pressure,
                          ngauss)
+        
+        self.taulimit = taulimit
 
     def compute_final_flux(self, f_total):
         
@@ -62,9 +67,9 @@ class EmissionModel3D(taurex.model.EmissionModel):
         star_radius = self._star.radius
         planet_radius = self._planet.fullRadius
 
-        planet_area = np.pi * planet_radius ** 2
+        planet_area = planet_radius ** 2
 
-        star_area = np.pi * star_radius ** 2
+        star_area = star_radius ** 2
 
         cell_flux = (f_total / star_sed) * (planet_area / star_area)
 
@@ -108,8 +113,8 @@ class EmissionModel3D(taurex.model.EmissionModel):
         I = BB * (np.exp(-surface_tau*_mu))
 
         self.debug('I1_pre %s', I)
-        # Loop upwards
-        for layer in range(total_layers):
+        # Loop downwards
+        for layer in range(total_layers - 1, -1, -1):
             layer_tau[...] = 0.0
             dtau[...] = 0.0
             for contrib in self.contribution_list:
@@ -122,7 +127,6 @@ class EmissionModel3D(taurex.model.EmissionModel):
             _tau = layer_tau + dtau
 
             tau[layer] += _tau[0]
-            # for contrib in self.contribution_list:
 
             self.debug('Layer_tau[%s]=%s', layer, layer_tau)
 
@@ -132,6 +136,10 @@ class EmissionModel3D(taurex.model.EmissionModel):
             self.debug('BB[%s]=%s,%s', layer, temperature[layer], BB)
             I += BB * (np.exp(-layer_tau*_mu) - np.exp(-dtau*_mu))
             self.debug('I_tot[%s]=%s', layer, I)
+
+            if np.all(tau[layer] > self.taulimit):
+                tau[:layer] += _tau[0]
+                break
 
         self.debug('I: %s', I)
 

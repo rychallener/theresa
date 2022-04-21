@@ -179,8 +179,9 @@ def specgrid(params, fit):
                 fluxgrid = -1 * np.ones((nlat, nlon,
                                          len(rt.nativeWavenumberGrid)))
                 return fluxgrid, rt.nativeWavenumberGrid
-            
+            tic = time.time()
             wn, flux, tau, ex = rt.model(wngrid=fit.wngrid)
+            print("Single spectrum: {} s".format(time.time() - tic))
 
             fluxgrid[i,j] = flux
             taugrid[i,j] = tau
@@ -251,11 +252,13 @@ def sysflux(params, fit):
     return systemflux.flatten(), tgrid, taugrid, p, wn, pmaps
 
 def mcmc_wrapper(params, fit):
+    tic = time.time()
     systemflux, tgrid, taugrid, p, wn, pmaps = sysflux(params, fit)
 
     # Integrate cf if asked for
     if fit.cfg.threed.fitcf:
         cfsd = cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps)
+        print("Full Evaluation: {} s".format(time.time() - tic))
         return np.concatenate((systemflux, cfsd))
     
     else:
