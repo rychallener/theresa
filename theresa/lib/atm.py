@@ -123,13 +123,11 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, z,
                         iz = np.where(ggchemz == z)
                         fcn = spi.interp1d(ggchemT,
                                            ggchemabn[s,k,:,iz])
-                        for i,j in zip(ilat, ilon):
-                            abn[s,k,i,j] = fcn(t[k,i,j])
+                        abn[s,k,ilat,ilon] = fcn(t[k,ilat,ilon])
                     else:
                         fcn = spi.interp2d(ggchemz, ggchemT,
                                            ggchemabn[s,k])
                         for i,j in zip(ilat, ilon):
-                            z = 0.0
                             abn[s,k,i,j] = fcn(z, t[k,i,j])
 
     else:
