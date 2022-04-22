@@ -476,13 +476,21 @@ def map3d(fit, system):
     fit.zmask3d    = out['zmask']
     fit.zchain3d   = out['zchain']
 
-    # Put fixed params in the posterior so it's a consistent size
+    # Put fixed and shared params in the posterior so it's a
+    # consistent size
     fit.posterior3d = out['posterior']
     niter, nfree = fit.posterior3d.shape
     for i in range(nparams):
         if pstep[i] == 0:
-            fit.posterior3d = np.insert(fit.posterior3d, i,
-                                        np.ones(niter) * params[i], axis=1)
+            fit.posterior3d = np.insert(
+                fit.posterior3d, i,
+                np.ones(niter) * params[i],
+                axis=1)
+        if pstep[i] < 0:
+            fit.posterior3d = np.insert(
+                fit.posterior3d, i,
+                np.ones(niter) * fit.specbestp[-int(pstep[i])],
+                axis=1)
 
     # Evaluate SPEIS, ESS, and CR error
     print("Calculating effective sample size.")
