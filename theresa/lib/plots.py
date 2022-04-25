@@ -448,7 +448,7 @@ def bestfittgrid(fit, outdir=''):
                 zorder = 2
             else:
                 label = None
-                color = 'gray'
+                color = mpl.colors.to_rgba('gray')
                 zorder = 1
             
             if ((lon + fit.dlon < fit.minvislon) or
@@ -462,10 +462,17 @@ def bestfittgrid(fit, outdir=''):
                                       axis=1)
             norm = plt.Normalize(0, 1)
 
+            # Set up CF shading
+            alpha = np.max(fit.cf[i,j,:-1], axis=1) / cfnorm_lines
+            rgba = np.zeros((len(segments), 4))
+            rgba[:,:3] = color[:3]
+            rgba[:,3]  = alpha
+
             lc = collections.LineCollection(segments,
-                                            cmap=gradient_cmap(color),
-                                            norm=norm, zorder=zorder)
-            lc.set_array(np.max(fit.cf[i,j,:-1], axis=1) / cfnorm_lines)
+                                            colors=rgba,
+                                            norm=norm,
+                                            zorder=zorder)
+
             line = ax.add_collection(lc)
 
             if linestyle != '--':
