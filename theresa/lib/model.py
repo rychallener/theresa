@@ -95,7 +95,7 @@ def specgrid(params, fit):
                          fit.nparams3d, fit.modeltype3d, fit.imodel3d,
                          interptype=cfg.threed.interp,
                          smooth=cfg.threed.smooth)
-
+    
     if cfg.threed.z == 'fit':
         izmodel = np.where(fit.modeltype3d == 'z')[0][0]
         istart = np.sum(fit.nparams3d[:izmodel])
@@ -179,9 +179,8 @@ def specgrid(params, fit):
                 fluxgrid = -1 * np.ones((nlat, nlon,
                                          len(rt.nativeWavenumberGrid)))
                 return fluxgrid, rt.nativeWavenumberGrid
-            tic = time.time()
+
             wn, flux, tau, ex = rt.model(wngrid=fit.wngrid)
-            print("Single spectrum: {} s".format(time.time() - tic))
 
             fluxgrid[i,j] = flux
             taugrid[i,j] = tau
@@ -208,11 +207,8 @@ def specvtime(params, fit):
     and sum over the grid cells. Returns an array of (nfilt, nt). Units
     are fraction of stellar flux, Fp/Fs.
     """
-    tic = time.time()
     # Calculate grid of spectra without visibility correction
     fluxgrid, tgrid, taugrid, p, wn, pmaps = specgrid(params, fit)
-    print("Spectrum generation: {} seconds".format(time.time() - tic))
-    tic = time.time()
 
     nt         = len(fit.t)
     nlat, nlon = fit.lat.shape
@@ -258,7 +254,7 @@ def mcmc_wrapper(params, fit):
     # Integrate cf if asked for
     if fit.cfg.threed.fitcf:
         cfsd = cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps)
-        print("Full Evaluation: {} s".format(time.time() - tic))
+        print("Model Evaluation: {} s".format(time.time() - tic))
         return np.concatenate((systemflux, cfsd))
     
     else:
@@ -598,7 +594,7 @@ def get_par_3d(fit):
             par    = [2000.]
             pstep  = [   1.]
             pmin   = [ 100.]
-            pmax   = [4000.]
+            pmax   = [5000.]
             pnames = ['Tbot']
             modeltype.append('tbot')
             nparams[im] = npar
