@@ -17,7 +17,7 @@ ratedir = os.path.join(moddir, 'rate')
 sys.path.append(ratedir)
 import rate
 
-def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, z,
+def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
             ilat=None, ilon=None, cheminfo=None):
     """
     Initializes atmospheres of various types.
@@ -27,7 +27,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, z,
     atmtype: string
         Type of atmosphere to initialize. Options are:
             rate: thermochemical eqilibrium with RATE
-            ggchem: thermochemical equilibrium with GGchem (requires file)
+            ggchem: thermochemical equilibrium with GGchem
 
     p: 1D array
         Pressure layers of the atmosphere
@@ -44,10 +44,6 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, z,
     refpress: float
         Reference pressure at rp (i.e., p(rp) = refpress). Used to calculate
         radii of each layer, assuming hydrostatic equilibrium.
-
-    elemfile: string
-        File containing elemental molar mass information. See 
-        inputs/abundances_Asplund2009.txt for format.
 
     outdir: string
         Directory where atmospheric file will be written.
@@ -112,7 +108,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, elemfile, z,
         abn = np.zeros((nspec, nlayers, nlat, nlon))
         
         if not np.all(np.isclose(p, ggchemp)):
-            print("Pressures of fit and chemistry do not match. Exiting")
+            print("Pressures of fit and chemistry do not match. Exiting.")
             sys.exit()
 
         for s in range(nspec):
@@ -677,15 +673,18 @@ def read_GGchem(fname):
     return T, p, spec, abn
 
 
-def cloudmodel_to_grid(fit, p, params):
+def cloudmodel_to_grid(fit, p, params, abn, spec):
     '''
     Function to turn cloud models into physical properties in the
-    3D grid. Models must be present in this function to be
-    plotted in the ThERESA output.
+    3D grid.
     '''
     mnames = fit.cfg.threed.modelnames
 
     nclouds = np.sum(fit.modeltype3d == 'clouds')
+
+    # Inelegant solution
+    if 'eqclouds' in fit.cfg.threed.modelnames:
+        nclouds += len(fit.cfg.threed.cmols) - 1 # already counted once
 
     allshape = (nclouds, fit.cfg.threed.nlayers, fit.cfg.twod.nlat,
                 fit.cfg.twod.nlon)
@@ -694,13 +693,11 @@ def cloudmodel_to_grid(fit, p, params):
     allmix = np.zeros(allshape)
     allq   = np.zeros(allshape)
 
-    ic = -1
+    ic = 0
     for i, mtype in enumerate(fit.modeltype3d):
         if mtype != 'clouds':
             continue
-        else:
-            ic += 1
-
+        
         if mnames[i] == 'leemie':
             im = np.where(fit.cfg.threed.modelnames == mnames[i])[0][0]
             leepar = params[fit.imodel3d[im]]
@@ -726,6 +723,8 @@ def cloudmodel_to_grid(fit, p, params):
             allrad[ic] = radii
             allmix[ic] = mix
             allq[ic]   = q
+
+            ic += 1
         elif mnames[i] == 'leemie2':
             im = np.where(fit.cfg.threed.modelnames == mnames[i])[0][0]
             leepar = params[fit.imodel3d[im]]
@@ -780,7 +779,9 @@ def cloudmodel_to_grid(fit, p, params):
         
             allrad[ic] = radii
             allmix[ic] = mix
-            allq[ic]   = q              
+            allq[ic]   = q
+
+            ic += 1
         elif mnames[i] == 'leemie-clearspot':
             im = np.where(fit.cfg.threed.modelnames == mnames[i])[0][0]
             leepar = params[fit.imodel3d[im]]
@@ -817,7 +818,35 @@ def cloudmodel_to_grid(fit, p, params):
 
             allrad[ic] = radii
             allmix[ic] = mix
-            allq[ic]   = q          
+            allq[ic]   = q
+
+            ic += 1
+        elif mnames[i] == 'eqclouds':
+            im = np.where(fit.cfg.threed.modelnames == mnames[i])[0][0]
+            par = params[fit.imodel3d[im]]
+            
+            radius = par[0]
+            q0     = par[1]
+            
+            shape = (fit.cfg.threed.nlayers,
+                     fit.cfg.twod.nlat,
+                     fit.cfg.twod.nlon)
+            for s in range(len(spec)):
+                if spec[s] in fit.cfg.threed.cmols:
+                    radii = np.zeros(shape)
+                    q     = np.zeros(shape)
+
+                    where = np.where(abn[s] != 0)
+                    
+                    radii[where] = radius
+                    q[    where] = q0
+
+                    allmix[ic] = abn[s]
+                    allrad[ic] = radii
+                    allq[ic]   = q
+
+                    ic += 1
+                
         else:
             print("Cloud model {} not recognized.".format(mnames[i]))
 

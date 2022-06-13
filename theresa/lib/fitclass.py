@@ -94,8 +94,6 @@ class Fit:
         self.cfg.threed.nsamples   = self.cfg.cfg.getint('3D', 'nsamples')
         self.cfg.threed.burnin     = self.cfg.cfg.getint('3D', 'burnin')
         
-        self.cfg.threed.elemfile = self.cfg.cfg.get('3D', 'elemfile')
-        
         self.cfg.threed.ptop    = self.cfg.cfg.getfloat('3D', 'ptop')
         self.cfg.threed.pbot    = self.cfg.cfg.getfloat('3D', 'pbot')
         self.cfg.threed.atmtype = self.cfg.cfg.get(     '3D', 'atmtype')
@@ -117,7 +115,13 @@ class Fit:
         else:
             self.cfg.threed.z = 'fit'
 
-        self.cfg.threed.mols = self.cfg.cfg.get('3D', 'mols').split()
+        self.cfg.threed.elem = self.cfg.cfg.get('3D', 'elem').split()
+
+        self.cfg.threed.mols  = self.cfg.cfg.get('3D', 'mols').split()
+        if 'eqclouds' in self.cfg.threed.modelnames:
+            self.cfg.threed.cmols = self.cfg.cfg.get('3D', 'cmols').split()
+        else:
+            self.cfg.threed.cmols = []
 
         self.cfg.threed.plots      = self.cfg.cfg.getboolean('3D', 'plots')
         self.cfg.threed.animations = self.cfg.cfg.getboolean('3D', 'animations')

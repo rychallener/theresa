@@ -362,7 +362,8 @@ def map3d(fit, system):
                                         cfg.threed.zmin,
                                         cfg.threed.zmax,
                                         cfg.threed.numz,
-                                        condensates=cfg.threed.condensates)
+                                        condensates=cfg.threed.condensates,
+                                        elements=cfg.threed.elem)
     else:
         fit.cheminfo = None
         
@@ -533,6 +534,17 @@ def map3d(fit, system):
     
     fit.specbestmodel = model.sysflux(fit.specbestp, fit)[0]
     fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
+
+    allmols = np.concatenate((cfg.threed.mols, cfg.threed.cmols))
+    print("WARNING: assuming solar metallicity for plotting (fix this)!")
+    fit.abnbest, fit.abnspec = atm.atminit(fit.cfg.threed.atmtype,
+                                           allmols, fit.p, fit.besttgrid,
+                                           cfg.planet.m, cfg.planet.r,
+                                           cfg.planet.p0, 0.0,
+                                           ilat=fit.ivislat,
+                                           ilon=fit.ivislon,
+                                           cheminfo=fit.cheminfo)
+                                           
 
     print("Calculating contribution functions.")
     fit.cf = cf.contribution_filters(fit.besttgrid, fit.modelwngrid,

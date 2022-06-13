@@ -982,7 +982,9 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None, outdir=''):
 
 def clouds(fit, outdir=''):
     allrad, allmix, allq = atm.cloudmodel_to_grid(fit, fit.p,
-                                                  fit.specbestp)
+                                                  fit.specbestp,
+                                                  fit.abnbest,
+                                                  fit.abnspec)
 
     ncloud, nlayer, nlat, nlon = allrad.shape
     
