@@ -210,6 +210,9 @@ lat_edges[-1] = -90
 for i in range(1, len(lat_edges) -1):
      lat_edges[i] = (lat[i] + lat[i-1]) / 2.
 
+# Make sure latitude edges are in order so dlat doesn't get weird
+lat_edges = np.sort(lat_edges)
+     
 dlat = np.abs(np.diff(lat_edges))
 
 # Want longitude from -180 to 180 (vis function assumes -90 to 90 is visible)
@@ -260,7 +263,7 @@ else:
 
 print('Interpolating chemistry to GCM temperature grid.')
 abn, spec = atm.atminit(atmtype, opacspec, p, tgrid, mp/Msun, rp/Rsun,
-                        0.1, elemfile, 0.0, cheminfo=cheminfo)
+                        0.1, 0.0, cheminfo=cheminfo)
 
 # Planet
 rtplan = taurex.planet.Planet(
