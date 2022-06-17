@@ -457,7 +457,7 @@ def get_par_3d(fit):
             nwl   = nmaps
             npar  = nppwl * nwl
             par   = np.zeros(nppwl)
-            pstep = np.ones(npwl) * 1e-3
+            pstep = np.ones(nppwl) * 1e-3
             pmin  = np.array([np.log10(fit.cfg.threed.ptop),
                               -np.inf, -np.inf, -180.0])
             pmax  = np.array([np.log10(fit.cfg.threed.pbot),
