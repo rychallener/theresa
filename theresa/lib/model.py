@@ -454,7 +454,8 @@ def get_par_3d(fit):
         elif mname == 'sinusoidal':
             # For a single wavelength
             nppwl = 4
-            npar  = nppwl * nwl 
+            nwl   = nmaps
+            npar  = nppwl * nwl
             par   = np.zeros(nppwl)
             pstep = np.ones(npwl) * 1e-3
             pmin  = np.array([np.log10(fit.cfg.threed.ptop),
