@@ -215,8 +215,8 @@ def tmap_unc(fit, proj='rect'):
     naxes = nrows * ncols
     extra = nmaps % ncols
 
-    vmax = np.max([np.max(m.tmapunc[~np.isnan(m.tmap)]) for m in fit.maps])
-    vmin = np.min([np.min(m.tmapunc[~np.isnan(m.tmap)]) for m in fit.maps])
+    vmax = np.max([np.max(m.tmapunc[~np.isnan(m.tmapunc)]) for m in fit.maps])
+    vmin = np.min([np.min(m.tmapunc[~np.isnan(m.tmapunc)]) for m in fit.maps])
     
     if proj == 'rect':
         extent = (-180, 180, -90, 90)
