@@ -797,7 +797,7 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             width   =     leepar[6]
             
             lon1    =  center - width / 2.
-            lon2    =  center - width / 2.
+            lon2    =  center + width / 2.
 
             shape = (fit.cfg.threed.nlayers,
                      fit.cfg.twod.nlat,
