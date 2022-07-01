@@ -648,11 +648,11 @@ def get_par_3d(fit):
             #             bottom p (log), top p (log)
             logpbot = np.log10(fit.cfg.threed.pbot)
             logptop = np.log10(fit.cfg.threed.ptop)
-            par     = [  0.1,   40.0, -10.0,         2.0,        -1.0,   0.1,   40.0, -10.0,         2.0,        -1.0,  -90.,   90.]
+            par     = [  0.1,   40.0, -10.0,         2.0,        -1.0,   0.1,   40.0, -10.0,         2.0,        -1.0,    0.,  180.]
             pstep   = [  0.1,    1.0,   1.0,         0.1,         0.1,   0.1,    1.0,   1.0,         0.1,         0.1,   10.,   10.]
-            pmin    = [  0.0,    0.0, -20.0, logptop - 1, logptop - 1,   0.0,    0.0, -20.0, logptop - 1, logptop - 1, -180., -180.]
-            pmax    = [100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1, 100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.,  180.]
-            pnames  = ['a1', 'Q01', 'mix1', 'log(cloud bottom)1', 'log(cloud top)1', 'a2', 'Q02', 'mix2', 'log(cloud bottom)2', 'log(cloud top)2', 'W.Cl.Edge', 'E.Cl.Edge']
+            pmin    = [  0.0,    0.0, -20.0, logptop - 1, logptop - 1,   0.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.,    0.]
+            pmax    = [100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1, 100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.,  360.]
+            pnames  = ['a1', 'Q01', 'mix1', 'log(cloud bottom)1', 'log(cloud top)1', 'a2', 'Q02', 'mix2', 'log(cloud bottom)2', 'log(cloud top)2', 'Cl.2 Center', 'Cl.2 Width']
             modeltype.append('clouds')
             nparams[im] = npar
             allparams.append(par)
@@ -666,11 +666,11 @@ def get_par_3d(fit):
             #             bottom p (log), top p (log)
             logpbot = np.log10(fit.cfg.threed.pbot)
             logptop = np.log10(fit.cfg.threed.ptop)
-            par     = [  0.1,   40.0, -10.0,         2.0,        -1.0,  -20.0,   20.0]
+            par     = [  0.1,   40.0, -10.0,         2.0,        -1.0,    0.0,  180.0]
             pstep   = [  0.1,    1.0,   1.0,         0.1,         0.1,   10.0,   10.0]
-            pmin    = [  0.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.0, -180.0]
-            pmax    = [100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.0,  180.0]
-            pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)', 'W.Cl.Edge', 'E.Cl.Edge']
+            pmin    = [  0.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.0,    0.0]
+            pmax    = [100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.0,  360.0]
+            pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)', 'Spot Center', 'Spot Width']
             modeltype.append('clouds')
             nparams[im] = npar
             allparams.append(par)

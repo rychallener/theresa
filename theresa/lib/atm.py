@@ -742,8 +742,10 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             bottomp2 = 10**leepar[8]
             topp2    = 10**leepar[9]
             # Boundaries between clouds
-            lon1     =     leepar[10]
-            lon2     =     leepar[11]
+            center   = leepar[10]
+            width    = leepar[11]
+            lon1     = center - width / 2.
+            lon2     = center + width / 2.
 
             shape = (fit.cfg.threed.nlayers,
                      fit.cfg.twod.nlat,
@@ -791,8 +793,11 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             mixrat  =     leepar[2]
             bottomp = 10**leepar[3]
             topp    = 10**leepar[4]
-            lon1    =     leepar[5]
-            lon2    =     leepar[6]
+            center  =     leepar[5]
+            width   =     leepar[6]
+            
+            lon1    =  center - width / 2.
+            lon2    =  center + width / 2.
 
             shape = (fit.cfg.threed.nlayers,
                      fit.cfg.twod.nlat,
