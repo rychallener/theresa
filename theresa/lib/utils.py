@@ -495,7 +495,9 @@ def tmappost(fit, ln):
     arg1 = tt.dvector()
     arg2 = tt.dscalar()
     t_calcfmap = theano.function([arg1, arg2], calcfmap(arg1, arg2))
-        
+
+    ifilt = np.where(fit.wlmid == ln.wlmid)[0][0]
+    
     pbar = progressbar.ProgressBar(max_value=ncalc)
     for i in range(ncalc):
         ipost = i * thinning
@@ -504,24 +506,98 @@ def tmappost(fit, ln):
             yval += post[ipost,j] * ln.eigeny[j,1:]
             
         fmaps[i] = t_calcfmap(yval, post[ipost, ncurves]).reshape(fit.lat.shape)
-        tmaps[i] = fmap_to_tmap(fmaps[i], ln.wlmid*1e-6,
+        tmaps[i] = fmap_to_tmap(fmaps[i], ln.wlmid,
                                 fit.cfg.planet.r, fit.cfg.star.r,
-                                fit.cfg.star.t, post[ipost,ncurves+1])
+                                fit.cfg.star.t, post[ipost,ncurves+1],
+                                starspec=fit.cfg.star.starspec,
+                                fwl=fit.filtwl[ifilt],
+                                ftrans=fit.filttrans[ifilt],
+                                swl=fit.starwl, sspec=fit.starflux)
         
         pbar.update(i+1)
 
     return fmaps, tmaps
 
-def fmap_to_tmap(fmap, wl, rp, rs, ts, scorr):
+def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
+                 fwl=None, ftrans=None, swl=None, sspec=None):
     '''
     Convert flux map to brightness temperatures.
     See Rauscher et al., 2018, eq. 8
+
+    fmap: 2D array
+        Array of star-normalized planet fluxes
+
+    meanwl: Float
+        Mean wavelength of planet fluxes, in microns.
+
+    rp: Float
+        Planet radius. Same units as rs.
+
+    rs: Float
+        Stellar radius. Same units as rp.
+
+    ts: Float
+        Stellar temperature (K)
+
+    scorr: Float
+        Stellar correction term. 
+
+    starspec: String
+        Three options:
+            'bb' -- Blackbody evaluated at meanwl.
+            'bbint' -- Blackbody, integrated over a filter.
+            'custom' -- Provide stellar spectrum, which will be integrated.
+
+    fwl: Array
+        Array of filter wavelengths, in microns.
+
+    ftrans: Array
+        Array of filter transmission.
+
+    swl: Array 
+        Array of stellar spectrum wavelengths, in microns.
+
+    sspec: Array
+        Array of stellar spectrum, same units as the Planck function (mks)
     '''
-    ptemp = (sc.h * sc.c) / (wl * sc.k)
+    meanwl_m = meanwl * 1e-6 # convert to m
+    ptemp = (sc.h * sc.c) / (meanwl_m * sc.k)
     sfact = 1 + scorr
-    tmap = ptemp / np.log(1 + (rp / rs)**2 *
-                          (np.exp(ptemp / ts) - 1) /
-                          (np.pi * fmap * sfact))
+    if starspec == 'bb':
+        tmap = ptemp / np.log(1 + (rp / rs)**2 *
+                              (np.exp(ptemp / ts) - 1) /
+                              (np.pi * fmap * sfact))
+    elif starspec == 'bbint':
+        if ((fwl is None) or
+            (ftrans is None)):
+            print('Must specify filter for integrated blackbody.')
+        # Convert units
+        fwl_m = fwl * 1e-6
+        sbb = 2 * sc.h * sc.c**2 / fwl_m**5 / \
+            (np.exp(sc.h * sc.c / fwl_m / sc.k / ts) -1 )
+        sint = specint(fwl_m, sbb, [fwl_m], [ftrans])
+        tmap = ptemp / np.log(1 + (rp / rs)**2 *
+                              (2 * sc.h * sc.c**2 / meanwl_m**5) *
+                              (1 / np.pi) *
+                              (1 / (fmap * sfact)) *
+                              (1 / sint))
+    elif starspec == 'custom':
+        if ((fwl is None) or
+            (ftrans is None) or
+            (sspec is None) or
+            (swl is None)):
+            print('Must specify filter and stellar spectrum.')
+        # Convert units
+        fwl_m = fwl * 1e-6
+        swl_m = swl * 1e-6
+        sint = specint(swl_m, sspec, [fwl_m], [ftrans])
+        tmap = ptemp / np.log(1 + (rp / rs)**2 *
+                              (2 * sc.h * sc.c**2 / meanwl_m**5) *
+                              (1 / np.pi) *
+                              (1 / (fmap * sfact)) *
+                              (1 / sint))        
+        
+        
     return tmap
 
 def ess(chain):

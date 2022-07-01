@@ -85,7 +85,6 @@ class Fit:
         else:
             self.cfg.twod.baseline = None
             
-
         # 3D options
         self.cfg.threed.outdir = self.cfg.cfg.get('3D', 'outdir')
         self.cfg.threed.indir  = self.cfg.cfg.get('3D', 'indir')
@@ -179,6 +178,19 @@ class Fit:
         self.cfg.star.d    = self.cfg.cfg.getfloat('Star', 'd')
         self.cfg.star.z    = self.cfg.cfg.getfloat('Star', 'z')
 
+        if self.cfg.cfg.has_option('star', 'starspec'):
+            self.cfg.star.starspec = self.cfg.cfg.get('star', 'starspec')
+        else:
+            self.cfg.star.starspec = 'bbint'
+            
+        if self.cfg.star.starspec == 'custom':
+            if self.cfg.cfg.has_option('star', 'starspecfile'):
+                self.cfg.star.starspecfile = \
+                    self.cfg.cfg.get('star', 'starspecfile')
+            else:
+                print("Must specify stellar spectrum file "
+                      "using starspecfile.")
+
         # Planet options
         self.cfg.planet.m     = self.cfg.cfg.getfloat('Planet', 'm')
         self.cfg.planet.r     = self.cfg.cfg.getfloat('Planet', 'r')
@@ -194,6 +206,10 @@ class Fit:
         self.cfg.planet.b     = self.cfg.cfg.getfloat('Planet', 'b')
         
     def read_data(self):
+        '''
+        Read data files, including a stellar spectrum if provided.
+        Populate related attributes.
+        '''
         self.t    = np.loadtxt(self.cfg.twod.timefile, ndmin=1)
         self.flux = np.loadtxt(self.cfg.twod.fluxfile, ndmin=2).T
         self.ferr = np.loadtxt(self.cfg.twod.ferrfile, ndmin=2).T
@@ -208,11 +224,32 @@ class Fit:
                   "of the ferr array.")
             sys.exit()
 
+        if hasattr(self.cfg.star, 'starspecfile'):
+            self.starwl, self.starflux = np.loadtxt(
+                self.cfg.twod.starspecfile, unpack=True)
+        else:
+            self.starwl, self.starflux = None, None
+
     def read_filters(self):
+        '''
+        Read filter files and populate attributes.
+        '''
         self.filtwl, self.filtwn, self.filttrans, self.wnmid, self.wlmid = \
             utils.readfilters(self.cfg.twod.filtfiles)           
             
     def save(self, outdir, fname=None):
+        '''
+        Save a Fit object to a pickle file.
+
+        Arguments
+        ---------
+        outdir: String
+            Directory where the file will be saved.
+
+        fname: String
+            Optional name of the file. Default is fit.pkl
+
+        '''
         # Note: starry objects are not pickleable, so they
         # cannot be added to the Fit object as attributes. Possible
         # workaround by creating a custom Pickler?

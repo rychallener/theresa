@@ -297,12 +297,20 @@ def map2d(cfile):
           "from eigenmaps.")
     for j in range(len(fit.wlmid)):
         star, planet, system = utils.initsystem(fit, fit.maps[j].bestln.lmax)
+        # These are used or not used in mkmaps depending on the type
+        # of stellar spectrum set in the configuration.
+        fwl    = fit.filtwl[j]
+        ftrans = fit.filttrans[j]
+        swl    = fit.starwl
+        sspec  = fit.starflux
         fmap, tmap = eigen.mkmaps(planet, fit.maps[j].bestln.eigeny,
                                   fit.maps[j].bestln.bestp,
                                   fit.maps[j].bestln.ncurves,
                                   fit.wlmid[j], cfg.star.r,
                                   cfg.planet.r, cfg.star.t, fit.lat,
-                                  fit.lon)
+                                  fit.lon, starspec=cfg.star.starspec,
+                                  fwl=fwl, ftrans=ftrans, swl=swl,
+                                  sspec=sspec)
         fit.maps[j].fmap = fmap
         fit.maps[j].tmap = tmap
 
