@@ -169,6 +169,8 @@ class Fit:
             self.cfg.threed.numz = self.cfg.cfg.getint(  '3D', 'numz')
             self.cfg.threed.condensates = \
                 self.cfg.cfg.getboolean('3D', 'condensates')
+
+        self.cfg.threed.taulimit = self.cfg.cfg.getfloat('3D', 'taulimit')
             
         # Star options
         self.cfg.star.m    = self.cfg.cfg.getfloat('Star', 'm')

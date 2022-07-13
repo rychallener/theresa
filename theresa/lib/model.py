@@ -156,7 +156,8 @@ def specgrid(params, fit):
                 pressure_profile=rtp,
                 temperature_profile=rtt,
                 chemistry=rtchem,
-                nlayers=cfg.threed.nlayers)
+                nlayers=cfg.threed.nlayers,
+                taulimit=cfg.threed.taulimit)
             rt.add_contribution(taurex.contributions.AbsorptionContribution())
             rt.add_contribution(taurex.contributions.CIAContribution())
             if 'clouds' in fit.modeltype3d:
@@ -181,6 +182,12 @@ def specgrid(params, fit):
                 return fluxgrid, rt.nativeWavenumberGrid
 
             wn, flux, tau, ex = rt.model(wngrid=fit.wngrid)
+
+            # Check for very high optical depths at the top of the atmosphere
+            # and print a warning
+            if np.any(tau[-1] > cfg.threed.taulimit):
+                print("WARNING: taulimit reached at top of the atmosphere! "
+                      "Increase taulimit or decrease minimum pressure.")
 
             fluxgrid[i,j] = flux
             taugrid[i,j] = tau
@@ -290,6 +297,15 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
     count = 0
     for i, j in zip(fit.ivislat, fit.ivislon):
         for k in range(nfilt):
+            # Check for 0 contribution and handle to avoid errors
+            if np.all(cfs[i,j,order,k] == 0.0):
+                print("Contribution function zero for all layers at "
+                      "lat = {:.2f}, lon = {:.2f}. Likely a numerical "
+                      "issue with high opacity at low pressures.".format(
+                          fit.lat[i,j], fit.lon[i,j]))
+                cfsigdiff += -np.inf
+                return cfsigdiff
+            
             # Where the map is placed
             xval = np.log10(pmaps[k,i,j])
 
