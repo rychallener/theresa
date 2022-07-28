@@ -12,11 +12,12 @@ def contribution(tgrid, wn, taugrid, p):
     cf = np.zeros((nlat, nlon, nlev, nwn))
 
     # Pressure is always the same. Calculate out of the loop
-    # Start with second from top as delta-log-p makes no sense
-    # for the top layer (just leave at 0)
+    # Skip bottom layer (99 gradients and 100 cells -- have to put
+    # skip somewhere) since bottom layer should be invisible
+    # anyway
     dlp = np.zeros((nlev, 1))
-    for k in range(nlev-2, -1, -1):
-        dlp[k] = np.log(p[k]) - np.log(p[k+1])
+    for k in range(nlev-1, 0, -1):
+        dlp[k] = np.log(p[k-1]) - np.log(p[k])
 
     for i in range(nlat):
         for j in range(nlon):
@@ -24,13 +25,13 @@ def contribution(tgrid, wn, taugrid, p):
             trans = np.exp(-taugrid[i,j])
             dt = np.zeros((nlev, nwn))
             
-            # Skip top layer (leave as 0s)
-            for k in range(nlev-2, -1, -1):
-                dt[k] = trans[k+1] - trans[k]
+            # Skip bottom layer (leave as 0s)
+            for k in range(nlev-1, 0, -1):
+                dt[k] = trans[k] - trans[k-1]
 
             cf[i,j] = bb * dt / dlp
             # Replace division-by-zero NaNs with zero
-            cf[i,j,nlev-1,:] = 0.0
+            cf[i,j,0,:] = 0.0
 
     return cf
 
