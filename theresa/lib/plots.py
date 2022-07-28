@@ -1076,7 +1076,46 @@ def clouds(fit, outdir=''):
 
     plt.close(plt.gcf())
     
+
+def spectra(fit, outdir=''):
+    fig, ax = plt.subplots()
+    fig.set_size_inches((6,8))
+
+    cmap = copy.copy(mpl.cm.get_cmap('hsv'))
+
+    ilat = fit.cfg.twod.nlat // 2
+
+    for i in range(fit.cfg.twod.nlon):
+        c = fit.lon[ilat,i] / 360
+        if c < 0:
+            c += 1
+
+        color = cmap(c)
+
+        offset = 0.0005 * i
         
+        if not np.all(fit.fluxgrid[ilat,i] == 0.0):
+            ax.plot(10000/fit.modelwngrid,
+                    fit.fluxgrid[ilat,i] + offset,
+                    color=color)
+
+    ax.set_ylabel(r'$F_p/F_s$ + offset')
+    ax.set_xlabel(r'Wavelength ($\mu$m)')
+
+    plt.tight_layout()
+
+    cax = inset_axes(ax, width='30%', height='3%',
+                     loc='lower right')
+    sm = plt.cm.ScalarMappable(cmap=cmap,
+                               norm=plt.Normalize(vmin=0, vmax=360))
+    cbar = plt.colorbar(sm, cax=cax, label=r'Longitude ($^\circ$)',
+                        orientation='horizontal')
+    cbar.set_ticks(np.linspace(0, 360, 5, endpoint=True))
+    cax.xaxis.set_ticks_position('top')
+    cax.xaxis.set_label_position('top')
+
+    plt.savefig(os.path.join(outdir, 'spectra.png'))
+    
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
 def gradient_cmap(color):
     '''

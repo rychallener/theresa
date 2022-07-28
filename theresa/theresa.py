@@ -572,6 +572,7 @@ def map3d(fit, system):
         plots.cf_by_location(fit, outdir=outdir)
         plots.cf_by_filter(fit, outdir=outdir)
         plots.cf_slice(fit, outdir=outdir)
+        plots.spectra(fit, outdir=outdir)
         if 'clouds' in fit.modeltype3d:
             plots.clouds(fit, outdir=outdir)
 
