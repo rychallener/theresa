@@ -102,7 +102,10 @@ if clouds:
      cloudmol = np.array(cloudmol)
 
      Q0 = np.array([float(a) for a in cfg.get('synthlc', 'Q0').split()])
-          
+else:
+     eqcond = False
+     dustfile = None
+     dispolfiles = None
 
 # Observation parameters
 pstart = cfg.getfloat('synthlc', 'phasestart')
@@ -181,6 +184,13 @@ else:
                for k in range(nlon):
                     tgrid[i,j,k] = d[i,k,j,5]
 
+# Check for negative temperatures and warn the user
+if np.any(tgrid < 100.0):
+     print("WARNING: very low temperatures in GCM. Changing "
+           "to 100 K to allow thermochemical equilibrium and "
+           "radiative transfer to run without crashing.")
+     tgrid[np.where(tgrid < 100.)] = 100.0
+
 taurex.cache.OpacityCache().clear_cache()
 taurex.cache.OpacityCache().set_opacity_path(opacdir)
 taurex.cache.CIACache().set_cia_path(ciadir)
@@ -236,8 +246,8 @@ ivislon = np.where((lon + dlon[0] / 2. > minvislon) &
 #  required inputs)
 elemfile = '/home/rchallen/ast/3dmap/code/3dmap/3dmap/inputs/abundances_Asplund2009.txt'
 refpress = 0.1
-tmin = np.min(tgrid) - 10
-tmax = np.max(tgrid) + 10
+tmin = np.min(tgrid)
+tmax = np.max(tgrid)
 numt =  100
 ptop = np.min(p)
 pbot = np.max(p)
@@ -427,6 +437,10 @@ np.savetxt(os.path.join(outdir, 'wl.txt'), wlmid)
 fig, axes = plt.subplots(nrows=nfilt, ncols=1)
 fig.set_size_inches(5,8)
 
+# Fix for only one filter
+if not hasattr(axes, '__len__'):
+     axes = [axes]
+
 vmax = np.max(intfluxgrid)
 vmin = np.min(intfluxgrid)
 extent = (-180, 180, -90, 90)
@@ -449,10 +463,14 @@ plt.close(fig)
 fig, axes = plt.subplots(nrows=nfilt, ncols=1)
 fig.set_size_inches(5,8)
 
+# Fix for only one filter
+if not hasattr(axes, '__len__'):
+     axes = [axes]
+
 inttgrid = np.zeros(intfluxgrid.shape)
 for i in range(nfilt):
      inttgrid[:,:,i] = utils.fmap_to_tmap(intfluxgrid[:,:,i] / np.pi,
-                                          wlmid[i]*1e-6,
+                                          wlmid[i],
                                           rp, rs, ts, 0)
 vmax = np.max(inttgrid)
 vmin = np.min(inttgrid)
@@ -629,6 +647,7 @@ for i in range(len(axes)):
 plt.gca().invert_yaxis()
 plt.legend(fontsize=6)
 plt.savefig(os.path.join(outdir, 'cf.png'))
+plt.close()
 
 # Filter-integrated contribution functions
 filter_cf = np.zeros((nlat, nlon, nlev, nfilt)) 
