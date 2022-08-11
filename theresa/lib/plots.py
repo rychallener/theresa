@@ -1115,6 +1115,7 @@ def spectra(fit, outdir=''):
     cax.xaxis.set_label_position('top')
 
     plt.savefig(os.path.join(outdir, 'spectra.png'))
+    plt.close()
     
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
 def gradient_cmap(color):
