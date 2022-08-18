@@ -615,7 +615,7 @@ def tau(fit, ilat=None, ilon=None, outdir=''):
     
     plt.imshow(np.flip(np.exp(-tau)), aspect='auto',
                extent=(minlogwl, maxlogwl, maxlogp, minlogp),
-               cmap='magma')
+               cmap='magma', vmax=1.0, vmin=0.0)
 
     yticks = plt.yticks()[0]
     plt.yticks(yticks, [r"$10^{{{:.0f}}}$".format(y) for y in yticks])
