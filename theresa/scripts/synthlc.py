@@ -760,6 +760,7 @@ if cf:
 # Some useful things
 outdict = {}
 
+outdict['sysflux'] = sysflux
 outdict['fluxgrid'] = fluxgrid
 outdict['taugrid'] = taugrid
 outdict['wn'] = wn
