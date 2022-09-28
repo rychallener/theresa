@@ -41,6 +41,7 @@ cfg.read(cfile)
 planetname = cfg.get('synthlc', 'planetname')
 fortfile   = cfg.get('synthlc', 'gcmfile')
 outdir     = cfg.get('synthlc', 'outdir')
+cf         = cfg.getboolean('synthlc', 'cf')
 
 if not os.path.isdir(outdir):
      os.mkdir(outdir)
@@ -599,160 +600,162 @@ def blackbody(T, wn):
 
      return bb
 
-cf = np.zeros((nlat, nlon, nlev, nwn))
+if cf:
+     cf = np.zeros((nlat, nlon, nlev, nwn))
 
-for i in range(nlat):
-     for j in range(nlon):
-          bb = blackbody(tgrid[:,i,j], wn)
-          trans = np.exp(-taugrid[i,j])
-          dlp = np.zeros(nlev)
-          dt = np.zeros((nlev, nwn))
-          for k in range(nlev-1, -1, -1):
-               if k == nlev-1:
-                    dt[k,:] = 0.0
-                    dlp[k]  = 0.0
-                    cf[i,j,k,:] = 0.0
+     for i in range(nlat):
+          for j in range(nlon):
+               bb = blackbody(tgrid[:,i,j], wn)
+               trans = np.exp(-taugrid[i,j])
+               dlp = np.zeros(nlev)
+               dt = np.zeros((nlev, nwn))
+               for k in range(nlev-1, -1, -1):
+                    if k == nlev-1:
+                         dt[k,:] = 0.0
+                         dlp[k]  = 0.0
+                         cf[i,j,k,:] = 0.0
+                    else:
+                         dt[k,:] = trans[k+1] - trans[k]
+                         dlp[k] = np.log(rt.pressureProfile[k]) - \
+                              np.log(rt.pressureProfile[k+1])
+                         cf[i,j,k] = bb[k] * dt[k,:]/dlp[k]
+
+
+     # Plot of contribution functions (transmission, really)
+     fig, axes = plt.subplots(nrows=1, ncols=4, sharey=True)
+     fig.set_size_inches(16, 4)
+     cmap = mpl.cm.get_cmap('rainbow')
+     for i in range(len(axes)):
+          ax = axes[i]
+          for k in range(nwn):
+               if k % 200 == 0:
+                    color = cmap(1 - k / nwn)
+                    label = '{} um'.format(np.round(10000./wn[k],2))
+                    alpha = 1
                else:
-                    dt[k,:] = trans[k+1] - trans[k]
-                    dlp[k] = np.log(rt.pressureProfile[k]) - \
-                         np.log(rt.pressureProfile[k+1])
-                    cf[i,j,k] = bb[k] * dt[k,:]/dlp[k]
+                    color = 'gray'
+                    alpha = 0.01
+                    label = None
+               ax.semilogy(cf[ilat[i],ilon[i],:,k], rt.pressureProfile/1e5,
+                           color=color, alpha=alpha, label=label)
+
+               ax.set_xlabel('Contribution')
+               if i == 0:
+                    ax.set_ylabel('Pressure (bars)')
+               ax.set_title('Lat: {}, Lon: {}'.format(
+                    np.round(lat[ilat[i]], 2),
+                    np.round(lon[ilon[i]], 2)))
+
+     plt.gca().invert_yaxis()
+     plt.legend(fontsize=6)
+     plt.savefig(os.path.join(outdir, 'cf.png'))
+     plt.close()
 
 
-# Plot of contribution functions (transmission, really)
-fig, axes = plt.subplots(nrows=1, ncols=4, sharey=True)
-fig.set_size_inches(16, 4)
-cmap = mpl.cm.get_cmap('rainbow')
-for i in range(len(axes)):
-     ax = axes[i]
-     for k in range(nwn):
-          if k % 200 == 0:
-               color = cmap(1 - k / nwn)
-               label = '{} um'.format(np.round(10000./wn[k],2))
+     # Filter-integrated contribution functions
+     filter_cf = np.zeros((nlat, nlon, nlev, nfilt)) 
+     cf_trans = np.zeros((nlat, nlon, nlev, nwn)) # convolve cf with filt trans
+     for i in range(nfilt):
+          #filt_max_wn = np.max(filtwn[i])
+          #filt_min_wn = np.min(filtwn[i])
+          interp = sci.interp1d(filtwn[i], filttrans[i], bounds_error=False,
+                                fill_value=0.0)
+          interptrans = interp(wn)
+          integtrans  = np.trapz(interptrans)
+          for j in range(nlat):
+               for k in range(nlon):
+                   cf_trans[j, k, :, :] = \
+                        cf[j, k, :, :] * interptrans
+                   # Integrate
+                   for l in range(nlev):
+                       filter_cf[j, k, l, i] = \
+                           np.trapz(cf_trans[j, k, l]) / \
+                           integtrans
+
+     fig, axes = plt.subplots(nrows=1, ncols=4, sharey=True)
+     fig.set_size_inches(16, 4)
+     cmap = mpl.cm.get_cmap('rainbow')
+     for i in range(len(axes)):
+          ax = axes[i]
+          for k in range(nfilt):
+               color = cmap(1 - k / nfilt)
+               label = os.path.split(filters[k])[1]
                alpha = 1
-          else:
-               color = 'gray'
-               alpha = 0.01
-               label = None
-          ax.semilogy(cf[ilat[i],ilon[i],:,k], rt.pressureProfile/1e5,
-                      color=color, alpha=alpha, label=label)
 
-          ax.set_xlabel('Contribution')
+               ax.semilogy(filter_cf[ilat[i],ilon[i],:,k],
+                           rt.pressureProfile/1e5, color=color,
+                           alpha=alpha, label=label)
+
+               ax.set_xlabel('Contribution')
+               if i == 0:
+                    ax.set_ylabel('Pressure (bars)')
+               ax.set_title('Lat: {}, Lon: {}'.format(
+                    np.round(lat[ilat[i]], 2),
+                    np.round(lon[ilon[i]], 2)))
+
+     plt.gca().invert_yaxis()
+     plt.legend(fontsize=6)
+     plt.savefig(os.path.join(outdir, 'cf-filters.png'))
+     plt.close()
+
+     # Locations of contribution function maxima
+     cf_max_maps = np.zeros((nlat, nlon, nfilt))
+
+     logp = np.log10(rt.pressureProfile/1e5)
+     order = np.argsort(logp)
+     for i in range(nlat):
+         for j in range(nlon):
+             for k in range(nfilt):
+                 spl = sci.UnivariateSpline(logp[order],
+                                            filter_cf[i,j,order,k],
+                                            k=4, s=0)
+                 roots = spl.derivative().roots()
+                 yroots = spl(roots)
+                 ypeak = np.max(yroots)
+                 xpeak = roots[np.argmax(yroots)]
+                 cf_max_maps[i,j,k] = xpeak
+
+     # Plot of location of maximum contribution
+     gridspec_kw = {}
+     gridspec_kw['width_ratios'] = np.concatenate((np.ones(nfilt), [0.1]))
+     fig, axes = plt.subplots(ncols=nfilt+1, gridspec_kw=gridspec_kw)
+     fig.set_size_inches(16,5)
+     vmin = np.min(cf_max_maps)
+     vmax = np.max(cf_max_maps)
+     extent = (-180, 180, -90, 90)
+     for i in range(nfilt):
+         ax = axes[i]
+         im = ax.imshow(np.roll(cf_max_maps[:,:,i], nlon//2, axis=1),
+                        vmin=vmin, vmax=vmax, extent=extent, origin='lower')
+
+     fig.colorbar(im, cax=axes[-1], label='Log(p) (bars)', shrink=0.5)
+
+     plt.tight_layout()
+     plt.savefig(os.path.join(outdir, 'cf-maxima.png'))
+     plt.close()
+
+     # Plot of contribution functions along the equator
+     gridspec_kw = {}
+     gridspec_kw['width_ratios'] = np.concatenate((np.ones(nfilt), [0.1]))
+     fig, axes = plt.subplots(ncols=nfilt+1, gridspec_kw=gridspec_kw)
+     fig.set_size_inches(16,5)
+     vmin = np.min(filter_cf)
+     vmax = np.max(filter_cf)
+     extent = (-180, 180, maxlogp, minlogp)
+     for i in range(nfilt):     
+          ax = axes[i]
+          im = ax.imshow(np.roll(filter_cf[nlat//2,:,:,i].T, nlon//2,
+                                 axis=1), vmin=vmin, vmax=vmax, origin='lower',
+                         extent=extent, aspect='auto')
           if i == 0:
-               ax.set_ylabel('Pressure (bars)')
-          ax.set_title('Lat: {}, Lon: {}'.format(
-               np.round(lat[ilat[i]], 2),
-               np.round(lon[ilon[i]], 2)))
-          
-plt.gca().invert_yaxis()
-plt.legend(fontsize=6)
-plt.savefig(os.path.join(outdir, 'cf.png'))
-plt.close()
+              ax.set_ylabel('Log(p) (bars)')
+          ax.set_xlabel('Longitude (deg)')
 
-# Filter-integrated contribution functions
-filter_cf = np.zeros((nlat, nlon, nlev, nfilt)) 
-cf_trans = np.zeros((nlat, nlon, nlev, nwn)) # convolve cf with filt trans
-for i in range(nfilt):
-     #filt_max_wn = np.max(filtwn[i])
-     #filt_min_wn = np.min(filtwn[i])
-     interp = sci.interp1d(filtwn[i], filttrans[i], bounds_error=False,
-                           fill_value=0.0)
-     interptrans = interp(wn)
-     integtrans  = np.trapz(interptrans)
-     for j in range(nlat):
-          for k in range(nlon):
-              cf_trans[j, k, :, :] = \
-                   cf[j, k, :, :] * interptrans
-              # Integrate
-              for l in range(nlev):
-                  filter_cf[j, k, l, i] = \
-                      np.trapz(cf_trans[j, k, l]) / \
-                      integtrans
-               
-fig, axes = plt.subplots(nrows=1, ncols=4, sharey=True)
-fig.set_size_inches(16, 4)
-cmap = mpl.cm.get_cmap('rainbow')
-for i in range(len(axes)):
-     ax = axes[i]
-     for k in range(nfilt):
-          color = cmap(1 - k / nfilt)
-          label = os.path.split(filters[k])[1]
-          alpha = 1
+     fig.colorbar(im, cax=axes[-1], label='Contribution', shrink=0.5)
 
-          ax.semilogy(filter_cf[ilat[i],ilon[i],:,k],
-                      rt.pressureProfile/1e5, color=color,
-                      alpha=alpha, label=label)
-
-          ax.set_xlabel('Contribution')
-          if i == 0:
-               ax.set_ylabel('Pressure (bars)')
-          ax.set_title('Lat: {}, Lon: {}'.format(
-               np.round(lat[ilat[i]], 2),
-               np.round(lon[ilon[i]], 2)))
-          
-plt.gca().invert_yaxis()
-plt.legend(fontsize=6)
-plt.savefig(os.path.join(outdir, 'cf-filters.png'))
-plt.close()
-
-# Locations of contribution function maxima
-cf_max_maps = np.zeros((nlat, nlon, nfilt))
-
-logp = np.log10(rt.pressureProfile/1e5)
-order = np.argsort(logp)
-for i in range(nlat):
-    for j in range(nlon):
-        for k in range(nfilt):
-            spl = sci.UnivariateSpline(logp[order],
-                                       filter_cf[i,j,order,k],
-                                       k=4, s=0)
-            roots = spl.derivative().roots()
-            yroots = spl(roots)
-            ypeak = np.max(yroots)
-            xpeak = roots[np.argmax(yroots)]
-            cf_max_maps[i,j,k] = xpeak
-
-# Plot of location of maximum contribution
-gridspec_kw = {}
-gridspec_kw['width_ratios'] = np.concatenate((np.ones(nfilt), [0.1]))
-fig, axes = plt.subplots(ncols=nfilt+1, gridspec_kw=gridspec_kw)
-fig.set_size_inches(16,5)
-vmin = np.min(cf_max_maps)
-vmax = np.max(cf_max_maps)
-extent = (-180, 180, -90, 90)
-for i in range(nfilt):
-    ax = axes[i]
-    im = ax.imshow(np.roll(cf_max_maps[:,:,i], nlon//2, axis=1),
-                   vmin=vmin, vmax=vmax, extent=extent, origin='lower')
-
-fig.colorbar(im, cax=axes[-1], label='Log(p) (bars)', shrink=0.5)
-
-plt.tight_layout()
-plt.savefig(os.path.join(outdir, 'cf-maxima.png'))
-plt.close()
-
-# Plot of contribution functions along the equator
-gridspec_kw = {}
-gridspec_kw['width_ratios'] = np.concatenate((np.ones(nfilt), [0.1]))
-fig, axes = plt.subplots(ncols=nfilt+1, gridspec_kw=gridspec_kw)
-fig.set_size_inches(16,5)
-vmin = np.min(filter_cf)
-vmax = np.max(filter_cf)
-extent = (-180, 180, maxlogp, minlogp)
-for i in range(nfilt):     
-     ax = axes[i]
-     im = ax.imshow(np.roll(filter_cf[nlat//2,:,:,i].T, nlon//2,
-                            axis=1), vmin=vmin, vmax=vmax, origin='lower',
-                    extent=extent, aspect='auto')
-     if i == 0:
-         ax.set_ylabel('Log(p) (bars)')
-     ax.set_xlabel('Longitude (deg)')
-
-fig.colorbar(im, cax=axes[-1], label='Contribution', shrink=0.5)
-
-plt.tight_layout()
-plt.savefig(os.path.join(outdir, 'cf-equator.png'))
-plt.close()
+     plt.tight_layout()
+     plt.savefig(os.path.join(outdir, 'cf-equator.png'))
+     plt.close()
             
 # Some useful things
 outdict = {}
@@ -764,11 +767,14 @@ outdict['tgrid'] = tgrid
 outdict['vis'] = vis
 outdict['inttgrid'] = inttgrid
 outdict['intfluxgrid'] = intfluxgrid
-outdict['filter_cf'] = filter_cf
 outdict['p'] = rt.pressureProfile/1e5
 outdict['lat'] = lat
-outdict['lon'] = lon
-outdict['cf'] = cf
-outdict['filter_cf'] = filter_cf
-outdict['cf_max_maps'] = cf_max_maps
+outdict['lon'] = lo
+
+if cf:
+     outdict['filter_cf'] = filter_cf
+     outdict['cf'] = cf
+     outdict['filter_cf'] = filter_cf
+     outdict['cf_max_maps'] = cf_max_maps
+     
 np.save(os.path.join(outdir, 'output.npy'), outdict)
