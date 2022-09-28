@@ -769,7 +769,7 @@ outdict['inttgrid'] = inttgrid
 outdict['intfluxgrid'] = intfluxgrid
 outdict['p'] = rt.pressureProfile/1e5
 outdict['lat'] = lat
-outdict['lon'] = lo
+outdict['lon'] = lon
 
 if cf:
      outdict['filter_cf'] = filter_cf
