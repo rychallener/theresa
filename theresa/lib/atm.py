@@ -114,7 +114,6 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
         for s in range(nspec):
             if spec[s] in mols:
                 for k in range(nlayers):
-                    z = 0.0
                     if z in ggchemz:
                         iz = np.where(ggchemz == z)
                         fcn = spi.interp1d(ggchemT,
