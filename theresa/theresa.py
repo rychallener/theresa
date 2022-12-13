@@ -160,7 +160,9 @@ def map2d(cfile):
                 ln.eigeny, ln.evalues, ln.evectors, ln.ecurves, ln.lcs = \
                     eigen.mkcurves(system, fit.t, ln.lmax,
                                    fit.pflux_y00, ncurves=ln.ncurves,
-                                   method=cfg.twod.pca)
+                                   method=cfg.twod.pca,
+                                   orbcheck=cfg.twod.orbcheck,
+                                   sigorb=cfg.twod.sigorb)
 
                 print("Calculating intensities of visible grid cells of each eigenmap.")
                 ln.intens, ln.vislat, ln.vislon = eigen.intensities(fit, ln)
@@ -209,6 +211,23 @@ def map2d(cfile):
                 ln.chisq   = mc3out['best_chisq']
                 ln.post    = mc3out['posterior']
                 ln.zmask   = mc3out['zmask']
+
+                # Insert fixed values into posterior and bestp. Only
+                # does something if you manually fix parameters by
+                # editing code...
+                niter, nfree = ln.post.shape
+                nparams = len(params)
+                for ip in range(nparams):
+                    if pstep[ip] == 0:
+                        ln.post = np.insert(
+                            ln.post, ip,
+                            np.ones(niter) * params[ip],
+                            axis=1)
+                    if pstep[ip] < 0:
+                        ln.post = np.insert(
+                            ln.post, ip,
+                            np.ones(niter) * ln.bestp[-int(pstep[ip])],
+                            axis=1)
 
                 ln.nfreep = np.sum(pstep > 0)
                 ln.ndata  = mc3data.size
@@ -346,6 +365,7 @@ def map2d(cfile):
         plots.bestfit(fit)
         plots.ecurveweights(fit)
         plots.hshist(fit)
+        plots.bics(fit, outdir=cfg.twod.outdir)
 
     if cfg.twod.animations:
         print("Making animations.")

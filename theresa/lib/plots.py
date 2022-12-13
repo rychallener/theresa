@@ -380,6 +380,49 @@ def hshist(fit):
     plt.savefig(os.path.join(fit.cfg.twod.outdir, 'hotspot-hist.png'))
     plt.close(fig)
 
+def bics(fit, outdir=''):
+    nmaps = len(fit.maps)
+    
+    fig, axes = plt.subplots(nrows=1, ncols=nmaps, squeeze=False)
+    
+    for im, map in enumerate(fit.maps):
+        lmax    = fit.cfg.twod.lmax[im]
+        ncurves = fit.cfg.twod.ncurves[im]
+
+        ls = np.arange(1, lmax + 1)
+        ns = np.arange(1, ncurves + 1)
+
+        bicarray = np.zeros((lmax, ncurves))
+        for il, l in enumerate(ls):
+            for ic, n in enumerate(ns):
+                if hasattr(map, 'l{}n{}'.format(l,n)):
+                    bicarray[il,ic] = getattr(map, 'l{}n{}'.format(l,n)).bic
+                else:
+                    bicarray[il,ic] = np.inf
+
+        ax = axes[0,im]
+
+        cmap = copy.copy(mpl.cm.get_cmap('viridis'))
+        cmap.set_bad(color='red')
+        overlaycmap = mplc.ListedColormap([(0,0,0,0), (0,0,0,1)])
+        
+        dbic = bicarray - np.nanmin(bicarray[bicarray != np.inf])
+
+        extent = (0.5, ncurves + 0.5, 0.5, lmax + 0.5)
+        image = ax.imshow(dbic, interpolation='none', origin='lower',
+                          cmap=cmap, norm=mplc.LogNorm(vmax=100),
+                          extent=extent)
+        # Super janky way to handle the infs (cover them with black squares)
+        ax.imshow(~np.isfinite(dbic), interpolation='none', origin='lower',
+                  cmap=overlaycmap, extent=extent)
+
+        ax.set_xlabel('Number of Eigencurves')
+        ax.set_ylabel(r'$l_{\rm max}$')
+        plt.colorbar(image, ax=ax, label=r'$\Delta {\rm BIC}$', extend='max')
+        
+    plt.savefig(os.path.join(outdir, 'bics.png'))
+    plt.close(fig)
+
 def bestfitlcsspec(fit, outdir=''):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     

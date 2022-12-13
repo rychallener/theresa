@@ -63,6 +63,9 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, baseline):
     elif baseline == 'quadratic':
         f += params[i+3] * (t - params[i+5])**2 + \
              params[i+4] * (t - params[i+5])
+    elif baseline == 'sinusoidal':
+        f += params[i+3] * np.sin(
+            2 * np.pi * (t - t[0]) / params[i+4] - params[i+5])
 
     return f
 
@@ -360,19 +363,26 @@ def get_par_2d(fit, ln):
     if cfg.twod.baseline is None:
         pass
     elif cfg.twod.baseline == 'linear':
-        params   = np.concatenate((params,   ( 0.0,  0.0)))
-        pstep    = np.concatenate((pstep,    ( 0.01, 0.0)))
-        pmin     = np.concatenate((pmin,     (-1.0,  -10.0)))
-        pmax     = np.concatenate((pmax,     ( 1.0,   10.0)))
+        params   = np.concatenate((params,   ( 0.0,  2459802.8788233115)))
+        pstep    = np.concatenate((pstep,    ( 0.01, 0.001)))
+        pmin     = np.concatenate((pmin,     (-1.0,  -np.inf)))
+        pmax     = np.concatenate((pmax,     ( 1.0,   np.inf)))
         pnames   = np.concatenate((pnames,   ('b1', 't0')))
         texnames = np.concatenate((texnames, ('$b_1$', '$t_0$')))
     elif cfg.twod.baseline == 'quadratic':
-        params   = np.concatenate((params,   ( 0.0,  0.0,   0.0)))
+        params   = np.concatenate((params,   ( 0.0,  0.0,   2459802.8788233115)))
         pstep    = np.concatenate((pstep,    ( 0.01, 0.01,  0.0)))
-        pmin     = np.concatenate((pmin,     (-1.0,  -1.0, -10.0)))
-        pmax     = np.concatenate((pmax,     ( 1.0,   1.0,  10.0)))
+        pmin     = np.concatenate((pmin,     (-1.0,  -1.0, -np.inf)))
+        pmax     = np.concatenate((pmax,     ( 1.0,   1.0,  np.inf)))
         pnames   = np.concatenate((pnames,   ('b2', 'b1', 't0')))
         texnames = np.concatenate((texnames, ('$b_2$', '$b_1$', '$t_0$')))
+    elif cfg.twod.baseline == 'sinusoidal':
+        params   = np.concatenate((params,   (-3.6e-5, 0.0885, 2.507)))
+        pstep    = np.concatenate((pstep,    (0.001, 0.001,    0.1)))
+        pmin     = np.concatenate((pmin,     (-1.0,  0.05, -np.pi)))
+        pmax     = np.concatenate((pmax,     ( 1.0,  0.15,  np.pi)))
+        pnames   = np.concatenate((pnames,   ('Amp.', 'Period', 'Phase')))
+        texnames = np.concatenate((texnames, ('Amp.', 'Period', 'Phase')))
     else:
         print("Unrecognized baseline model.")
         sys.exit()

@@ -84,6 +84,24 @@ class Fit:
                 self.cfg.twod.baseline = None
         else:
             self.cfg.twod.baseline = None
+
+        if self.cfg.cfg.has_option('2D', 'clip'):
+            self.cfg.twod.clip = np.array(
+                [float(a) for a in self.cfg.cfg.get('2D', 'clip').split()])
+            if len(self.cfg.twod.clip) % 2 != 0:
+                print("Uneven number of clip boundaries.")
+                sys.exit()
+        else:
+            self.cfg.twod.clip = None
+
+        if self.cfg.cfg.has_option('2D', 'orbcheck'):
+            self.cfg.twod.orbcheck = self.cfg.cfg.get('2D', 'orbcheck')
+            if self.cfg.twod.orbcheck == 't0':
+                self.cfg.twod.sigorb = [
+                    float(a) for a in self.cfg.cfg.get('2D', 'sigorb').split()]
+        else:
+            self.cfg.twod.orbcheck = None
+            self.cfg.twod.sigorb   = None
             
         # 3D options
         self.cfg.threed.outdir = self.cfg.cfg.get('3D', 'outdir')
@@ -180,15 +198,16 @@ class Fit:
         self.cfg.star.d    = self.cfg.cfg.getfloat('Star', 'd')
         self.cfg.star.z    = self.cfg.cfg.getfloat('Star', 'z')
 
-        if self.cfg.cfg.has_option('star', 'starspec'):
-            self.cfg.star.starspec = self.cfg.cfg.get('star', 'starspec')
+        if self.cfg.cfg.has_option('Star', 'starspec'):
+            self.cfg.star.starspec = self.cfg.cfg.get('Star', 'starspec')
         else:
+            print('Using default blackbody spectrum for star.')
             self.cfg.star.starspec = 'bbint'
             
         if self.cfg.star.starspec == 'custom':
-            if self.cfg.cfg.has_option('star', 'starspecfile'):
+            if self.cfg.cfg.has_option('Star', 'starspecfile'):
                 self.cfg.star.starspecfile = \
-                    self.cfg.cfg.get('star', 'starspecfile')
+                    self.cfg.cfg.get('Star', 'starspecfile')
             else:
                 print("Must specify stellar spectrum file "
                       "using starspecfile.")
@@ -212,9 +231,24 @@ class Fit:
         Read data files, including a stellar spectrum if provided.
         Populate related attributes.
         '''
-        self.t    = np.loadtxt(self.cfg.twod.timefile, ndmin=1)
-        self.flux = np.loadtxt(self.cfg.twod.fluxfile, ndmin=2).T
-        self.ferr = np.loadtxt(self.cfg.twod.ferrfile, ndmin=2).T
+        # Unclipped
+        self.tuc    = np.loadtxt(self.cfg.twod.timefile, ndmin=1)
+        self.fluxuc = np.loadtxt(self.cfg.twod.fluxfile, ndmin=2).T
+        self.ferruc = np.loadtxt(self.cfg.twod.ferrfile, ndmin=2).T
+
+        if self.cfg.twod.clip is None:
+            self.t    = np.copy(self.tuc)
+            self.flux = np.copy(self.fluxuc)
+            self.ferr = np.copy(self.ferruc)
+        else:
+            nclip = len(self.cfg.twod.clip) // 2
+            whereclip = np.ones(len(self.tuc), dtype=bool)
+            for i in range(nclip):
+                whereclip[(self.tuc > self.cfg.twod.clip[2*i  ]) &
+                          (self.tuc < self.cfg.twod.clip[2*i+1])] = False
+            self.t    = np.copy(self.tuc[whereclip])
+            self.flux = np.copy(self.fluxuc[:,whereclip])
+            self.ferr = np.copy(self.ferruc[:,whereclip])
 
         if len(self.t) != self.flux.shape[1]:
             print("WARNING: Number of times does not match the size " +
@@ -228,7 +262,7 @@ class Fit:
 
         if hasattr(self.cfg.star, 'starspecfile'):
             self.starwl, self.starflux = np.loadtxt(
-                self.cfg.twod.starspecfile, unpack=True)
+                self.cfg.star.starspecfile, unpack=True)
         else:
             self.starwl, self.starflux = None, None
 

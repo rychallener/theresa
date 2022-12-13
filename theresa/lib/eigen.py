@@ -7,7 +7,8 @@ import theano
 import theano.tensor as tt
 import scipy.constants as sc
 
-def mkcurves(system, t, lmax, y00, ncurves=None, method='pca'):
+def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
+             orbcheck=None, sigorb=None):
     """
     Generates light curves from a star+planet system at times t,
     for positive and negative spherical harmonics with l up to lmax.
@@ -73,6 +74,43 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca'):
             sflux, lcs[ilc+1] = t_evalflux(yval)
             ilc += 2
 
+    # If user wants to include additional eigencurves which explore
+    # different orbital parameters
+    if orbcheck is not None:
+        if orbcheck == 't0':
+            planet.t0 += sigorb[0]
+            
+        mlcs = np.zeros((nharm, nt))
+        ilc = 0
+        for i, l in enumerate(range(1, lmax + 1)):
+            for j, m in enumerate(range(-l, l + 1)):
+                yval = np.zeros(nharm // 2)
+                yval[ilc // 2] =  1.0
+                sflux, mlcs[ilc]   = t_evalflux(yval)
+                yval[ilc // 2] = -1.0
+                sflux, mlcs[ilc+1] = t_evalflux(yval)
+                ilc += 2
+
+        if orbcheck == 't0':
+            planet.t0 -= sigorb[0]
+            planet.t0 += sigorb[1]
+        
+        plcs = np.zeros((nharm, nt))
+        ilc = 0
+        for i, l in enumerate(range(1, lmax + 1)):
+            for j, m in enumerate(range(-l, l + 1)):
+                yval = np.zeros(nharm // 2)
+                yval[ilc // 2] =  1.0
+                sflux, plcs[ilc]   = t_evalflux(yval)
+                yval[ilc // 2] = -1.0
+                sflux, plcs[ilc+1] = t_evalflux(yval)
+                ilc += 2
+
+        if orbcheck == 't0':
+            planet.t0 -= sigorb[1]
+
+        lcs = np.concatenate((lcs, mlcs, plcs), axis=0)
+        
     planet.map[1:,:] = 0.0
     # Subtact uniform map contribution (starry includes this in all
     # light curves)
