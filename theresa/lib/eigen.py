@@ -294,24 +294,24 @@ def emapminmax(planet, eigeny, ncurves):
             
     return lat, lon, intens
 
-def intensities(fit, map):
+def intensities(fit, data, ln):
     # We reinitialize the planet object here because the yval
     # assignments in the mkcurves theano function are tracked, so if
     # we don't pass that yval into the theano function here (and why
     # would we), theano gets confused as it runs through those
     # assignments in the graph. Perhaps there's a more elegant
     # solution.
-    star, planet, system = utils.initsystem(fit, map.lmax)
+    star, planet, system = utils.initsystem(fit, ln.lmax)
     
-    wherevis = np.where((fit.lon + fit.dlon >= fit.minvislon) &
-                        (fit.lon - fit.dlon <= fit.maxvislon))
+    wherevis = np.where((fit.lon + fit.dlon >= data.minvislon) &
+                        (fit.lon - fit.dlon <= data.maxvislon))
 
     vislon = fit.lon[wherevis].flatten()
     vislat = fit.lat[wherevis].flatten()
 
     nloc = len(vislon)
     
-    intens = np.zeros((map.ncurves, nloc))
+    intens = np.zeros((ln.ncurves, nloc))
 
     def evalintensity(yval):
         planet.map[1:,:] = yval
@@ -326,8 +326,8 @@ def intensities(fit, map):
     arg1 = tt.dvector()
     t_evalintensity = theano.function([arg1], evalintensity(arg1))
 
-    for k in range(map.ncurves):
-        intens[k] = t_evalintensity(map.eigeny[k,1:])
+    for k in range(ln.ncurves):
+        intens[k] = t_evalintensity(ln.eigeny[k,1:])
             
     planet.map[1:,:] = 0.0
         

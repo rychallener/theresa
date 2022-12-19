@@ -135,7 +135,7 @@ def ecurvepower(evalues, outdir):
     plt.close(fig)
 
 def pltmaps(fit, proj='rect'):
-    nmaps = len(fit.wlmid)
+    nmaps = len(fit.maps)
 
     ncols = np.int(np.sqrt(nmaps) // 1)
     nrows = nmaps // ncols + (nmaps % ncols != 0)
@@ -181,7 +181,7 @@ def pltmaps(fit, proj='rect'):
         im = ax.imshow(fit.maps[i].tmap, origin='lower', cmap='plasma',
                        extent=extent, vmin=vmin, vmax=vmax)
 
-        ax.set_title('{:.2f} um'.format(fit.wlmid[i]))
+        ax.set_title('{:.2f} um'.format(fit.maps[i].wlmid))
 
         if icol == 0:
             ax.set_ylabel(r'Latitude ($^\circ$)')
@@ -198,7 +198,7 @@ def pltmaps(fit, proj='rect'):
     plt.close(fig)
 
 def tmap_unc(fit, proj='rect'):
-    nmaps = len(fit.wlmid)
+    nmaps = len(fit.maps)
 
     ncols = np.int(np.sqrt(nmaps) // 1)
     nrows = nmaps // ncols + (nmaps % ncols != 0)
@@ -244,7 +244,7 @@ def tmap_unc(fit, proj='rect'):
         im = ax.imshow(fit.maps[i].tmapunc, origin='lower', cmap='plasma',
                        extent=extent, vmin=vmin, vmax=vmax)
 
-        ax.set_title('{:.2f} um'.format(fit.wlmid[i]))
+        ax.set_title('{:.2f} um'.format(fit.maps[i].wlmid))
 
         if icol == 0:
             ax.set_ylabel(r'Latitude ($^\circ$)')
@@ -261,67 +261,67 @@ def tmap_unc(fit, proj='rect'):
     plt.close(fig)
     
 def bestfit(fit):
-    t = fit.t
+    nmaps = len(fit.maps)
     
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    nfilt = len(fit.wlmid)
-    nt = len(t)
 
-    hratios = np.zeros(nfilt+1)
+    hratios = np.zeros(nmaps+1)
     hratios[0] = 0.5
-    hratios[1:] = 0.5 / nfilt
+    hratios[1:] = 0.5 / nmaps
     
     gridspec_kw = {'height_ratios':hratios}
     
-    fig, axes = plt.subplots(nrows=nfilt+1, ncols=1, sharex=True,
+    fig, axes = plt.subplots(nrows=nmaps+1, ncols=1, sharex=True,
                              gridspec_kw=gridspec_kw, figsize=(8,10))
 
-    nt = len(t)
     
-    for i in range(nfilt):
-        axes[0].plot(t, fit.maps[i].bestln.bestfit, zorder=2,
+    for i, m in enumerate(fit.maps):
+        t = (m.dataset.t - fit.cfg.planet.t0) % fit.cfg.planet.porb
+        axes[0].plot(t, m.bestln.bestfit, zorder=2,
                      color=colors[i],
-                     label='{:.2f} um'.format(fit.wlmid[i]))
-        axes[0].scatter(t, fit.flux[i], s=0.1, zorder=1, color=colors[i])
+                     label='{:.2f} um'.format(m.wlmid))
+        axes[0].scatter(t, m.flux, s=0.1, zorder=1, color=colors[i])
 
     axes[0].legend()
     axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
 
-    for i in range(nfilt):
-        axes[i+1].scatter(t, fit.flux[i] - fit.maps[i].bestln.bestfit, s=0.1,
+    for i, m in enumerate(fit.maps):
+        t = (m.dataset.t - fit.cfg.planet.t0) % fit.cfg.planet.porb
+        axes[i+1].scatter(t, m.flux - m.bestln.bestfit, s=0.1,
                           color=colors[i])
         axes[i+1].set_ylabel('Residuals')
         axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
-        if i == nfilt-1:
-            axes[i+1].set_xlabel('Time (days)')
+        if i == nmaps-1:
+            axes[i+1].set_xlabel('Time (days from transit)')
 
     fig.tight_layout()
     plt.savefig(os.path.join(fit.cfg.twod.outdir, 'bestfit-lcs.png'))
     plt.close(fig)
 
 def ecurveweights(fit):
-    nwl = len(fit.wlmid)
+    nmaps = len(fit.maps)
 
     maxweight = -np.inf
     minweight =  np.inf
 
     maxcurves = np.max([m.bestln.ncurves for m in fit.maps])
 
-    if nwl == 1:
+    if nmaps == 1:
         shifts = [0]
     else:
-        shifts = np.linspace(-0.2, 0.2, num=nwl, endpoint=True)
+        shifts = np.linspace(-0.2, 0.2, num=nmaps, endpoint=True)
 
     fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
 
-    for i in range(nwl):
-        ncurves = fit.maps[i].bestln.ncurves
+    for i in range(nmaps):
+        m = fit.maps[i]
+        ncurves = m.bestln.ncurves
         npar = ncurves + 2
-        weights = fit.maps[i].bestln.bestp[:ncurves]
-        uncs    = fit.maps[i].bestln.stdp[:ncurves]
+        weights = m.bestln.bestp[:ncurves]
+        uncs    = m.bestln.stdp[:ncurves]
         axes[0].errorbar(np.arange(ncurves) + shifts[i] + 1,
                          weights, uncs, fmt='o',
-                         label="{:.2f} um".format(fit.wlmid[i]))
+                         label="{:.2f} um".format(m.wlmid))
         axes[0].set_ylabel("E-curve weight")
         maxweight = np.max((maxweight, np.max(weights)))
         minweight = np.min((minweight, np.min(weights)))
@@ -339,7 +339,7 @@ def ecurveweights(fit):
     axes[0].legend()
 
     xlim = axes[1].get_xlim()
-    axes[1].hlines(3, 0, nwl*maxcurves+1, linestyles='--',
+    axes[1].hlines(3, 0, nmaps*maxcurves+1, linestyles='--',
                    label=r'3$\sigma$')
     axes[1].set_xlim(xlim)
     axes[1].legend()
@@ -385,9 +385,9 @@ def bics(fit, outdir=''):
     
     fig, axes = plt.subplots(nrows=1, ncols=nmaps, squeeze=False)
     
-    for im, map in enumerate(fit.maps):
-        lmax    = fit.cfg.twod.lmax[im]
-        ncurves = fit.cfg.twod.ncurves[im]
+    for im, m in enumerate(fit.maps):
+        lmax    = fit.cfg.twod.lmax
+        ncurves = fit.cfg.twod.ncurves
 
         ls = np.arange(1, lmax + 1)
         ns = np.arange(1, ncurves + 1)
@@ -395,8 +395,8 @@ def bics(fit, outdir=''):
         bicarray = np.zeros((lmax, ncurves))
         for il, l in enumerate(ls):
             for ic, n in enumerate(ns):
-                if hasattr(map, 'l{}n{}'.format(l,n)):
-                    bicarray[il,ic] = getattr(map, 'l{}n{}'.format(l,n)).bic
+                if hasattr(m, 'l{}n{}'.format(l,n)):
+                    bicarray[il,ic] = getattr(m, 'l{}n{}'.format(l,n)).bic
                 else:
                     bicarray[il,ic] = np.inf
 
@@ -410,7 +410,7 @@ def bics(fit, outdir=''):
 
         extent = (0.5, ncurves + 0.5, 0.5, lmax + 0.5)
         image = ax.imshow(dbic, interpolation='none', origin='lower',
-                          cmap=cmap, norm=mplc.LogNorm(vmax=100),
+                          cmap=cmap, norm=mplc.LogNorm(vmin=1, vmax=100),
                           extent=extent)
         # Super janky way to handle the infs (cover them with black squares)
         ax.imshow(~np.isfinite(dbic), interpolation='none', origin='lower',
@@ -418,7 +418,7 @@ def bics(fit, outdir=''):
 
         ax.set_xlabel('Number of Eigencurves')
         ax.set_ylabel(r'$l_{\rm max}$')
-        plt.colorbar(image, ax=ax, label=r'$\Delta {\rm BIC}$', extend='max')
+        plt.colorbar(image, ax=ax, label=r'$\Delta {\rm BIC}$', extend='both')
         
     plt.savefig(os.path.join(outdir, 'bics.png'))
     plt.close(fig)

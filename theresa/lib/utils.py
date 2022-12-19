@@ -91,7 +91,7 @@ def specint(wn, spec, filtwn_list, filttrans_list):
     return intspec
 
     
-def vislon(planet, fit):
+def vislon(planet, data):
     """
     Determines the range of visible longitudes based on times of
     observation.
@@ -112,7 +112,7 @@ def vislon(planet, fit):
     maxlon: float
         Maximum visible longitude, in degrees
     """
-    t = fit.t
+    t = data.t
 
     porb   = planet.porb   # days / orbit
     prot   = planet.prot   # days / rotation
@@ -461,7 +461,7 @@ def hotspotloc_driver(fit, ln):
     
     return hslocbest, hslocstd, hslocpost, hsloctserr
 
-def tmappost(fit, ln):
+def tmappost(fit, m, ln):
     post = ln.post[ln.zmask]
 
     nsamp, nfree = post.shape
@@ -495,8 +495,6 @@ def tmappost(fit, ln):
     arg1 = tt.dvector()
     arg2 = tt.dscalar()
     t_calcfmap = theano.function([arg1, arg2], calcfmap(arg1, arg2))
-
-    ifilt = np.where(fit.wlmid == ln.wlmid)[0][0]
     
     pbar = progressbar.ProgressBar(max_value=ncalc)
     for i in range(ncalc):
@@ -506,12 +504,11 @@ def tmappost(fit, ln):
             yval += post[ipost,j] * ln.eigeny[j,1:]
             
         fmaps[i] = t_calcfmap(yval, post[ipost, ncurves]).reshape(fit.lat.shape)
-        tmaps[i] = fmap_to_tmap(fmaps[i], ln.wlmid,
-                                fit.cfg.planet.r, fit.cfg.star.r,
-                                fit.cfg.star.t, post[ipost,ncurves+1],
+        tmaps[i] = fmap_to_tmap(fmaps[i], m.wlmid, fit.cfg.planet.r,
+                                fit.cfg.star.r, fit.cfg.star.t,
+                                post[ipost,ncurves+1],
                                 starspec=fit.cfg.star.starspec,
-                                fwl=fit.filtwl[ifilt],
-                                ftrans=fit.filttrans[ifilt],
+                                fwl=m.filtwl, ftrans=m.filttrans,
                                 swl=fit.starwl, sspec=fit.starflux)
         
         pbar.update(i+1)
