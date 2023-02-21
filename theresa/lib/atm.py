@@ -111,8 +111,16 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
             print("Pressures of fit and chemistry do not match. Exiting.")
             sys.exit()
 
+        # TauREx wants H and e- for H- opacity, so we need to calculate
+        # those abundances. This avoids requiring users to include H and e-
+        # in their requested composition, which would be unintuitive
+        if 'H-' in mols:
+            exmols = ['H', 'e-']
+        else:
+            exmols = []
+
         for s in range(nspec):
-            if spec[s] in mols:
+            if spec[s] in mols or spec[s] in exmols:
                 for k in range(nlayers):
                     if z in ggchemz:
                         iz = np.where(ggchemz == z)

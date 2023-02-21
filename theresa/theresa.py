@@ -412,8 +412,19 @@ def map3d(fit, system):
                                         elements=cfg.threed.elem)
     else:
         fit.cheminfo = None
+
+    # Determine which grid cells to use
+    # Get all unique lat/lon combinations from all datasets
+    # Only considers longitudes currently
+    allivislon = np.concatenate([d.ivislon for d in fit.datasets])
+    allivislat = np.concatenate([d.ivislat for d in fit.datasets])
+    allivis = [(a,b) for a, b in zip(allivislat, allivislon)]
+    allivis = np.unique(allivis, axis=1)
+    fit.ivislat3d = np.array([a[0] for a in allivis])
+    fit.ivislon3d = np.array([a[1] for a in allivis])
         
     print("Fitting spectrum.")
+    # This doesn't work. Stick to TauREx.
     if cfg.threed.rtfunc == 'transit':
         tcfg = mkcfg.mktransit(cfile, outdir)
         rtcall = os.path.join(transitdir, 'transit', 'transit')
@@ -442,8 +453,10 @@ def map3d(fit, system):
         wnlow  = cfg.cfg.getfloat('taurex', 'wnlow')
         wnhigh = cfg.cfg.getfloat('taurex', 'wnhigh')
         wndelt = 1.0
-        
-        for filtwn, filttrans in zip(fit.filtwn, fit.filttrans):
+
+        for m in fit.maps:
+            filtwn = m.filtwn
+            filttrans = m.filttrans
             nonzero = filtwn[np.where(filttrans != 0.0)]
             if not np.all((nonzero > wnlow) & (nonzero < wnhigh)):
                 print("ERROR: Wavenumber range does not cover all filters!")
@@ -486,10 +499,14 @@ def map3d(fit, system):
         
 
         # Build data and uncert arrays for mc3
-        mc3data   = fit.flux.flatten()
-        mc3uncert = fit.ferr.flatten()
+        mc3data   = np.concatenate([m.flux for m in fit.maps])
+        mc3uncert = np.concatenate([m.ferr for m in fit.maps])
+        
         if cfg.threed.fitcf:
-            ncfpar = fit.ivislat.size * len(cfg.twod.filtfiles)
+            ncfpar = np.sum([
+                d.ivislat.size * len(d.wlmid) for d in fit.datasets])
+            print("ncf: " + str(ncfpar))
+            #ncfpar = fit.ivislat.size * len(cfg.twod.filtfiles)
             # Here we use 0s and 1s for the cf data and uncs, then
             # have the model return a value equal to the number
             # of sigma away from the cf peak, so MC3 computes the
@@ -566,8 +583,7 @@ def map3d(fit, system):
               f"{fit.ess3d[i]:7.1f} " +
               f"{fit.crsig3d[i]:13.2e}")
           
-    nfilt = len(cfg.twod.filtfiles)
-    nt    = len(fit.t)
+    nmaps = len(fit.maps)
 
     print("Calculating best fit.")
     specout = model.specgrid(fit.specbestp, fit)
@@ -579,7 +595,7 @@ def map3d(fit, system):
     fit.pmaps       = specout[5]
     
     fit.specbestmodel = model.sysflux(fit.specbestp, fit)[0]
-    fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
+    #fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
 
     allmols = np.concatenate((cfg.threed.mols, cfg.threed.cmols))
     print("WARNING: assuming solar metallicity for plotting (fix this)!")
@@ -587,15 +603,17 @@ def map3d(fit, system):
                                            allmols, fit.p, fit.besttgrid,
                                            cfg.planet.m, cfg.planet.r,
                                            cfg.planet.p0, 0.0,
-                                           ilat=fit.ivislat,
-                                           ilon=fit.ivislon,
+                                           ilat=fit.ivislat3d,
+                                           ilon=fit.ivislon3d,
                                            cheminfo=fit.cheminfo)
                                            
 
     print("Calculating contribution functions.")
+    allfiltwn    = [m.filtwn    for m in fit.maps]
+    allfilttrans = [m.filttrans for m in fit.maps]
     fit.cf = cf.contribution_filters(fit.besttgrid, fit.modelwngrid,
-                                     fit.taugrid, fit.p, fit.filtwn,
-                                     fit.filttrans)
+                                     fit.taugrid, fit.p, allfiltwn,
+                                     allfilttrans)
 
     # Save before plots, in case of crashes
     # Do not add attributes to fit after this

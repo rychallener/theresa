@@ -425,34 +425,34 @@ def bics(fit, outdir=''):
 
 def bestfitlcsspec(fit, outdir=''):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    
-    nfilt, nt = fit.specbestmodel.shape
 
-    hratios = np.zeros(nfilt+1)
+    nmaps = len(fit.maps)
+
+    hratios = np.zeros(nmaps+1)
     hratios[0] = 0.5
-    hratios[1:] = 0.5 / nfilt
+    hratios[1:] = 0.5 / nmaps
     
     gridspec_kw = {'height_ratios':hratios}
     
-    fig, axes = plt.subplots(nrows=nfilt+1, ncols=1, sharex=True,
+    fig, axes = plt.subplots(nrows=nmaps+1, ncols=1, sharex=True,
                              gridspec_kw=gridspec_kw, figsize=(8,10))
 
-    for i in range(nfilt):
-        axes[0].scatter(fit.t, fit.flux[i], s=0.1, zorder=1,
+    for i, m in enumerate(fit.maps):
+        axes[0].scatter(m.dataset.t, m.flux, s=0.1, zorder=1,
                         color=colors[i])
-        axes[0].plot(fit.t, fit.specbestmodel[i],
-                     label='{:.2f} um'.format(fit.wlmid[i]), zorder=2,
+        axes[0].plot(m.dataset.t, fit.specbestmodel[i],
+                     label='{:.2f} um'.format(m.wlmid), zorder=2,
                      color=colors[i])
 
     axes[0].legend()
     axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
 
-    for i in range(nfilt):
-        axes[i+1].scatter(fit.t, fit.flux[i] - fit.specbestmodel[i], s=0.1,
+    for i, m in enumerate(fit.maps):
+        axes[i+1].scatter(m.dataset.t, m.flux - fit.specbestmodel[i], s=0.1,
                           color=colors[i])
         axes[i+1].set_ylabel('Residuals')
         axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
-        if i == nfilt-1:
+        if i == nmaps-1:
             axes[i+1].set_xlabel('Time (days)')
 
     plt.tight_layout()
@@ -493,9 +493,12 @@ def bestfittgrid(fit, outdir=''):
                 label = None
                 color = mpl.colors.to_rgba('gray')
                 zorder = 1
-            
-            if ((lon + fit.dlon < fit.minvislon) or
-                (lon - fit.dlon > fit.maxvislon)):
+
+            minvislon = np.min([d.minvislon for d in fit.datasets])
+            maxvislon = np.max([d.maxvislon for d in fit.datasets])
+                
+            if ((lon + fit.dlon < minvislon) or
+                (lon - fit.dlon > maxvislon)):
                 linestyle = '--'
             else:
                 linestyle = '-'
@@ -529,7 +532,7 @@ def bestfittgrid(fit, outdir=''):
     # Build custom legend
     legend_elements = []
     for i in range(nmaps):
-        label = str(np.round(fit.wlmid[i], 2)) + ' um'
+        label = str(np.round(fit.maps[i].wlmid, 2)) + ' um'
         legend_elements.append(mpll.Line2D([0], [0], color='w',
                                            label=label,
                                            marker='o',
@@ -671,15 +674,15 @@ def tau(fit, ilat=None, ilon=None, outdir=''):
     plt.xlabel('Wavelength (um)')
     plt.ylabel('Pressure (bars)')
 
-    nfilt = len(fit.filtwl)
+    nmaps = len(fit.maps)
     ax = plt.gca()
     transform = mpl.transforms.blended_transform_factory(
         ax.transData, ax.transAxes)
     # Note: assumes all filters are normalized to 1, and plots them
     # in the top tenth of the image.
-    for i in range(nfilt):
-        plt.plot(np.log10(fit.filtwl[i]), 1.0 - fit.filttrans[i]/10.,
-                 transform=transform, label='{:.2f} um'.format(fit.wlmid[i]),
+    for m in fit.maps:
+        plt.plot(np.log10(m.filtwl), 1.0 - m.filttrans/10.,
+                 transform=transform, label='{:.2f} um'.format(m.wlmid),
                  linestyle='--')
 
     leg = plt.legend(frameon=False, ncol=4, fontsize=8)
@@ -869,7 +872,7 @@ def cf_by_location(fit, outdir=''):
             ax = axes[i,j]
             for k in range(nfilt):
                 color = cmap(k / nfilt)
-                label = os.path.split(fit.cfg.twod.filtfiles[k])[1]
+                label = str(np.round(fit.maps[k].wlmid, 2)) + ' um'
 
                 ax.semilogy(fit.cf[i,j,:,k], fit.p, color=color,
                             label=label)
@@ -947,7 +950,7 @@ def cf_by_filter(fit, outdir=''):
         if i >= naxes - ncols - (ncols - extra):
             ax.set_xlabel('Contribution (arbitrary)')
 
-        ax.set_title("{} um".format(np.round(fit.wlmid[i], 2)))
+        ax.set_title("{} um".format(np.round(fit.maps[i].wlmid, 2)))
 
     plt.gca().invert_yaxis()
     plt.tight_layout()

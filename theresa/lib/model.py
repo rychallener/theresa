@@ -79,11 +79,11 @@ def specgrid(params, fit):
     grid cells.
     """
     cfg = fit.cfg
-
-    # Determine which grid cells to use
-    # Only considers longitudes currently
+   
     nlat, nlon = fit.lat.shape
-    ilat, ilon = fit.ivislat, fit.ivislon
+
+    ilat = fit.ivislat3d
+    ilon = fit.ivislon3d
 
     # Initialize to a list because we don't know the native wavenumber
     # resolution a priori of creating the model
@@ -153,6 +153,13 @@ def specgrid(params, fit):
                    (spec[k]     in fit.cfg.threed.mols):
                     gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
                     rtchem.addGas(gas)
+                if 'H-' in fit.cfg.threed.mols:
+                    if spec[k] == 'H':
+                        gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
+                        rtchem.addGas(gas)
+                    elif spec[k] == 'e-':
+                        gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
+                        rtchem.addGas(gas)
             rt = trc.EmissionModel3D(
                 planet=rtplan,
                 star=rtstar,
@@ -173,7 +180,9 @@ def specgrid(params, fit):
                             lee_mie_bottomP=-1,
                             lee_mie_topP=-1))
             if 'H-' in fit.cfg.threed.mols:
-                rt.add_contribution(trc.HMinusContribution())
+                rt.add_contribution(
+                    taurex.contributions.hm.HydrogenIon())
+                    
 
             rt.build()
 
@@ -220,24 +229,28 @@ def specvtime(params, fit):
     # Calculate grid of spectra without visibility correction
     fluxgrid, tgrid, taugrid, p, wn, pmaps = specgrid(params, fit)
 
-    nt         = len(fit.t)
     nlat, nlon = fit.lat.shape
-    nfilt = len(fit.cfg.twod.filtfiles)
+    nmaps = len(fit.maps)
 
     # Integrate to filters
-    intfluxgrid = np.zeros((nlat, nlon, nfilt))
+    intfluxgrid = np.zeros((nlat, nlon, nmaps))
 
     for i in range(nlat):
         for j in range(nlon):
-            intfluxgrid[i,j] = utils.specint(wn, fluxgrid[i,j],
-                                             fit.filtwn, fit.filttrans)
+            for im, m in enumerate(fit.maps):
+                intfluxgrid[i,j,im] = utils.specint(wn, fluxgrid[i,j],
+                                                    [m.filtwn],
+                                                    [m.filttrans])
 
-    fluxvtime = np.zeros((nfilt, nt))
+    fluxvtime = []
 
     # Account for vis and sum over grid cells
-    for it in range(nt):
-        for ifilt in range(nfilt):
-            fluxvtime[ifilt,it] = np.sum(intfluxgrid[:,:,ifilt] * fit.vis[it])
+    for im, m in enumerate(fit.maps):
+        nt = len(m.dataset.t)
+        tempfvt = np.zeros(nt)
+        for it in range(nt):
+            tempfvt[it] = np.sum(intfluxgrid[:,:,im] * m.dataset.vis[it])
+        fluxvtime.append(tempfvt)
 
     # There is a very small memory leak somewhere, but this seems to
     # fix it. Not an elegant solution, but ¯\_(ツ)_/¯
@@ -248,18 +261,22 @@ def specvtime(params, fit):
 def sysflux(params, fit):
     # Calculate Fp/Fs
     fpfs, tgrid, taugrid, p, wn, pmaps = specvtime(params, fit)
-    nfilt, nt = fpfs.shape
-    systemflux = np.zeros((nfilt, nt))
+    nmaps = len(fpfs)                         
+    systemflux = []
     # Account for stellar correction
     # Transform fp/fs -> fp/(fs + corr) -> (fp + fs + corr)/(fs + corr)
-    for i in range(nfilt):
-        fpfscorr = fpfs[i] * fit.sflux / (fit.sflux + fit.scorr[i])
-        systemflux[i] = fpfscorr + 1
-    return systemflux.flatten(), tgrid, taugrid, p, wn, pmaps
+    for i, m in enumerate(fit.maps):
+        fpfscorr = fpfs[i] * m.dataset.sflux / (m.dataset.sflux + fit.scorr[i])
+        systemflux.append(fpfscorr + 1)
+    
+    return systemflux, tgrid, taugrid, p, wn, pmaps
 
 def mcmc_wrapper(params, fit):
     tic = time.time()
     systemflux, tgrid, taugrid, p, wn, pmaps = sysflux(params, fit)
+
+    # Flatten
+    systemflux = np.concatenate(systemflux).ravel()
 
     # Integrate cf if asked for
     if fit.cfg.threed.fitcf:
@@ -280,16 +297,19 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
     The sigma distance is computed for every visible grid cell
     and returned in a flattened array.
     '''
-    cfs = cf.contribution_filters(tgrid, wn, taugrid, p, fit.filtwn,
-                                  fit.filttrans)
+    allfiltwn    = [m.filtwn for m in fit.maps]
+    allfilttrans = [m.filttrans for m in fit.maps]
+    cfs = cf.contribution_filters(tgrid, wn, taugrid, p, allfiltwn,
+                                  allfilttrans)
 
     # Where the maps "should" be
     # Find the roots of the derivative of a spline fit to
     # the contribution functions, then calculate some sort
     # of goodness of fit
     nlev, nlat, nlon = tgrid.shape
-    nfilt = len(fit.cfg.twod.filtfiles)
-    cfsigdiff = np.zeros(nfilt * fit.ivislat.size)
+    nmaps = len(fit.maps)
+    ncf = np.sum([d.ivislat.size * len(d.wlmid) for d in fit.datasets])
+    cfsigdiff = np.zeros(ncf)
     logp = np.log10(p)
     order = np.argsort(logp)
 
@@ -298,8 +318,8 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
                        np.amax(logp),
                        10*len(logp))
     count = 0
-    for i, j in zip(fit.ivislat, fit.ivislon):
-        for k in range(nfilt):
+    for k, m in enumerate(fit.maps):
+        for i, j in zip(m.dataset.ivislat, m.dataset.ivislon):
             # Check for 0 contribution and handle to avoid errors
             if np.all(cfs[i,j,order,k] == 0.0):
                 print("Contribution function zero for all layers at "
@@ -624,7 +644,7 @@ def get_par_3d(fit):
             npar   = 1
             par    = [2000.]
             pstep  = [   1.]
-            pmin   = [ 100.]
+            pmin   = [ 150.]
             pmax   = [5000.]
             pnames = ['Tbot']
             modeltype.append('tbot')
