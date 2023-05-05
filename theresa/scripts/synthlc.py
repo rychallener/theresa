@@ -73,6 +73,7 @@ prot = cfg.getfloat('synthlc', 'prot')
 t0   = cfg.getfloat('synthlc', 't0')
 ecc  = cfg.getfloat('synthlc', 'ecc')
 inc  = cfg.getfloat('synthlc', 'inc')
+z    = cfg.getfloat('synthlc', 'z')
 
 # Atmosphere parameters
 atmtype = cfg.get('synthlc', 'atmtype')
@@ -253,8 +254,8 @@ numt =  100
 ptop = np.min(p)
 pbot = np.max(p)
 nump = len(p)
-zmin =    0.0
-zmax =    0.0
+zmin =    z
+zmax =    z
 numz =    1
 
 print('Calculating equilibrium chemistry.')
@@ -274,7 +275,7 @@ else:
 
 print('Interpolating chemistry to GCM temperature grid.')
 abn, spec = atm.atminit(atmtype, opacspec, p, tgrid, mp/Msun, rp/Rsun,
-                        0.1, 0.0, cheminfo=cheminfo)
+                        0.1, z, cheminfo=cheminfo)
 
 # Planet
 rtplan = taurex.planet.Planet(
