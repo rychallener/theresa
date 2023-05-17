@@ -583,18 +583,35 @@ def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
             (ftrans is None) or
             (sspec is None) or
             (swl is None)):
-            print('Must specify filter and stellar spectrum.')
+            print('Must specify filter and stellar spectrum.')  
+
         # Convert units
         fwl_m = fwl * 1e-6
         swl_m = swl * 1e-6
-        sint = specint(swl_m, sspec, [fwl_m], [ftrans])
-        tmap = ptemp / np.log(1 + (rp / rs)**2 *
-                              (2 * sc.h * sc.c**2 / meanwl_m**5) *
-                              (1 / np.pi) *
-                              (1 / (fmap * sfact)) *
-                              (1 / sint))        
-        
-        
+
+        rprs2 = (rp / rs)**2
+
+        # Interpolate stellar spectrum to filter wls
+        interp_spec = spi.interp1d(swl_m, sspec)
+        sspec_int   = interp_spec(fwl_m)
+
+        # Calculate blackbody spectra for a range of temperatures
+        # (consider doing this outside this function)
+        trange = np.linspace(50, 5000, 10000)
+        bbs = blackbody_wl(trange, fwl_m)
+
+        fpfs_spec = rprs2 * bbs / sspec_int
+
+        # Integrate over the filter throughput
+        fpfs_bb = np.trapz(fpfs_spec * ftrans * sspec_int, fwl_m, axis=1) / \
+            np.trapz(ftrans * sspec_int, fwl_m)
+
+        # Function to interpolate fluxes to temperatures
+        interp_fpfs = spi.interp1d(fpfs_bb, trange, kind='cubic',
+                                   bounds_error=False)
+
+        tmap = interp_fpfs(fmap * np.pi)
+               
     return tmap
 
 def ess(chain):
@@ -660,21 +677,25 @@ def crsig(ess, cr=0.683):
 def fast_linear_interp(a, b, x):
     return (b[1] - a[1]) / (b[0] - a[0]) * (x - a[0]) + a[1]
 
-@njit
 def blackbody(T, wn):
     '''
     Calculates the Planck function for a grid of temperatures and
     wavenumbers. Wavenumbers must be in /cm.
-    '''
-    nt  = len(T)
-    nwn = len(wn)
-    bb = np.zeros((nt, nwn))
-
+    '''    
     # Convert from /cm to /m
     wn_m = wn * 1e2
-    for i in range(nt):
-        bb[i] = (2.0 * sc.h * sc.c**2 * wn_m**3) \
-            * 1/(np.exp(sc.h * sc.c * wn_m / sc.k / T[i]) - 1.0)
+    bb = (2.0 * sc.h * sc.c**2 * wn_m[np.newaxis]**3) \
+        * 1 / (np.exp(sc.h * sc.c * wn_m[np.newaxis] / sc.k / T[:, np.newaxis]) - 1.0)
 
+    return bb
+
+def blackbody_wl(T, wl):
+    '''
+    Calculates the Planck function for a grid of temperatures and
+    wavelengths. Wavelenghts must be in m.
+    '''
+    bb = (2.0 * sc.h * sc.c**2 / (wl[np.newaxis]**5)) \
+        * 1 / (np.exp(sc.h * sc.c / wl[np.newaxis] / sc.k / T[:, np.newaxis]) - 1.0)
+    
     return bb
     
