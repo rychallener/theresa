@@ -41,7 +41,7 @@ cfg.read(cfile)
 planetname = cfg.get('synthlc', 'planetname')
 fortfile   = cfg.get('synthlc', 'gcmfile')
 outdir     = cfg.get('synthlc', 'outdir')
-cf         = cfg.getboolean('synthlc', 'cf')
+cfcompute  = cfg.getboolean('synthlc', 'cf')
 
 if not os.path.isdir(outdir):
      os.mkdir(outdir)
@@ -263,7 +263,7 @@ cheminfo = atm.setup_GGchem(tmin, tmax, numt,
                             ptop, pbot, nump,
                             zmin, zmax, numz,
                             condensates=eqcond,
-                            charges=False,
+                            charges=True,
                             elements=elem,
                             dustfile=dustfile,
                             dispolfiles=dispolfiles)
@@ -308,6 +308,13 @@ for i in range(nlat):
                if (spec[k] in gases):
                     gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
                     rtchem.addGas(gas)
+               if 'H-' in gases:
+                    if spec[k] == 'H':
+                         gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
+                         rtchem.addGas(gas)
+                    elif spec[k] == 'e-':
+                         gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
+                         rtchem.addGas(gas)
           rt = trc.EmissionModel3D(
                planet=rtplan,
                star=rtstar,
@@ -316,6 +323,8 @@ for i in range(nlat):
                chemistry=rtchem)
           rt.add_contribution(taurex.contributions.AbsorptionContribution())
           rt.add_contribution(taurex.contributions.CIAContribution())
+          if 'H-' in gases:
+               rt.add_contribution(taurex.contributions.hm.HydrogenIon())
           if clouds:
                if eqcond:
                     for cmol in cloudmol:
@@ -601,7 +610,7 @@ def blackbody(T, wn):
 
      return bb
 
-if cf:
+if cfcompute:
      cf = np.zeros((nlat, nlon, nlev, nwn))
 
      for i in range(nlat):
@@ -772,8 +781,10 @@ outdict['intfluxgrid'] = intfluxgrid
 outdict['p'] = rt.pressureProfile/1e5
 outdict['lat'] = lat
 outdict['lon'] = lon
+outdict['abn'] = abn
+outdict['spec'] = spec
 
-if cf:
+if cfcompute:
      outdict['filter_cf'] = filter_cf
      outdict['cf'] = cf
      outdict['filter_cf'] = filter_cf

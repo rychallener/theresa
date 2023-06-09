@@ -103,8 +103,8 @@ class EmissionModel3D(taurex.model.EmissionModel):
         for contrib in self.contribution_list:
             contrib.contribute(self, 0, total_layers, 0, 0,
                                density, surface_tau, path_length=dz)
-        self.debug('density = %s', density[0])
-        self.debug('surface_tau = %s', surface_tau)
+        #self.debug('density = %s', density[0])
+        #self.debug('surface_tau = %s', surface_tau)
 
         BB = black_body(wngrid, temperature[0])/PI
 
@@ -112,7 +112,7 @@ class EmissionModel3D(taurex.model.EmissionModel):
         _w = self._wi_quads[:, None]
         I = BB * (np.exp(-surface_tau*_mu))
 
-        self.debug('I1_pre %s', I)
+        #self.debug('I1_pre %s', I)
         # Loop downwards
         for layer in range(total_layers - 1, -1, -1):
             layer_tau[...] = 0.0
@@ -128,23 +128,23 @@ class EmissionModel3D(taurex.model.EmissionModel):
 
             tau[layer] += _tau[0]
 
-            self.debug('Layer_tau[%s]=%s', layer, layer_tau)
+            #self.debug('Layer_tau[%s]=%s', layer, layer_tau)
 
             dtau += layer_tau
-            self.debug('dtau[%s]=%s', layer, dtau)
+            #self.debug('dtau[%s]=%s', layer, dtau)
             BB = black_body(wngrid, temperature[layer])/PI
-            self.debug('BB[%s]=%s,%s', layer, temperature[layer], BB)
+            #self.debug('BB[%s]=%s,%s', layer, temperature[layer], BB)
             I += BB * (np.exp(-layer_tau*_mu) - np.exp(-dtau*_mu))
-            self.debug('I_tot[%s]=%s', layer, I)
+            #self.debug('I_tot[%s]=%s', layer, I)
 
             if np.all(tau[layer] > self.taulimit):
                 tau[:layer] += _tau[0]
                 break
 
-        self.debug('I: %s', I)
+        #self.debug('I: %s', I)
 
         flux_total = 2.0 * np.pi * sum(I * (_w / _mu))
-        self.debug('flux_total %s', flux_total)
+        #self.debug('flux_total %s', flux_total)
 
         return self.compute_final_flux(flux_total).flatten(), tau
                          

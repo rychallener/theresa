@@ -398,6 +398,11 @@ def map3d(fit, system):
     # Handle any atmosphere setup
     if cfg.threed.atmtype == 'ggchem':
         print("Precomputing chemistry grid.")
+        if cfg.cfg.has_option('GGchem', 'dispolfiles'):
+            dispolfiles = cfg.cfg.get('GGchem', 'dispolfiles')
+        else:
+            dispolfiles = None
+        
         # T, P, z, spec, abn
         fit.cheminfo = atm.setup_GGchem(cfg.threed.tmin,
                                         cfg.threed.tmax,
@@ -409,7 +414,8 @@ def map3d(fit, system):
                                         cfg.threed.zmax,
                                         cfg.threed.numz,
                                         condensates=cfg.threed.condensates,
-                                        elements=cfg.threed.elem)
+                                        elements=cfg.threed.elem,
+                                        dispolfiles=dispolfiles)
     else:
         fit.cheminfo = None
 

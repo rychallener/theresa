@@ -137,6 +137,27 @@ def specgrid(params, fit):
             nlayers=cfg.threed.nlayers,
             atm_min_pressure=cfg.threed.ptop * 1e5,
             atm_max_pressure=cfg.threed.pbot * 1e5)
+        
+        # TauREx spends an ungodly amount of time deciding whether to
+        # print debug statements or not. Let's not.  (This is a poor
+        # solution -- better to handle in TauREx but oh well)
+        def do_nothing(*args):
+            pass
+        
+        AbsCon = taurex.contributions.AbsorptionContribution()
+        CIACon = taurex.contributions.CIAContribution()
+
+        AbsCon.debug = do_nothing
+        CIACon.debug = do_nothing
+        rtplan.debug = do_nothing
+
+        for molname in taurex.cache.OpacityCache().opacity_dict:
+            taurex.cache.OpacityCache()[molname].debug = do_nothing
+        
+        if 'H-' in fit.cfg.threed.mols:
+            HMCon = taurex.contributions.hm.HydrogenIon()
+            HMCon.debug = do_nothing
+            
         # Latitudes (all visible) and Longitudes
         for i, j in zip(ilat, ilon):
             # Check for nonphysical atmosphere and return a bad fit
@@ -168,8 +189,8 @@ def specgrid(params, fit):
                 chemistry=rtchem,
                 nlayers=cfg.threed.nlayers,
                 taulimit=cfg.threed.taulimit)
-            rt.add_contribution(taurex.contributions.AbsorptionContribution())
-            rt.add_contribution(taurex.contributions.CIAContribution())
+            rt.add_contribution(AbsCon)
+            rt.add_contribution(CIACon)
             if 'clouds' in fit.modeltype3d:
                 for icloud in range(len(crl)):
                     rt.add_contribution(
@@ -180,8 +201,7 @@ def specgrid(params, fit):
                             lee_mie_bottomP=-1,
                             lee_mie_topP=-1))
             if 'H-' in fit.cfg.threed.mols:
-                rt.add_contribution(
-                    taurex.contributions.hm.HydrogenIon())
+                rt.add_contribution(HMCon)
                     
 
             rt.build()
