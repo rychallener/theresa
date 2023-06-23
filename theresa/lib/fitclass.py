@@ -240,7 +240,7 @@ class Fit:
                 if len(obs.clip) % 2 != 0:
                     msg = "Uneven number of clips for observation {}."
                     print(msg.format(obs.name))
-                sys.exit()
+                    sys.exit()
             else:
                 obs.clip = None                             
         
