@@ -196,6 +196,11 @@ def map2d(cfile):
                     params, pstep, pmin, pmax, pnames, texnames = \
                         model.get_par_2d(fit, ln)
 
+                    # Better initial guess if possible
+                    if hasattr(m, "l{}n{}".format(l,n-1)):
+                        params = getattr(m, "l{}n{}".format(l,n-1)).bestp
+                        params = np.insert(params, n-1, 0.0)
+
                     mc3data = d.flux[i]
                     mc3unc  = d.ferr[i]
                     mc3npz = os.path.join(cfg.twod.outdir,
