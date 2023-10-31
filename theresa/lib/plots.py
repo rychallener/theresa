@@ -276,7 +276,7 @@ def bestfit(fit):
 
     
     for i, m in enumerate(fit.maps):
-        t = (m.dataset.t - fit.cfg.planet.t0) % fit.cfg.planet.porb
+        t = (m.dataset.t - fit.cfg.planet.t0) #% fit.cfg.planet.porb
         axes[0].plot(t, m.bestln.bestfit, zorder=2,
                      color=colors[i],
                      label='{:.2f} um'.format(m.wlmid))
@@ -286,7 +286,7 @@ def bestfit(fit):
     axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
 
     for i, m in enumerate(fit.maps):
-        t = (m.dataset.t - fit.cfg.planet.t0) % fit.cfg.planet.porb
+        t = (m.dataset.t - fit.cfg.planet.t0) #% fit.cfg.planet.porb
         axes[i+1].scatter(t, m.flux - m.bestln.bestfit, s=0.1,
                           color=colors[i])
         axes[i+1].set_ylabel('Residuals')
@@ -390,9 +390,9 @@ def bics(fit, outdir=''):
         ncurves = fit.cfg.twod.ncurves
 
         ls = np.arange(1, lmax + 1)
-        ns = np.arange(1, ncurves + 1)
+        ns = np.arange(0, ncurves + 1)
 
-        bicarray = np.zeros((lmax, ncurves))
+        bicarray = np.zeros((lmax, ncurves+1))
         for il, l in enumerate(ls):
             for ic, n in enumerate(ns):
                 if hasattr(m, 'l{}n{}'.format(l,n)):
@@ -408,7 +408,7 @@ def bics(fit, outdir=''):
         
         dbic = bicarray - np.nanmin(bicarray[bicarray != np.inf])
 
-        extent = (0.5, ncurves + 0.5, 0.5, lmax + 0.5)
+        extent = (-0.5, ncurves + 0.5, 0.5, lmax + 0.5)
         image = ax.imshow(dbic, interpolation='none', origin='lower',
                           cmap=cmap, norm=mplc.LogNorm(vmin=1, vmax=100),
                           extent=extent)

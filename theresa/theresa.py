@@ -149,12 +149,19 @@ def map2d(cfile):
             minbic = np.inf
 
             for l in range(1, cfg.twod.lmax+1):
-                for n in range(1, cfg.twod.ncurves+1):
+                for n in range(0, cfg.twod.ncurves+1):
                     # Skip cases where n is higher than the number of
                     # available eigencurves, which is (l+1)**2, minus
                     # the uniform (l=0) case, since that's included by
                     # default
                     if n > (l+1)**2 - 1:
+                        continue
+
+                    # Also let's only do the n=0 case once, since
+                    # it's exactly the same fit for every lmax.
+                    # Link the LN objects for looping simplicity later
+                    if l > 1 and n==0:
+                        setattr(m, 'l{}n{}'.format(l, n), m.l1n0)
                         continue
 
                     print("Fitting lmax={}, n={}".format(l,n))
