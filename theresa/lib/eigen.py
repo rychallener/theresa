@@ -119,6 +119,8 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
     # Run PCA to determine orthogonal light curves
     if ncurves is None:
         ncurves = nharm
+        if method == 'tsvd':
+            ncurves -= 1
         
     evalues, evectors, proj = pca.pca(lcs, method=method, ncomp=ncurves)
 

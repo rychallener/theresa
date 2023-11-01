@@ -51,6 +51,10 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, baseline):
 
     for i in range(ncurves):
         f += ecurves[i] * params[i]
+
+    # Index of the last mapping component
+    # (-1 if there are no mapping components)
+    i = ncurves - 1
    
     f += params[i+1] * y00
 
