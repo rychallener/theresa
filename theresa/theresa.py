@@ -172,20 +172,20 @@ def map2d(cfile):
 
                     ln.wlmid = d.wlmid[i]
 
-                    # Handle PCA if n = 0
-                    if n == 0:
-                        ln.ncurves = None
-                    else:
-                        ln.ncurves = n
+                    ln.ncurves = 0
                     ln.lmax    = l
 
                     # New planet object with updated lmax
                     star, planet, system = utils.initsystem(fit, ln.lmax)
 
                     print("Running PCA to determine eigencurves.")
+                    ncomp = ln.ncurves
+                    if ln.ncurves == 0:
+                        ncomp = None
+                        
                     ln.eigeny, ln.evalues, ln.evectors, ln.ecurves, ln.lcs = \
                         eigen.mkcurves(system, d.t, ln.lmax,
-                                       d.pflux_y00, ncurves=ln.ncurves,
+                                       d.pflux_y00, ncurves=ncomp,
                                        method=cfg.twod.pca,
                                        orbcheck=cfg.twod.orbcheck,
                                        sigorb=cfg.twod.sigorb)
