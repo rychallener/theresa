@@ -172,7 +172,7 @@ def map2d(cfile):
 
                     ln.wlmid = d.wlmid[i]
 
-                    ln.ncurves = 0
+                    ln.ncurves = n
                     ln.lmax    = l
 
                     # New planet object with updated lmax
