@@ -316,6 +316,9 @@ def ecurveweights(fit):
     for i in range(nmaps):
         m = fit.maps[i]
         ncurves = m.bestln.ncurves
+        # No weights to plot
+        if ncurves == 0:
+            continue
         npar = ncurves + 2
         weights = m.bestln.bestp[:ncurves]
         uncs    = m.bestln.stdp[:ncurves]
@@ -331,6 +334,13 @@ def ecurveweights(fit):
         axes[1].set_ylabel("E-curve Significance")
         axes[1].set_xlabel("E-curve number")
         axes[1].set_yscale('log')
+
+    # In case every map was fit with a uniform model
+    # (This plot is useless in that case, but at least we prevent crashes)
+    if minweight == np.inf:
+        minweight = 0.0
+    if maxweight == -np.inf:
+        maxweight = 1.0
 
     yrange = maxweight - minweight
     axes[0].set_ylim((minweight - 0.1 * yrange,

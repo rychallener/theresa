@@ -442,17 +442,25 @@ def hotspotloc_driver(fit, ln):
     hslatstd = np.std(hslat)
 
     # Two-sided errors
-    pdf, xpdf, hpdmin = ms.cred_region(hslon)
-    crlo = np.amin(xpdf[pdf>hpdmin])
-    crhi = np.amax(xpdf[pdf>hpdmin])
-    hsloncrlo = crlo - hslonbest
-    hsloncrhi = crhi - hslonbest
+    if ln.ncurves == 0:
+        print("WARNING: Cannot determine hotspot location for uniform model.")
+        print("         Do not trust hostspot location and uncertainties.")
+        hsloncrlo = -180.
+        hsloncrhi =  180.
+        hslatcrlo =  -90.
+        hslatcrhi =   90.
+    else:
+        pdf, xpdf, hpdmin = ms.cred_region(hslon)
+        crlo = np.amin(xpdf[pdf>hpdmin])
+        crhi = np.amax(xpdf[pdf>hpdmin])
+        hsloncrlo = crlo - hslonbest
+        hsloncrhi = crhi - hslonbest
 
-    pdf, xpdf, hpdmin = ms.cred_region(hslat)
-    crlo = np.amin(xpdf[pdf>hpdmin])
-    crhi = np.amax(xpdf[pdf>hpdmin])
-    hslatcrlo = crlo - hslatbest
-    hslatcrhi = crhi - hslatbest
+        pdf, xpdf, hpdmin = ms.cred_region(hslat)
+        crlo = np.amin(xpdf[pdf>hpdmin])
+        crhi = np.amax(xpdf[pdf>hpdmin])
+        hslatcrlo = crlo - hslatbest
+        hslatcrhi = crhi - hslatbest
 
     hslocbest  = (hslatbest, hslonbest)
     hslocstd   = (hslatstd,  hslonstd)
