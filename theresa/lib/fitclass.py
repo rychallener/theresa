@@ -30,7 +30,12 @@ class Fit:
             if section.startswith('Observation'):
                 nobs += 1
 
-        self.cfg = cc.Configuration(nobs)
+        ninst = 0
+        for section in config.sections():
+            if section.startswith('Instrument'):
+                ninst += 1
+
+        self.cfg = cc.Configuration(nobs, ninst)
 
         self.cfg.cfile = cfile
         self.cfg.cfg   = config
@@ -40,22 +45,6 @@ class Fit:
         
         self.cfg.twod.lmax    = self.cfg.cfg.getint('2D', 'lmax')
         self.cfg.twod.ncurves = self.cfg.cfg.getint('2D', 'ncurves')
-
-        # Once upon a time I allowed for separate settings per filter.
-        # It's not really necessary now since the code optimizes for you.
-        # if len(self.cfg.cfg.get('2D', 'lmax').split()) == 1:
-        #     self.cfg.twod.lmax = np.ones(nfilt, dtype=int) * \
-        #         self.cfg.cfg.getint('2D', 'lmax')
-        # else:
-        #     self.cfg.twod.lmax = np.array(
-        #         [int(a) for a in self.cfg.cfg.get('2D', 'lmax').split()])
-
-        # if len(self.cfg.cfg.get('2D', 'ncurves').split()) == 1:
-        #     self.cfg.twod.ncurves = np.ones(nfilt, dtype=int) * \
-        #         self.cfg.cfg.getint('2D', 'ncurves')
-        # else:
-        #     self.cfg.twod.ncurves = np.array(
-        #         [int(a) for a in self.cfg.cfg.get('2D', 'ncurves').split()])
             
         self.cfg.twod.pca        = self.cfg.cfg.get(   '2D', 'pca')
         self.cfg.twod.ncalc      = self.cfg.cfg.getint('2D', 'ncalc')
@@ -221,17 +210,23 @@ class Fit:
         self.cfg.planet.a     = self.cfg.cfg.getfloat('Planet', 'a')
         self.cfg.planet.b     = self.cfg.cfg.getfloat('Planet', 'b')
 
+        # Instruments
+        for i, inst in enumerate(self.cfg.instruments):
+            section = "Instrument{}".format(i+1)
+            inst.name = self.cfg.cfg.get(section, 'name')
+            inst.filtfiles = self.cfg.cfg.get(section, 'filtfiles').split()
+
         # Observations
-        nobs = 0
         for i, obs in enumerate(self.cfg.observations):
             section = "Observation{}".format(i+1)
             obs.timefile = self.cfg.cfg.get(section, 'timefile')
             obs.fluxfile = self.cfg.cfg.get(section, 'fluxfile')
             obs.ferrfile = self.cfg.cfg.get(section, 'ferrfile')
 
-            obs.filtfiles = self.cfg.cfg.get(section, 'filtfiles').split()
-
             obs.name = self.cfg.cfg.get(section, 'name')
+            obs.instrument = self.cfg.cfg.getint(section, 'instrument')
+
+            obs.baseline = self.cfg.cfg.get(section, 'baseline')
 
             if self.cfg.cfg.has_option(section, 'clip'):
                 obs.clip = np.array(
@@ -249,52 +244,71 @@ class Fit:
         Read data files, including a stellar spectrum if provided.
         Populate related attributes.
         '''
-        # This might seem extraneous, but I've structured the code such
-        # that the Observation objects contain all configuration settings
-        # and the Data objects have the information from the files listed
-        # in the Observation objects. This is consistent with the relationship
-        # between, for example, Map objects and TwoD configuration objects.
-        # For convenience, much (if not all) of the information in an
-        # Observation object is contained in the associated Data object
+        # The Data objects link Observations to Instruments. Every
+        # Instrument has an associated Data object, and within each
+        # Data object there is a Visit object for each Observation
+        # object attached to that instrument. ThERESA will generate a
+        # map (and Map object) for each Data object. Data and Visit
+        # objects contain processed products, while Instrument and
+        # Observation objects only contain parsed configuration
+        # options.
         self.datasets = []
-        for obs in self.cfg.observations:
+        for ii, inst in enumerate(self.cfg.instruments):
             data = Data()
-            # Unclipped
-            data.tuc    = np.loadtxt(obs.timefile, ndmin=1)
-            data.fluxuc = np.loadtxt(obs.fluxfile, ndmin=2).T
-            data.ferruc = np.loadtxt(obs.ferrfile, ndmin=2).T
+            data.visits = []
+            data.filtfiles = inst.filtfiles
+            data.name = inst.name
 
-            data.timefile  = obs.timefile
-            data.fluxfile  = obs.fluxfile
-            data.ferrfile  = obs.ferrfile
-            data.filtfiles = obs.filtfiles
+            for obs in self.cfg.observations:
+                if obs.instrument == ii + 1:
+                    visit = Visit()
+                         
+                    # Unclipped
+                    visit.tuc    = np.loadtxt(obs.timefile, ndmin=1)
+                    visit.fluxuc = np.loadtxt(obs.fluxfile, ndmin=2).T
+                    visit.ferruc = np.loadtxt(obs.ferrfile, ndmin=2).T
+
+                    visit.timefile  = obs.timefile
+                    visit.fluxfile  = obs.fluxfile
+                    visit.ferrfile  = obs.ferrfile
+
+                    visit.name       = obs.name
+                    visit.instrument = obs.instrument
+                    visit.baseline   = obs.baseline
+
+                    if obs.clip is None:
+                        visit.t    = np.copy(visit.tuc)
+                        visit.flux = np.copy(visit.fluxuc)
+                        visit.ferr = np.copy(visit.ferruc)
+                    else:
+                        nclip = len(obs.clip) // 2
+                        whereclip = np.ones(len(visit.tuc), dtype=bool)
+                        for i in range(nclip):
+                            whereclip[(visit.tuc > visit.clip[2*i  ]) &
+                                      (visit.tuc < visit.clip[2*i+1])] = False
+                        visit.t    = np.copy(visit.tuc[whereclip])
+                        visit.flux = np.copy(visit.fluxuc[:,whereclip])
+                        visit.ferr = np.copy(visit.ferruc[:,whereclip])
+
+                    visit.tloc = visit.t - np.min(visit.t)
+
+                    if len(visit.t) != visit.flux.shape[1]:
+                        print("WARNING: Number of times does not match" +
+                              "the size of the flux array.")
+                        sys.exit()
+
+                    if len(visit.t) != visit.ferr.shape[1]:
+                        print("WARNING: Number of times does not match" +
+                              "the size of the ferr array.")
+                        sys.exit()
+
+                    data.visits.append(visit)
+
+            # Concatenated data arrays for convenience
+            data.t = np.concatenate([v.t for v in data.visits])
+            data.flux = np.concatenate([v.flux for v in data.visits], axis=1)
+            data.ferr = np.concatenate([v.ferr for v in data.visits], axis=1)
             
-            data.name = obs.name
-
-            if obs.clip is None:
-                data.t    = np.copy(data.tuc)
-                data.flux = np.copy(data.fluxuc)
-                data.ferr = np.copy(data.ferruc)
-            else:
-                nclip = len(obs.clip) // 2
-                whereclip = np.ones(len(data.tuc), dtype=bool)
-                for i in range(nclip):
-                    whereclip[(data.tuc > obs.clip[2*i  ]) &
-                              (data.tuc < obs.clip[2*i+1])] = False
-                data.t    = np.copy(data.tuc[whereclip])
-                data.flux = np.copy(data.fluxuc[:,whereclip])
-                data.ferr = np.copy(data.ferruc[:,whereclip])
-
-            if len(data.t) != data.flux.shape[1]:
-                print("WARNING: Number of times does not match the size " +
-                      "of the flux array.")
-                sys.exit()
-
-            if len(data.t) != data.ferr.shape[1]:
-                print("WARNING: Number of times does not match the size " +
-                      "of the ferr array.")
-                sys.exit()
-
             self.datasets.append(data)
 
         if hasattr(self.cfg.star, 'starspecfile'):
@@ -353,11 +367,18 @@ class LN:
 
 class Data:
     '''
-    A class to hold information about a single Observation (i.e., a 
-    single array of times). Can be spectroscopic, with multiple filters,
-    flux arrays, and uncertainty arrays.
+    A class to hold information about a single Instrument. Can be
+    spectroscopic, with multiple filters, flux arrays, and uncertainty
+    arrays.
+
     '''
     pass
+
+class Visit:
+    '''
+    A class to hold information about a single Observation (or visit)
+    with an instrument. Stored as an attribute to a Data object.
+    '''
 
 def load(outdir=None, filename=None):
     """

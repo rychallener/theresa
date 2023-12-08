@@ -30,19 +30,69 @@ from taurex import optimizer
 from taurex.data.profiles.temperature.temparray import TemperatureArray
 
 @jit(nopython=True)
-def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, baseline):
+def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, pindex,
+           baselines, tlocs):
     """
     Basic 2D fitting routine for a single wavelength.
+
+    Arguments
+    ---------
+    params: 1D float array
+        Model parameters, including the map parameters and
+        ramp (baseline) parameters.
+
+    ecurves: 2D float array
+        Eigencurves that are used as the fitting basis for
+        the planet map.
+
+    t: 1D float array
+        ALL the times associated with this planet map. If the
+        map is being fit to multiple observations, this is
+        a concatenated array of those times.
+
+    y00: 1D float array
+        The light curve contribution of the uniform map component.
+        Same size as t.
+
+    sflux: 1D float array
+        The light curve contribution of the star (generally,
+        1 everywhere). Same size as t.
+
+    ncurves: Int
+        The number of eigencurves to use in the fit.
+
+    intens: 2D float array
+        Precomputed eigenmap intensity, of size
+        (ncurves x nlocs), where nlocs is the number of locations
+        where the intensity has been precomputed. This array
+        is used to determine if a fit has negative intensities
+        on the map, and thus can be rejected. If intens is None,
+        the model will not check for negative intensities.
+
+    pindex: list of 1D integer arrays
+        Indices used to divide params between the models. E.g.,
+        params[pindex[0]] pulls out the map parameters,
+        params[pindex[1]] pulls out the ramp parameters for the
+        first visit, etc.
+
+    baselines: tuple of strings
+        Ramp models to use for each visit.
+
+    tlocs: list of 1D float arrays
+        Local time (relative to start of visit) for each visit.
+        Used for ramp model evaluation.
     """
+    mparams = params[pindex[0]]
+    
     # Check for negative intensities
     if intens is not None:
         nloc = intens.shape[1]
         totint = np.zeros(nloc)
         for j in range(nloc):
             # Weighted eigenmap intensity
-            totint[j] = np.sum(intens[:,j] * params[:ncurves])
+            totint[j] = np.sum(intens[:,j] * mparams[:ncurves])
             # Contribution from uniform map
-            totint[j] += params[ncurves] / np.pi
+            totint[j] += mparams[ncurves] / np.pi
         if np.any(totint <= 0):
             f = np.ones(len(t)) * np.min(totint)
             return f
@@ -50,27 +100,46 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, baseline):
     f = np.zeros(len(t))
 
     for i in range(ncurves):
-        f += ecurves[i] * params[i]
-
-    # Index of the last mapping component
-    # (-1 if there are no mapping components)
-    i = ncurves - 1
+        f += ecurves[i] * mparams[i]
    
-    f += params[i+1] * y00
+    f += params[ncurves] * y00
 
-    f += params[i+2]
+    f += params[ncurves+1]
 
     f += sflux
 
-    if baseline == 'linear':
-        f += params[i+3] * (t - params[i+4])
-    elif baseline == 'quadratic':
-        f += params[i+3] * (t - params[i+5])**2 + \
-             params[i+4] * (t - params[i+5])
-    elif baseline == 'sinusoidal':
-        f += params[i+3] * np.sin(
-            2 * np.pi * (t - t[0]) / params[i+4] - params[i+5])
+    allramp = np.zeros(len(t))
+    istart = 0
+    for bl, tloc, ipar in zip(baselines, tlocs, pindex[1:]):
+        rparams = params[ipar]
+        if bl is None:
+            ramp = np.zeros(len(tloc))
+        elif bl == 'linear':
+            ramp = rparams[0] * (tloc - rparams[1])
+        elif bl == 'quadratic':
+            ramp = rparams[0] * (tloc - rparams[2])**2 + \
+                rparams[1] * (tloc - rparams[2])
+        elif bl == 'sinusoidal':
+            ramp = rparams[0] * np.sin(
+                2 * np.pi * tloc / rparams[1] - rparams[2])
+        elif bl == 'exponential':
+            ramp = rparams[0] * np.exp((-rparams[1] * tloc) + rparams[2])
+        elif bl == 'exponential2':
+            ramp = rparams[0] * np.exp((-rparams[1] * tloc) + rparams[2]) + \
+                rparams[3] * np.exp((-rparams[4] * tloc) + rparams[5])
+        elif bl == 'linexp2':
+            ramp = rparams[0] * tloc + \
+                rparams[1] * np.exp((1/rparams[2]) * -tloc) + \
+                rparams[3] * np.exp((1/rparams[i+7] * -tloc))
+        elif bl == 'linexp':
+            ramp = rparams[0] * tloc + rparams[1] * \
+                np.exp((1/rparams[2]) * -tloc)
 
+        allramp[istart:istart + len(tloc)] += ramp
+        istart += len(tloc)
+
+    f += allramp
+    
     return f
 
 def specgrid(params, fit):
@@ -375,21 +444,21 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
 
     return cfsigdiff
 
-def get_par_2d(fit, ln):
+def get_par_2d(fit, d, ln):
     '''
     Returns sensible parameter settings for each 2D model
     '''
     cfg = fit.cfg
     
     # Necessary parameters
-    npar = ln.ncurves + 2
+    nmappar = ln.ncurves + 2
 
-    params = np.zeros(npar)
+    params = np.zeros(nmappar)
     params[ln.ncurves] = 0.001
     
-    pstep = np.ones(npar) *  0.01
-    pmin  = np.ones(npar) * -1.0
-    pmax  = np.ones(npar) *  1.0
+    pstep = np.ones(nmappar) *  0.01
+    pmin  = np.ones(nmappar) * -1.0
+    pmax  = np.ones(nmappar) *  1.0
 
     pnames   = []
     texnames = []
@@ -403,35 +472,80 @@ def get_par_2d(fit, ln):
     pnames.append("scorr")
     texnames.append("$s_{corr}$")
 
-    # Parse baseline models
-    if cfg.twod.baseline is None:
-        pass
-    elif cfg.twod.baseline == 'linear':
-        params   = np.concatenate((params,   ( 0.0,  2459802.8788233115)))
-        pstep    = np.concatenate((pstep,    ( 0.01, 0.001)))
-        pmin     = np.concatenate((pmin,     (-1.0,  -np.inf)))
-        pmax     = np.concatenate((pmax,     ( 1.0,   np.inf)))
-        pnames   = np.concatenate((pnames,   ('b1', 't0')))
-        texnames = np.concatenate((texnames, ('$b_1$', '$t_0$')))
-    elif cfg.twod.baseline == 'quadratic':
-        params   = np.concatenate((params,   ( 0.0,  0.0,   2459802.8788233115)))
-        pstep    = np.concatenate((pstep,    ( 0.01, 0.01,  0.0)))
-        pmin     = np.concatenate((pmin,     (-1.0,  -1.0, -np.inf)))
-        pmax     = np.concatenate((pmax,     ( 1.0,   1.0,  np.inf)))
-        pnames   = np.concatenate((pnames,   ('b2', 'b1', 't0')))
-        texnames = np.concatenate((texnames, ('$b_2$', '$b_1$', '$t_0$')))
-    elif cfg.twod.baseline == 'sinusoidal':
-        params   = np.concatenate((params,   (-3.6e-5, 0.0885, 2.507)))
-        pstep    = np.concatenate((pstep,    (0.001, 0.001,    0.1)))
-        pmin     = np.concatenate((pmin,     (-1.0,  0.05, -np.pi)))
-        pmax     = np.concatenate((pmax,     ( 1.0,  0.15,  np.pi)))
-        pnames   = np.concatenate((pnames,   ('Amp.', 'Period', 'Phase')))
-        texnames = np.concatenate((texnames, ('Amp.', 'Period', 'Phase')))
-    else:
-        print("Unrecognized baseline model.")
-        sys.exit()
+    nramppar = []
 
-    return params, pstep, pmin, pmax, pnames, texnames
+    # Parse baseline models
+    for v in d.visits:
+        if v.baseline is None:
+            pass
+        elif v.baseline == 'linear':
+            params   = np.concatenate((params,   ( 0.0,  0.0)))
+            pstep    = np.concatenate((pstep,    ( 0.01, 0.001)))
+            pmin     = np.concatenate((pmin,     (-1.0,  -np.inf)))
+            pmax     = np.concatenate((pmax,     ( 1.0,   np.inf)))
+            pnames   = np.concatenate((pnames,   ('b1', 't0')))
+            texnames = np.concatenate((texnames, ('$b_1$', '$t_0$')))
+            npar = 2
+        elif v.baseline == 'quadratic':
+            params   = np.concatenate((params,   ( 0.0,  0.0,   0.0)))
+            pstep    = np.concatenate((pstep,    ( 0.01, 0.01,  0.0)))
+            pmin     = np.concatenate((pmin,     (-1.0,  -1.0, -np.inf)))
+            pmax     = np.concatenate((pmax,     ( 1.0,   1.0,  np.inf)))
+            pnames   = np.concatenate((pnames,   ('b2', 'b1', 't0')))
+            texnames = np.concatenate((texnames, ('$b_2$', '$b_1$', '$t_0$')))
+            npar = 3
+        elif v.baseline == 'sinusoidal':
+            params   = np.concatenate((params,   (-3.6e-5, 0.0885, 2.507)))
+            pstep    = np.concatenate((pstep,    (0.001, 0.001,    0.1)))
+            pmin     = np.concatenate((pmin,     (-1.0,  0.05, -np.pi)))
+            pmax     = np.concatenate((pmax,     ( 1.0,  0.15,  np.pi)))
+            pnames   = np.concatenate((pnames,   ('Amp.', 'Period', 'Phase')))
+            texnames = np.concatenate((texnames, ('Amp.', 'Period', 'Phase')))
+            npar = 3
+        elif v.baseline == 'exponential':    
+            #start with no or small exponential slope
+            params   = np.concatenate((params,   (0.00001, 0.00001, 0.00001)))
+            pstep    = np.concatenate((pstep,    (0.01, 0.01,    0.01)))
+            pmin     = np.concatenate((pmin,     (-5,  -5, -5)))
+            pmax     = np.concatenate((pmax,     ( 30, 30,  30))) 
+            pnames   = np.concatenate((pnames,   ('r0', 'r1', 'r2'))) 
+            texnames = np.concatenate((texnames, ('r0', 'r1', 'r2')))
+            npar = 3
+        elif v.baseline == 'exponential2':
+            params   = np.concatenate((params,   (0.00001, 0.00001, 0.00001, 0.00001, 0.00001, 0.00001)))
+            pstep    = np.concatenate((pstep,    (0.01, 0.01,    0.1, 0.1, 0.1, 0.1 ))) 
+            pmin     = np.concatenate((pmin,     (0,  0, -5, 0, 0, -5)))
+            pmax     = np.concatenate((pmax,     ( 10,  20,  10, 10, 20, 10)))
+            pnames   = np.concatenate((pnames,   ('r0', 'r1', 'r2', 'r3', 'r4', 'r5')))
+            texnames = np.concatenate((texnames, ('r0', 'r1', 'r2', 'r3', 'r4', 'r5')))
+            npar = 6
+        elif v.baseline == 'linexp2':
+            params   = np.concatenate((params,   (-0.00305, 0.00124, 0.01358, 0.00000001, 0.00000001))) 
+            pstep    = np.concatenate((pstep,    (0.001, 0.001, 0.001, 0.001, 0.001)))
+            pmin     = np.concatenate((pmin,     (-10, -10, -20, -20, -20)))
+            pmax     = np.concatenate((pmax,     (10, 10, 20, 20, 20)))
+            pnames   = np.concatenate((pnames,   ('p1', 'A', 'tau', 'A2', 'tau2')))
+            texnames = np.concatenate((texnames, ('p1', 'A', 'tau', 'A2', 'tau2')))
+            npar = 5
+        elif v.baseline == 'linexp':
+            params   = np.concatenate((params,   (-0.00219881,0.00010304,0.01629347)))
+            pstep    = np.concatenate((pstep,    (0.001, 0.001, 0.001)))
+            pmin     = np.concatenate((pmin,     (-10, -10, -20)))
+            pmax     = np.concatenate((pmax,     (10, 10, 20)))
+            pnames   = np.concatenate((pnames,   ('p1', 'A', 'tau')))
+            texnames = np.concatenate((texnames, ('p1', 'A', 'tau')))
+            npar = 3
+        else:
+            print("Unrecognized baseline model.")
+            sys.exit()
+
+        nramppar.append(npar)
+
+    npar = np.concatenate(([nmappar], nramppar))
+    cumpar = np.cumsum(npar)
+    pindex = [np.arange(c - p, c) for c,p in zip(cumpar, npar)]
+
+    return params, pstep, pmin, pmax, pnames, texnames, pindex
 
 def get_par_3d(fit):
     '''

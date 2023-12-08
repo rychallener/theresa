@@ -119,16 +119,14 @@ def map2d(cfile):
     if not os.path.isdir(cfg.twod.outdir):
         os.mkdir(cfg.twod.outdir)
 
-    # List of 2d map fits
-    fit.maps = []
-
     print("Optimizing 2D maps.")
     for d in fit.datasets:
+        d.maps = []
         for i in range(len(d.wlmid)):
             print("{:.2f} um".format(d.wlmid[i]))
             m = fc.Map()
             
-            fit.maps.append(m)
+            d.maps.append(m)
             
             m.wlmid     = d.wlmid[i]
             m.filtwl    = d.filtwl[i]
@@ -136,10 +134,6 @@ def map2d(cfile):
             m.filttrans = d.filttrans[i]
             m.flux      = d.flux[i]
             m.ferr      = d.ferr[i]
-
-            # This creates a mess of links between objects. Consider
-            # if this is necessary.
-            m.dataset = d
 
             # Where to put wl-specific outputs
             m.subdir = '{}-filt{}'.format(d.name, i+1)
@@ -191,9 +185,8 @@ def map2d(cfile):
                                        sigorb=cfg.twod.sigorb)
 
                     print("Calculating intensities of visible grid cells of each eigenmap.")
-                    ln.intens, ln.vislat, ln.vislon = eigen.intensities(fit,
-                                                                        d,
-                                                                        ln)
+                    ln.intens, ln.vislat, ln.vislon = \
+                        eigen.intensities(fit, d, ln)
 
                     # Set up for MCMC
                     if cfg.twod.posflux:
@@ -201,11 +194,18 @@ def map2d(cfile):
                     else:
                         intens = None
 
-                    indparams = (ln.ecurves, d.t, d.pflux_y00, d.sflux,
-                                 ln.ncurves, intens, cfg.twod.baseline)
+                    params, pstep, pmin, pmax, pnames, texnames, pindex = \
+                        model.get_par_2d(fit, d, ln)
 
-                    params, pstep, pmin, pmax, pnames, texnames = \
-                        model.get_par_2d(fit, ln)
+                    print(params)
+                    print(pindex)
+
+                    baselines = np.array([v.baseline for v in d.visits])
+                        
+                    indparams = (ln.ecurves, d.t, d.pflux_y00, d.sflux,
+                                 ln.ncurves, intens, pindex,
+                                 baselines,
+                                 [v.tloc for v in d.visits])
 
                     # Better initial guess if possible
                     if hasattr(m, "l{}n{}".format(l,n-1)):
@@ -294,26 +294,19 @@ def map2d(cfile):
             m.fmappost, m.tmappost = utils.tmappost(fit, m, m.bestln)
             m.tmapunc = np.std(m.tmappost, axis=0)
             m.fmapunc = np.std(m.fmappost, axis=0)
-        
-    # Useful prints
-    fit.totchisq2d    = np.sum([m.bestln.chisq for m in fit.maps])
-    fit.totredchisq2d = fit.totchisq2d / \
-        (np.sum([(m.bestln.ndata - m.bestln.nfreep) for m in fit.maps]))
-    fit.totbic2d      = np.sum([m.bestln.bic for m in fit.maps])
-    print("Total Chisq:         {}".format(fit.totchisq2d))
-    print("Total Reduced Chisq: {}".format(fit.totredchisq2d))
-    print("Total BIC:           {}".format(fit.totbic2d))
 
     print("Optimum lmax and ncurves:")
-    for m in fit.maps:
-        print("  {:.2f} um: lmax={}, ncurves={}".format(m.wlmid,
-                                                        m.bestln.lmax,
-                                                        m.bestln.ncurves))
+    for d in fit.datasets:
+        print(d.name)
+        for m in d.maps:
+            print("  {:.2f} um: lmax={}, ncurves={}".format(m.wlmid,
+                                                            m.bestln.lmax,
+                                                            m.bestln.ncurves))
         
     # Save stellar correction terms (we need them later)
-    fit.scorr = np.zeros(len(fit.maps))
-    for i in range(len(fit.maps)):
-        fit.scorr[i] = fit.maps[i].bestln.bestp[fit.maps[i].bestln.ncurves+1]
+    #fit.scorr = np.zeros(len(fit.maps))
+    #for i in range(len(fit.maps)):
+    #    fit.scorr[i] = fit.maps[i].bestln.bestp[fit.maps[i].bestln.ncurves+1]
 
     print("Calculating planet visibility with time.")
     for d in fit.datasets:
@@ -335,64 +328,78 @@ def map2d(cfile):
             pbar.update(it+1)
 
     print("Checking for negative fluxes in visible cells:")
-    for j in range(len(fit.maps)):
-        print("  Wl: {:.2f} um".format(fit.maps[j].wlmid))
-        m = fit.maps[j]
-        for i in range(m.bestln.intens.shape[1]):
-            check = np.sum(m.bestln.intens[:,i] *
-                           m.bestln.bestp[:m.bestln.ncurves]) + \
-                           m.bestln.bestp[ m.bestln.ncurves] / np.pi
-            if check <= 0.0:
-                msg = "    Lat: {:+07.2f}, Lon: {:+07.2f}, Flux: {:+013.10f}"
-                print(msg.format(m.dataset.vislat[i],
-                                 m.dataset.vislon[i],
-                                 check))
+    for d in fit.datasets:
+        print(d.name)
+        for m in d.maps:
+            print("  Wl: {:.2f} um".format(m.wlmid))
+            for i in range(m.bestln.intens.shape[1]):
+                check = np.sum(m.bestln.intens[:,i] *
+                               m.bestln.bestp[:m.bestln.ncurves]) + \
+                               m.bestln.bestp[ m.bestln.ncurves] / np.pi
+                if check <= 0.0:
+                    msg = "    Lat: {:+07.2f}, Lon: {:+07.2f}, Flux: {:+013.10f}"
+                    print(msg.format(m.dataset.vislat[i],
+                                     m.dataset.vislon[i],
+                                     check))
 
     print("Constructing total flux and brightness temperature maps " +
           "from eigenmaps.")
-    for m in fit.maps:
-        star, planet, system = utils.initsystem(fit, m.bestln.lmax)
-        # These are used or not used in mkmaps depending on the type
-        # of stellar spectrum set in the configuration.
-        fwl    = m.filtwl
-        ftrans = m.filttrans
-        swl    = fit.starwl
-        sspec  = fit.starflux
-        fmap, tmap = eigen.mkmaps(planet, m.bestln.eigeny,
-                                  m.bestln.bestp, m.bestln.ncurves,
-                                  m.wlmid, cfg.star.r, cfg.planet.r,
-                                  cfg.star.t, fit.lat, fit.lon,
-                                  starspec=cfg.star.starspec, fwl=fwl,
-                                  ftrans=ftrans, swl=swl, sspec=sspec)
-        m.fmap = fmap
-        m.tmap = tmap
+    for d in fit.datasets:
+        for m in d.maps:
+            star, planet, system = utils.initsystem(fit, m.bestln.lmax)
+            # These are used or not used in mkmaps depending on the type
+            # of stellar spectrum set in the configuration.
+            fwl    = m.filtwl
+            ftrans = m.filttrans
+            swl    = fit.starwl
+            sspec  = fit.starflux
+            fmap, tmap = eigen.mkmaps(planet, m.bestln.eigeny,
+                                      m.bestln.bestp,
+                                      m.bestln.ncurves, m.wlmid,
+                                      cfg.star.r, cfg.planet.r,
+                                      cfg.star.t, fit.lat, fit.lon,
+                                      starspec=cfg.star.starspec,
+                                      fwl=fwl, ftrans=ftrans, swl=swl,
+                                      sspec=sspec)
+            m.fmap = fmap
+            m.tmap = tmap
 
     print("Temperature ranges of maps:")
-    for m in fit.maps:
-        print("  {:.2f} um:".format(m.wlmid))
-        tmax = np.max(m.tmap[~np.isnan(m.tmap)])
-        tmin = np.min(m.tmap[~np.isnan(m.tmap)])
-        print("    Max: {:.2f} K".format(tmax))
-        print("    Min: {:.2f} K".format(tmin))
-        print("    Negative: {:f}".format(np.sum(np.isnan(m.tmap))))
+    for d in fit.datasets:
+        for m in d.maps:
+            print("  {:.2f} um:".format(m.wlmid))
+            tmax = np.max(m.tmap[~np.isnan(m.tmap)])
+            tmin = np.min(m.tmap[~np.isnan(m.tmap)])
+            print("    Max: {:.2f} K".format(tmax))
+            print("    Min: {:.2f} K".format(tmin))
+            print("    Negative: {:f}".format(np.sum(np.isnan(m.tmap))))
 
     # Make a single array of tmaps for convenience
-    fit.tmaps = np.array([m.tmap for m in fit.maps])
-    fit.fmaps = np.array([m.fmap for m in fit.maps])
+    fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
+    fit.tmaps = np.zeros((fit.nmaps, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+    fit.fmaps = np.zeros((fit.nmaps, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+
+    imap = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            fit.tmaps[imap] = m.tmap
+            fit.fmaps[imap] = m.fmap
+            imap += 1
 
     if cfg.twod.plots:
         print("Making plots.")
-        for m in fit.maps:
-            outdir = os.path.join(cfg.twod.outdir, m.subdir)
-            # Make sure the planet has the right lmax
-            star, planet, system = utils.initsystem(fit, m.bestln.lmax)
-            plots.emaps(planet, m.bestln.eigeny, outdir, proj='ortho')
-            plots.emaps(planet, m.bestln.eigeny, outdir, proj='rect')
-            plots.emaps(planet, m.bestln.eigeny, outdir, proj='moll')
-            plots.lightcurves(m.dataset.t, m.bestln.lcs, outdir)
-            plots.eigencurves(m.dataset.t, m.bestln.ecurves, outdir,
-                              ncurves=m.bestln.ncurves)
-            plots.ecurvepower(m.bestln.evalues, outdir)
+        for d in fit.datasets:
+            for m in d.maps:
+                outdir = os.path.join(cfg.twod.outdir, m.subdir)
+                # Make sure the planet has the right lmax
+                star, planet, system = utils.initsystem(fit, m.bestln.lmax)
+                plots.emaps(planet, m.bestln.eigeny, outdir, proj='ortho')
+                plots.emaps(planet, m.bestln.eigeny, outdir, proj='rect')
+                plots.emaps(planet, m.bestln.eigeny, outdir, proj='moll')
+                plots.lightcurves(d.t, m.bestln.lcs, outdir)
+                plots.eigencurves(d.t, m.bestln.ecurves, outdir,
+                                  ncurves=m.bestln.ncurves)
+                plots.ecurvepower(m.bestln.evalues, outdir)
             
         plots.pltmaps(fit)
         plots.tmap_unc(fit)

@@ -135,7 +135,7 @@ def ecurvepower(evalues, outdir):
     plt.close(fig)
 
 def pltmaps(fit, proj='rect'):
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
 
     ncols = np.int(np.sqrt(nmaps) // 1)
     nrows = nmaps // ncols + (nmaps % ncols != 0)
@@ -152,8 +152,8 @@ def pltmaps(fit, proj='rect'):
     naxes = nrows * ncols
     extra = nmaps % ncols
 
-    vmax = np.max([np.max(m.tmap[~np.isnan(m.tmap)]) for m in fit.maps])
-    vmin = np.min([np.min(m.tmap[~np.isnan(m.tmap)]) for m in fit.maps])
+    vmax = np.max(fit.tmaps[~np.isnan(fit.tmaps)])
+    vmin = np.min(fit.tmaps[~np.isnan(fit.tmaps)])
     
     if proj == 'rect':
         extent = (-180, 180, -90, 90)
@@ -164,29 +164,33 @@ def pltmaps(fit, proj='rect'):
     # standing known bug in matplotlib with no straightforward
     # solution.  Probably not worth fixing here.  See
     # https://github.com/matplotlib/matplotlib/issues/5463
-    for i in range(naxes):            
-        irow = i // ncols
-        icol = i %  ncols
-        ax = axes[irow,icol]
+    imap = 0
+    for d in fit.datasets:
+        for m in d.maps:           
+            irow = imap // ncols
+            icol = imap %  ncols
+            ax = axes[irow,icol]
 
-        if i >= nmaps:
-            ax.spines['top'].set_color('none')
-            ax.spines['bottom'].set_color('none')
-            ax.spines['left'].set_color('none')
-            ax.spines['right'].set_color('none')
-            ax.tick_params(labelcolor='w', top=False, bottom=False,
-                           left=False, right=False)
-            continue            
-        
-        im = ax.imshow(fit.maps[i].tmap, origin='lower', cmap='plasma',
-                       extent=extent, vmin=vmin, vmax=vmax)
+            if imap >= nmaps:
+                ax.spines['top'].set_color('none')
+                ax.spines['bottom'].set_color('none')
+                ax.spines['left'].set_color('none')
+                ax.spines['right'].set_color('none')
+                ax.tick_params(labelcolor='w', top=False, bottom=False,
+                               left=False, right=False)
+                continue            
 
-        ax.set_title('{:.2f} um'.format(fit.maps[i].wlmid))
+            im = ax.imshow(m.tmap, origin='lower', cmap='plasma',
+                           extent=extent, vmin=vmin, vmax=vmax)
 
-        if icol == 0:
-            ax.set_ylabel(r'Latitude ($^\circ$)')
-        if i >= naxes - ncols - (ncols - extra):
-            ax.set_xlabel(r'Longitude ($^\circ$)')
+            ax.set_title('{:.2f} um'.format(m.wlmid))
+
+            if icol == 0:
+                ax.set_ylabel(r'Latitude ($^\circ$)')
+            if imap >= naxes - ncols - (ncols - extra):
+                ax.set_xlabel(r'Longitude ($^\circ$)')
+
+            imap += 1
 
     fig.tight_layout()
 
@@ -198,7 +202,7 @@ def pltmaps(fit, proj='rect'):
     plt.close(fig)
 
 def tmap_unc(fit, proj='rect'):
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
 
     ncols = np.int(np.sqrt(nmaps) // 1)
     nrows = nmaps // ncols + (nmaps % ncols != 0)
@@ -215,8 +219,12 @@ def tmap_unc(fit, proj='rect'):
     naxes = nrows * ncols
     extra = nmaps % ncols
 
-    vmax = np.max([np.max(m.tmapunc[~np.isnan(m.tmapunc)]) for m in fit.maps])
-    vmin = np.min([np.min(m.tmapunc[~np.isnan(m.tmapunc)]) for m in fit.maps])
+    vmin =  np.inf
+    vmax = -np.inf
+    for d in fit.datasets:
+        for m in d.maps:
+            vmin = np.min((vmin, np.nanmin(m.tmapunc)))
+            vmax = np.max((vmax, np.nanmax(m.tmapunc)))
     
     if proj == 'rect':
         extent = (-180, 180, -90, 90)
@@ -227,29 +235,33 @@ def tmap_unc(fit, proj='rect'):
     # standing known bug in matplotlib with no straightforward
     # solution.  Probably not worth fixing here.  See
     # https://github.com/matplotlib/matplotlib/issues/5463
-    for i in range(naxes):            
-        irow = i // ncols
-        icol = i %  ncols
-        ax = axes[irow,icol]
+    imap = 0
+    for d in fit.datasets:
+        for m in d.maps:         
+            irow = imap // ncols
+            icol = imap %  ncols
+            ax = axes[irow,icol]
 
-        if i >= nmaps:
-            ax.spines['top'].set_color('none')
-            ax.spines['bottom'].set_color('none')
-            ax.spines['left'].set_color('none')
-            ax.spines['right'].set_color('none')
-            ax.tick_params(labelcolor='w', top=False, bottom=False,
-                           left=False, right=False)
-            continue            
-        
-        im = ax.imshow(fit.maps[i].tmapunc, origin='lower', cmap='plasma',
-                       extent=extent, vmin=vmin, vmax=vmax)
+            if imap >= nmaps:
+                ax.spines['top'].set_color('none')
+                ax.spines['bottom'].set_color('none')
+                ax.spines['left'].set_color('none')
+                ax.spines['right'].set_color('none')
+                ax.tick_params(labelcolor='w', top=False, bottom=False,
+                               left=False, right=False)
+                continue            
 
-        ax.set_title('{:.2f} um'.format(fit.maps[i].wlmid))
+            im = ax.imshow(m.tmapunc, origin='lower', cmap='plasma',
+                           extent=extent, vmin=vmin, vmax=vmax)
 
-        if icol == 0:
-            ax.set_ylabel(r'Latitude ($^\circ$)')
-        if i >= naxes - ncols - (ncols - extra):
-            ax.set_xlabel(r'Longitude ($^\circ$)')
+            ax.set_title('{:.2f} um'.format(m.wlmid))
+
+            if icol == 0:
+                ax.set_ylabel(r'Latitude ($^\circ$)')
+            if imap >= naxes - ncols - (ncols - extra):
+                ax.set_xlabel(r'Longitude ($^\circ$)')
+
+            imap += 1
 
     fig.tight_layout()
 
@@ -261,7 +273,7 @@ def tmap_unc(fit, proj='rect'):
     plt.close(fig)
     
 def bestfit(fit):
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
     
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -274,37 +286,45 @@ def bestfit(fit):
     fig, axes = plt.subplots(nrows=nmaps+1, ncols=1, sharex=True,
                              gridspec_kw=gridspec_kw, figsize=(8,10))
 
-    
-    for i, m in enumerate(fit.maps):
-        t = (m.dataset.t - fit.cfg.planet.t0) #% fit.cfg.planet.porb
-        axes[0].plot(t, m.bestln.bestfit, zorder=2,
-                     color=colors[i],
-                     label='{:.2f} um'.format(m.wlmid))
-        axes[0].scatter(t, m.flux, s=0.1, zorder=1, color=colors[i])
+    imap = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            t = (d.t - fit.cfg.planet.t0) #% fit.cfg.planet.porb
+            axes[0].plot(t, m.bestln.bestfit, zorder=2,
+                         color=colors[imap],
+                         label='{:.2f} um'.format(m.wlmid))
+            axes[0].scatter(t, m.flux, s=0.1, zorder=1, color=colors[imap])
+            imap += 1
 
     axes[0].legend()
     axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
 
-    for i, m in enumerate(fit.maps):
-        t = (m.dataset.t - fit.cfg.planet.t0) #% fit.cfg.planet.porb
-        axes[i+1].scatter(t, m.flux - m.bestln.bestfit, s=0.1,
-                          color=colors[i])
-        axes[i+1].set_ylabel('Residuals')
-        axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
-        if i == nmaps-1:
-            axes[i+1].set_xlabel('Time (days from transit)')
+    imap = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            t = (d.t - fit.cfg.planet.t0) #% fit.cfg.planet.porb
+            axes[imap+1].scatter(t, m.flux - m.bestln.bestfit, s=0.1,
+                              color=colors[imap])
+            axes[imap+1].set_ylabel('Residuals')
+            axes[imap+1].axhline(0, 0, 1, color='black', linestyle='--')
+            if imap == nmaps-1:
+                axes[imap+1].set_xlabel('Time (days from transit)')
+            imap += 1
 
     fig.tight_layout()
     plt.savefig(os.path.join(fit.cfg.twod.outdir, 'bestfit-lcs.png'))
     plt.close(fig)
 
 def ecurveweights(fit):
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
 
     maxweight = -np.inf
     minweight =  np.inf
 
-    maxcurves = np.max([m.bestln.ncurves for m in fit.maps])
+    maxcurves = -np.inf
+    for d in fit.datasets:
+        for m in d.maps:
+            maxcurves = np.max((maxcurves, m.bestln.ncurves))
 
     if nmaps == 1:
         shifts = [0]
@@ -313,27 +333,29 @@ def ecurveweights(fit):
 
     fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
 
-    for i in range(nmaps):
-        m = fit.maps[i]
-        ncurves = m.bestln.ncurves
-        # No weights to plot
-        if ncurves == 0:
-            continue
-        npar = ncurves + 2
-        weights = m.bestln.bestp[:ncurves]
-        uncs    = m.bestln.stdp[:ncurves]
-        axes[0].errorbar(np.arange(ncurves) + shifts[i] + 1,
-                         weights, uncs, fmt='o',
-                         label="{:.2f} um".format(m.wlmid))
-        axes[0].set_ylabel("E-curve weight")
-        maxweight = np.max((maxweight, np.max(weights)))
-        minweight = np.min((minweight, np.min(weights)))
+    i = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            ncurves = m.bestln.ncurves
+            # No weights to plot
+            if ncurves == 0:
+                continue
+            npar = ncurves + 2
+            weights = m.bestln.bestp[:ncurves]
+            uncs    = m.bestln.stdp[:ncurves]
+            axes[0].errorbar(np.arange(ncurves) + shifts[i] + 1,
+                             weights, uncs, fmt='o',
+                             label="{:.2f} um".format(m.wlmid))
+            axes[0].set_ylabel("E-curve weight")
+            maxweight = np.max((maxweight, np.max(weights)))
+            minweight = np.min((minweight, np.min(weights)))
 
-        axes[1].scatter(np.arange(ncurves) + shifts[i] + 1,
-                        np.abs(weights / uncs))
-        axes[1].set_ylabel("E-curve Significance")
-        axes[1].set_xlabel("E-curve number")
-        axes[1].set_yscale('log')
+            axes[1].scatter(np.arange(ncurves) + shifts[i] + 1,
+                            np.abs(weights / uncs))
+            axes[1].set_ylabel("E-curve Significance")
+            axes[1].set_xlabel("E-curve number")
+            axes[1].set_yscale('log')
+            i += 1
 
     # In case every map was fit with a uniform model
     # (This plot is useless in that case, but at least we prevent crashes)
@@ -362,73 +384,81 @@ def hshist(fit):
     '''
     Makes a plot of hotspot location posterior distribution
     '''
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
     fig, axes = plt.subplots(nrows=2, ncols=nmaps, sharey='row',
                              squeeze=False)
 
-    for i in range(nmaps):
-        # Latitude
-        ax = axes[0][i]
-        ax.hist(fit.maps[i].hslocpost[0], bins=20)
-        ax.set_xlabel('Latitude (deg)')
-        ylim = ax.get_ylim()
-        ax.vlines(fit.maps[i].hslocbest[0], ylim[0], ylim[1], color='red')
-        ax.set_ylim(ylim)
-        if i == 0:
-            ax.set_ylabel('Samples')
-        # Longitude
-        ax = axes[1][i]
-        ax.hist(fit.maps[i].hslocpost[1], bins=20)
-        ax.set_xlabel('Longitude (deg)')
-        ylim = ax.get_ylim()
-        ax.vlines(fit.maps[i].hslocbest[1], ylim[0], ylim[1], color='red')
-        ax.set_ylim(ylim)
-        if i == 0:
-            ax.set_ylabel('Samples')
+    i = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            # Latitude
+            ax = axes[0][i]
+            ax.hist(m.hslocpost[0], bins=20)
+            ax.set_xlabel('Latitude (deg)')
+            ylim = ax.get_ylim()
+            ax.vlines(m.hslocbest[0], ylim[0], ylim[1], color='red')
+            ax.set_ylim(ylim)
+            if i == 0:
+                ax.set_ylabel('Samples')
+            # Longitude
+            ax = axes[1][i]
+            ax.hist(m.hslocpost[1], bins=20)
+            ax.set_xlabel('Longitude (deg)')
+            ylim = ax.get_ylim()
+            ax.vlines(m.hslocbest[1], ylim[0], ylim[1], color='red')
+            ax.set_ylim(ylim)
+            if i == 0:
+                ax.set_ylabel('Samples')
+            i += 1
 
     plt.tight_layout()
     plt.savefig(os.path.join(fit.cfg.twod.outdir, 'hotspot-hist.png'))
     plt.close(fig)
 
 def bics(fit, outdir=''):
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
     
     fig, axes = plt.subplots(nrows=1, ncols=nmaps, squeeze=False)
-    
-    for im, m in enumerate(fit.maps):
-        lmax    = fit.cfg.twod.lmax
-        ncurves = fit.cfg.twod.ncurves
 
-        ls = np.arange(1, lmax + 1)
-        ns = np.arange(0, ncurves + 1)
+    im = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            lmax    = fit.cfg.twod.lmax
+            ncurves = fit.cfg.twod.ncurves
 
-        bicarray = np.zeros((lmax, ncurves+1))
-        for il, l in enumerate(ls):
-            for ic, n in enumerate(ns):
-                if hasattr(m, 'l{}n{}'.format(l,n)):
-                    bicarray[il,ic] = getattr(m, 'l{}n{}'.format(l,n)).bic
-                else:
-                    bicarray[il,ic] = np.inf
+            ls = np.arange(1, lmax + 1)
+            ns = np.arange(0, ncurves + 1)
 
-        ax = axes[0,im]
+            bicarray = np.zeros((lmax, ncurves+1))
+            for il, l in enumerate(ls):
+                for ic, n in enumerate(ns):
+                    if hasattr(m, 'l{}n{}'.format(l,n)):
+                        bicarray[il,ic] = getattr(
+                            m, 'l{}n{}'.format(l,n)).bic
+                    else:
+                        bicarray[il,ic] = np.inf
 
-        cmap = copy.copy(mpl.cm.get_cmap('viridis'))
-        cmap.set_bad(color='red')
-        overlaycmap = mplc.ListedColormap([(0,0,0,0), (0,0,0,1)])
-        
-        dbic = bicarray - np.nanmin(bicarray[bicarray != np.inf])
+            ax = axes[0,im]
 
-        extent = (-0.5, ncurves + 0.5, 0.5, lmax + 0.5)
-        image = ax.imshow(dbic, interpolation='none', origin='lower',
-                          cmap=cmap, norm=mplc.LogNorm(vmin=1, vmax=100),
-                          extent=extent)
-        # Super janky way to handle the infs (cover them with black squares)
-        ax.imshow(~np.isfinite(dbic), interpolation='none', origin='lower',
-                  cmap=overlaycmap, extent=extent)
+            cmap = copy.copy(mpl.cm.get_cmap('viridis'))
+            cmap.set_bad(color='red')
+            overlaycmap = mplc.ListedColormap([(0,0,0,0), (0,0,0,1)])
 
-        ax.set_xlabel('Number of Eigencurves')
-        ax.set_ylabel(r'$l_{\rm max}$')
-        plt.colorbar(image, ax=ax, label=r'$\Delta {\rm BIC}$', extend='both')
+            dbic = bicarray - np.nanmin(bicarray[bicarray != np.inf])
+
+            extent = (-0.5, ncurves + 0.5, 0.5, lmax + 0.5)
+            image = ax.imshow(dbic, interpolation='none', origin='lower',
+                              cmap=cmap, norm=mplc.LogNorm(vmin=1, vmax=100),
+                              extent=extent)
+            # Super janky way to handle the infs (cover them with black squares)
+            ax.imshow(~np.isfinite(dbic), interpolation='none', origin='lower',
+                      cmap=overlaycmap, extent=extent)
+
+            ax.set_xlabel('Number of Eigencurves')
+            ax.set_ylabel(r'$l_{\rm max}$')
+            plt.colorbar(image, ax=ax, label=r'$\Delta {\rm BIC}$',
+                         extend='both')
+            im += 1
         
     plt.savefig(os.path.join(outdir, 'bics.png'))
     plt.close(fig)
