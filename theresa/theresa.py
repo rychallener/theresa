@@ -197,9 +197,6 @@ def map2d(cfile):
                     params, pstep, pmin, pmax, pnames, texnames, pindex = \
                         model.get_par_2d(fit, d, ln)
 
-                    print(params)
-                    print(pindex)
-
                     baselines = np.array([v.baseline for v in d.visits])
                         
                     indparams = (ln.ecurves, d.t, d.pflux_y00, d.sflux,
