@@ -503,21 +503,20 @@ def get_par_2d(fit, d, ln):
             texnames = np.concatenate((texnames, ('Amp.', 'Period', 'Phase')))
             npar = 3
         elif v.baseline == 'exponential':    
-            #start with no or small exponential slope
             params   = np.concatenate((params,   (0.00001, 0.00001, 0.00001)))
             pstep    = np.concatenate((pstep,    (0.01, 0.01,    0.01)))
             pmin     = np.concatenate((pmin,     (-5,  -5, -5)))
             pmax     = np.concatenate((pmax,     ( 30, 30,  30))) 
             pnames   = np.concatenate((pnames,   ('r0', 'r1', 'r2'))) 
-            texnames = np.concatenate((texnames, ('r0', 'r1', 'r2')))
+            texnames = np.concatenate((texnames, ('$r_0$', '$r_1$', '$r_2$')))
             npar = 3
         elif v.baseline == 'exponential2':
-            params   = np.concatenate((params,   (0.00001, 0.00001, 0.00001, 0.00001, 0.00001, 0.00001)))
+            params   = np.concatenate((params, (0.00001, 0.00001, 0.00001, 0.00001, 0.00001, 0.00001)))
             pstep    = np.concatenate((pstep,    (0.01, 0.01,    0.1, 0.1, 0.1, 0.1 ))) 
             pmin     = np.concatenate((pmin,     (0,  0, -5, 0, 0, -5)))
             pmax     = np.concatenate((pmax,     ( 10,  20,  10, 10, 20, 10)))
             pnames   = np.concatenate((pnames,   ('r0', 'r1', 'r2', 'r3', 'r4', 'r5')))
-            texnames = np.concatenate((texnames, ('r0', 'r1', 'r2', 'r3', 'r4', 'r5')))
+            texnames = np.concatenate((texnames, ('$r_0$', '$r_1$', '$r_2$', '$r_3$', '$r_4$', '$r_5$')))
             npar = 6
         elif v.baseline == 'linexp2':
             params   = np.concatenate((params,   (-0.00305, 0.00124, 0.01358, 0.00000001, 0.00000001))) 
@@ -525,7 +524,7 @@ def get_par_2d(fit, d, ln):
             pmin     = np.concatenate((pmin,     (-10, -10, -20, -20, -20)))
             pmax     = np.concatenate((pmax,     (10, 10, 20, 20, 20)))
             pnames   = np.concatenate((pnames,   ('p1', 'A', 'tau', 'A2', 'tau2')))
-            texnames = np.concatenate((texnames, ('p1', 'A', 'tau', 'A2', 'tau2')))
+            texnames = np.concatenate((texnames, ('$p_1$', '$A_1$', '$\\tau_1$', '$A_2$', '$\\tau_2$')))
             npar = 5
         elif v.baseline == 'linexp':
             params   = np.concatenate((params,   (-0.00219881,0.00010304,0.01629347)))
@@ -533,7 +532,7 @@ def get_par_2d(fit, d, ln):
             pmin     = np.concatenate((pmin,     (-10, -10, -20)))
             pmax     = np.concatenate((pmax,     (10, 10, 20)))
             pnames   = np.concatenate((pnames,   ('p1', 'A', 'tau')))
-            texnames = np.concatenate((texnames, ('p1', 'A', 'tau')))
+            texnames = np.concatenate((texnames, ('$p_1$', '$A$', '$\\tau$')))
             npar = 3
         else:
             print("Unrecognized baseline model.")
