@@ -198,11 +198,12 @@ def map2d(cfile):
                         model.get_par_2d(fit, d, ln)
 
                     baselines = np.array([v.baseline for v in d.visits])
+
+                    tlocs = tuple(v.tloc for v in d.visits)
                         
                     indparams = (ln.ecurves, d.t, d.pflux_y00, d.sflux,
                                  ln.ncurves, intens, pindex,
-                                 baselines,
-                                 [v.tloc for v in d.visits])
+                                 baselines, tlocs)
 
                     # Better initial guess if possible
                     if hasattr(m, "l{}n{}".format(l,n-1)):
