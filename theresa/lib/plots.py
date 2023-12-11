@@ -272,48 +272,59 @@ def tmap_unc(fit, proj='rect'):
                              'bestfit-{}-maps-unc.png'.format(proj)))
     plt.close(fig)
     
-def bestfit(fit):
-    nmaps = fit.nmaps
-    
+def bestfit(fit, outdir=''):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-    hratios = np.zeros(nmaps+1)
-    hratios[0] = 0.5
-    hratios[1:] = 0.5 / nmaps
-    
-    gridspec_kw = {'height_ratios':hratios}
-    
-    fig, axes = plt.subplots(nrows=nmaps+1, ncols=1, sharex=True,
-                             gridspec_kw=gridspec_kw, figsize=(8,10))
-
-    imap = 0
     for d in fit.datasets:
-        for m in d.maps:
-            t = (d.t - fit.cfg.planet.t0) #% fit.cfg.planet.porb
-            axes[0].plot(t, m.bestln.bestfit, zorder=2,
-                         color=colors[imap],
-                         label='{:.2f} um'.format(m.wlmid))
-            axes[0].scatter(t, m.flux, s=0.1, zorder=1, color=colors[imap])
-            imap += 1
+        nmaps = len(d.maps)
+        
+        hratios = np.zeros(nmaps+1)
+        hratios[0] = 0.5
+        hratios[1:] = 0.5 / nmaps
+    
+        gridspec_kw = {'height_ratios':hratios}
+        for v in d.visits:
+            fig, axes = plt.subplots(nrows=nmaps+1, ncols=1,
+                                     sharex=True,
+                                     gridspec_kw=gridspec_kw,
+                                     figsize=(8,10))
+            
+            t = v.t - fit.cfg.planet.t0
+            
+            imap = 0
+            for m in d.maps:
+                where = np.where((d.t >= v.t[0] ) &
+                                 (d.t <= v.t[-1]))
+                axes[0].plot(t, m.bestln.bestfit[where], zorder=2,
+                             color=colors[imap],
+                             label='{:.2f} um'.format(m.wlmid))
+                axes[0].scatter(t, m.flux[where], s=0.1, zorder=1,
+                                color=colors[imap])
+                imap += 1
 
-    axes[0].legend()
-    axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
+            axes[0].legend()
+            axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
 
-    imap = 0
-    for d in fit.datasets:
-        for m in d.maps:
-            t = (d.t - fit.cfg.planet.t0) #% fit.cfg.planet.porb
-            axes[imap+1].scatter(t, m.flux - m.bestln.bestfit, s=0.1,
-                              color=colors[imap])
-            axes[imap+1].set_ylabel('Residuals')
-            axes[imap+1].axhline(0, 0, 1, color='black', linestyle='--')
-            if imap == nmaps-1:
-                axes[imap+1].set_xlabel('Time (days from transit)')
-            imap += 1
+            imap = 0
+            for m in d.maps:
+                where = np.where((d.t >= v.t[0] ) &
+                                 (d.t <= v.t[-1]))
+                res = m.flux[where] - m.bestln.bestfit[where]
+                axes[imap+1].scatter(t, res, s=0.1,
+                                     color=colors[imap])
+                axes[imap+1].set_ylabel('Residuals')
+                axes[imap+1].axhline(0, 0, 1, color='black', linestyle='--')
+                if imap == nmaps-1:
+                    axes[imap+1].set_xlabel('Time (days from transit)')
+                imap += 1
 
-    fig.tight_layout()
-    plt.savefig(os.path.join(fit.cfg.twod.outdir, 'bestfit-lcs.png'))
-    plt.close(fig)
+            fig.tight_layout()
+            fname = os.path.join(outdir,
+                                 'bestfit-lcs-{}-{}.png'.format(d.name,
+                                                                v.name))
+                                                                     
+            plt.savefig(fname)
+            plt.close(fig)
 
 def ecurveweights(fit):
     nmaps = fit.nmaps

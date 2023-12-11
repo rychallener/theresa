@@ -401,7 +401,7 @@ def map2d(cfile):
             
         plots.pltmaps(fit)
         plots.tmap_unc(fit)
-        plots.bestfit(fit)
+        plots.bestfit(fit, outdir=cfg.twod.outdir)
         plots.ecurveweights(fit)
         plots.hshist(fit)
         plots.bics(fit, outdir=cfg.twod.outdir)
