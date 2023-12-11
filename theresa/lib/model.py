@@ -69,7 +69,7 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, pindex,
         on the map, and thus can be rejected. If intens is None,
         the model will not check for negative intensities.
 
-    pindex: list of 1D integer arrays
+    pindex: 2D boolean array
         Indices used to divide params between the models. E.g.,
         params[pindex[0]] pulls out the map parameters,
         params[pindex[1]] pulls out the ramp parameters for the
@@ -130,7 +130,7 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, pindex,
         elif bl == 'linexp2':
             ramp = rparams[0] * tloc + \
                 rparams[1] * np.exp((1/rparams[2]) * -tloc) + \
-                rparams[3] * np.exp((1/rparams[i+7] * -tloc))
+                rparams[3] * np.exp((1/rparams[4] * -tloc))
         elif bl == 'linexp':
             ramp = rparams[0] * tloc + rparams[1] * \
                 np.exp((1/rparams[2]) * -tloc)
@@ -477,7 +477,7 @@ def get_par_2d(fit, d, ln):
     # Parse baseline models
     for v in d.visits:
         if v.baseline is None:
-            pass
+            npar = 0
         elif v.baseline == 'linear':
             params   = np.concatenate((params,   ( 0.0,  0.0)))
             pstep    = np.concatenate((pstep,    ( 0.01, 0.001)))
@@ -542,8 +542,18 @@ def get_par_2d(fit, d, ln):
         nramppar.append(npar)
 
     npar = np.concatenate(([nmappar], nramppar))
+    totpar = np.sum(npar)
     cumpar = np.cumsum(npar)
-    pindex = [np.arange(c - p, c) for c,p in zip(cumpar, npar)]
+    nmodel = 1 + len(d.visits)
+
+    pindex = np.zeros((nmodel, totpar), dtype=bool)
+
+    istart = 0
+    for i in range(nmodel):
+        where = np.where((np.arange(totpar) >= istart) &
+                         (np.arange(totpar) <  cumpar[i]))
+        pindex[i][where] = True
+        istart += npar[i]
 
     return params, pstep, pmin, pmax, pnames, texnames, pindex
 
