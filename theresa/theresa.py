@@ -197,7 +197,7 @@ def map2d(cfile):
                     params, pstep, pmin, pmax, pnames, texnames, pindex = \
                         model.get_par_2d(fit, d, ln)
 
-                    baselines = np.array([v.baseline for v in d.visits])
+                    baselines = tuple(v.baseline for v in d.visits)
 
                     tlocs = tuple(v.tloc for v in d.visits)
                         

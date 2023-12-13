@@ -70,14 +70,6 @@ class Fit:
         else:
             self.cfg.twod.fgamma = 1.0
 
-        if self.cfg.cfg.has_option('2D', 'baseline'):
-            self.cfg.twod.baseline = self.cfg.cfg.get('2D', 'baseline')
-            if (self.cfg.twod.baseline == 'None') or \
-               (self.cfg.twod.baseline == 'none'):
-                self.cfg.twod.baseline = None
-        else:
-            self.cfg.twod.baseline = None
-
         if self.cfg.cfg.has_option('2D', 'orbcheck'):
             self.cfg.twod.orbcheck = self.cfg.cfg.get('2D', 'orbcheck')
             if self.cfg.twod.orbcheck == 't0':
@@ -226,7 +218,13 @@ class Fit:
             obs.name = self.cfg.cfg.get(section, 'name')
             obs.instrument = self.cfg.cfg.getint(section, 'instrument')
 
-            obs.baseline = self.cfg.cfg.get(section, 'baseline')
+            if self.cfg.cfg.has_option(section, 'baseline'):
+                obs.baseline = self.cfg.cfg.get(section, 'baseline')
+                if (obs.baseline == 'None') or \
+                   (obs.baseline == 'none'):
+                    obs.baseline = None
+            else:
+                obs.baseline = None
 
             if self.cfg.cfg.has_option(section, 'clip'):
                 obs.clip = np.array(
