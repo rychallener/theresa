@@ -276,7 +276,9 @@ class Fit:
                     visit.instrument = obs.instrument
                     visit.baseline   = obs.baseline
 
-                    if obs.clip is None:
+                    visit.clip = obs.clip
+
+                    if visit.clip is None:
                         visit.t    = np.copy(visit.tuc)
                         visit.flux = np.copy(visit.fluxuc)
                         visit.ferr = np.copy(visit.ferruc)
