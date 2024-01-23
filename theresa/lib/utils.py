@@ -39,7 +39,7 @@ def initsystem(fit, ydeg):
                                      inc  =cfg.planet.inc,
                                      theta0=180)
 
-    system = starry.System(star, planet)
+    system = starry.System(star, planet, light_delay=True)
 
     return star, planet, system
 
