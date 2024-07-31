@@ -541,7 +541,7 @@ def get_par_2d(fit, d, ln):
             pmax     = np.concatenate((pmax,     (1.2, np.inf,)))
             pnames   = np.concatenate((pnames,   ('b', 'm',)))
             texnames = np.concatenate((texnames, ('$b$', '$m$',)))
-            npar = 1
+            npar = 2
         elif v.baseline == 'quadratic':
             params   = np.concatenate((params,   (1.0, 0.0,  0.0,   0.0)))
             pstep    = np.concatenate((pstep,    (0.01, 0.01, 0.01,  0.0)))
@@ -557,7 +557,7 @@ def get_par_2d(fit, d, ln):
             pmax     = np.concatenate((pmax,     (1.2, 1.0,  0.15,  np.pi)))
             pnames   = np.concatenate((pnames,   ('b', 'Amp.', 'Period', 'Phase')))
             texnames = np.concatenate((texnames, ('$b$', 'Amp.', 'Period', 'Phase')))
-            npar = 3
+            npar = 4
         elif v.baseline == 'exponential':    
             params   = np.concatenate((params,   (1.0, 0.00001, 0.00001, 0.00001)))
             pstep    = np.concatenate((pstep,    (0.01, 0.01, 0.01,    0.01)))
@@ -565,7 +565,7 @@ def get_par_2d(fit, d, ln):
             pmax     = np.concatenate((pmax,     (1.2, 30, 30,  30))) 
             pnames   = np.concatenate((pnames,   ('r0', 'r1', 'r2', 'r3'))) 
             texnames = np.concatenate((texnames, ('$r_0$', '$r_1$', '$r_2$', '$r_3$')))
-            npar = 3
+            npar = 4
         elif v.baseline == 'linexp':
             params   = np.concatenate((params,   (1.0, -0.00219881,0.00010304,0.01629347)))
             pstep    = np.concatenate((pstep,    (0.01, 0.001, 0.001, 0.001)))
