@@ -220,11 +220,10 @@ class Fit:
 
             if self.cfg.cfg.has_option(section, 'baseline'):
                 obs.baseline = self.cfg.cfg.get(section, 'baseline')
-                if (obs.baseline == 'None') or \
-                   (obs.baseline == 'none'):
-                    obs.baseline = None
+                if (obs.baseline == 'None'):
+                    obs.baseline = 'none'
             else:
-                obs.baseline = None
+                obs.baseline = 'none'
 
             if self.cfg.cfg.has_option(section, 'clip'):
                 obs.clip = np.array(
@@ -235,7 +234,13 @@ class Fit:
                     print(msg.format(obs.name))
                     sys.exit()
             else:
-                obs.clip = None                             
+                obs.clip = None
+
+            if self.cfg.cfg.has_option(section, 'renormalize'):
+                obs.renormalize = \
+                    self.cfg.cfg.getboolean(section, 'renormalize')
+            else:
+                obs.renormalize = False
         
     def read_data(self):
         '''
@@ -276,12 +281,14 @@ class Fit:
 
                     visit.clip = obs.clip
 
+                    visit.renormalize = obs.renormalize
+
                     if visit.clip is None:
                         visit.t    = np.copy(visit.tuc)
                         visit.flux = np.copy(visit.fluxuc)
                         visit.ferr = np.copy(visit.ferruc)
                     else:
-                        nclip = len(obs.clip) // 2
+                        nclip = len(visit.clip) // 2
                         whereclip = np.ones(len(visit.tuc), dtype=bool)
                         for i in range(nclip):
                             whereclip[(visit.tuc > visit.clip[2*i  ]) &

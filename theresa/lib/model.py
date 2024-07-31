@@ -106,39 +106,39 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, pindex,
 
     f += params[ncurves+1]
 
+    # Renormalize (e.g., stellar variability between visits)
+    istart = 0
+    for tloc, norm in zip(tlocs, params[pindex[1]]):
+        f[istart:istart + len(tloc)] *= norm
+        istart += len(tloc)
+        
     f += sflux
-
+    
+    # Apply ramps
     allramp = np.zeros(len(t))
     istart = 0
-    for bl, tloc, ipar in zip(baselines, tlocs, pindex[1:]):
+    for bl, tloc, ipar in zip(baselines, tlocs, pindex[2:]):
         rparams = params[ipar]
-        if bl is None:
-            ramp = np.zeros(len(tloc))
+        if bl == 'none':
+            ramp = np.ones(len(tloc))
         elif bl == 'linear':
-            ramp = rparams[0] * (tloc - rparams[1])
+            ramp = rparams[0] + rparams[1] * tloc
         elif bl == 'quadratic':
-            ramp = rparams[0] * (tloc - rparams[2])**2 + \
-                rparams[1] * (tloc - rparams[2])
+            ramp = rparams[0] +  rparams[1] * (tloc - rparams[3])**2 + \
+                rparams[2] * (tloc - rparams[3])
         elif bl == 'sinusoidal':
-            ramp = rparams[0] * np.sin(
-                2 * np.pi * tloc / rparams[1] - rparams[2])
+            ramp = rparams[0] + rparams[1] * np.sin(
+                2 * np.pi * tloc / rparams[2] - rparams[3])
         elif bl == 'exponential':
-            ramp = rparams[0] * np.exp((-rparams[1] * tloc) + rparams[2])
-        elif bl == 'exponential2':
-            ramp = rparams[0] * np.exp((-rparams[1] * tloc) + rparams[2]) + \
-                rparams[3] * np.exp((-rparams[4] * tloc) + rparams[5])
-        elif bl == 'linexp2':
-            ramp = rparams[0] * tloc + \
-                rparams[1] * np.exp((1/rparams[2]) * -tloc) + \
-                rparams[3] * np.exp((1/rparams[4] * -tloc))
+            ramp = rparams[0] + rparams[1] * np.exp((-rparams[2] * tloc) + rparams[3])
         elif bl == 'linexp':
-            ramp = rparams[0] * tloc + rparams[1] * \
-                np.exp((1/rparams[2]) * -tloc)
+            ramp = rparams[0] + rparams[1] * tloc + rparams[2] * \
+                np.exp((1/rparams[3]) * -tloc)
 
         allramp[istart:istart + len(tloc)] += ramp
         istart += len(tloc)
 
-    f += allramp
+    f *= allramp
     
     return f
 
@@ -460,6 +460,8 @@ def get_par_2d(fit, d, ln):
     pmin  = np.ones(nmappar) * -1.0
     pmax  = np.ones(nmappar) *  1.0
 
+    pstep[ln.ncurves+1] = 0.0
+
     pnames   = []
     texnames = []
     for j in range(ln.ncurves):
@@ -472,78 +474,77 @@ def get_par_2d(fit, d, ln):
     pnames.append("scorr")
     texnames.append("$s_{corr}$")
 
+    # Renormalize paramters
+    nnormpar = len(d.visits)
+    params   = np.concatenate((params,   np.repeat(1.0,  nnormpar)))
+    pmin     = np.concatenate((pmin,     np.repeat(0.8,  nnormpar)))
+    pmax     = np.concatenate((pmax,     np.repeat(1.2,  nnormpar)))
+    pnames   = np.concatenate((pnames,   ['N{}'.format(i) for i in range(1, nnormpar+1)]))
+    texnames = np.concatenate((texnames, ['$N_{}$'.format(i) for i in range(1, nnormpar+1)]))
+    for v in d.visits:
+        # Free parameter for renormalized visits,
+        # fixed to 1.0 for non-remornalized visits.
+        if v.renormalize:
+            pstep = np.concatenate((pstep, (0.01,)))
+        else:
+            pstep = np.concatenate((pstep, (0.0,)))
+
     nramppar = []
 
     # Parse baseline models
     for v in d.visits:
-        if v.baseline is None:
+        if v.baseline == 'none':
             npar = 0
         elif v.baseline == 'linear':
-            params   = np.concatenate((params,   ( 0.0,  0.0)))
-            pstep    = np.concatenate((pstep,    ( 0.01, 0.001)))
-            pmin     = np.concatenate((pmin,     (-1.0,  -np.inf)))
-            pmax     = np.concatenate((pmax,     ( 1.0,   np.inf)))
-            pnames   = np.concatenate((pnames,   ('b1', 't0')))
-            texnames = np.concatenate((texnames, ('$b_1$', '$t_0$')))
-            npar = 2
+            params   = np.concatenate((params,   (1.0, 0.0,)))
+            pstep    = np.concatenate((pstep,    (0.01, 0.001,)))
+            pmin     = np.concatenate((pmin,     (0.8, -np.inf,)))
+            pmax     = np.concatenate((pmax,     (1.2, np.inf,)))
+            pnames   = np.concatenate((pnames,   ('b', 'm',)))
+            texnames = np.concatenate((texnames, ('$b$', '$m$',)))
+            npar = 1
         elif v.baseline == 'quadratic':
-            params   = np.concatenate((params,   ( 0.0,  0.0,   0.0)))
-            pstep    = np.concatenate((pstep,    ( 0.01, 0.01,  0.0)))
-            pmin     = np.concatenate((pmin,     (-1.0,  -1.0, -np.inf)))
-            pmax     = np.concatenate((pmax,     ( 1.0,   1.0,  np.inf)))
-            pnames   = np.concatenate((pnames,   ('b2', 'b1', 't0')))
-            texnames = np.concatenate((texnames, ('$b_2$', '$b_1$', '$t_0$')))
+            params   = np.concatenate((params,   (1.0, 0.0,  0.0,   0.0)))
+            pstep    = np.concatenate((pstep,    (0.01, 0.01, 0.01,  0.0)))
+            pmin     = np.concatenate((pmin,     (0.8, -1.0,  -1.0, -np.inf)))
+            pmax     = np.concatenate((pmax,     (1.2, 1.0,   1.0,  np.inf)))
+            pnames   = np.concatenate((pnames,   ('r0', 'r1',  'r2', 't0')))
+            texnames = np.concatenate((texnames, ('r_0', '$r_1$', '$r_2$', '$t_0$')))
             npar = 3
         elif v.baseline == 'sinusoidal':
-            params   = np.concatenate((params,   (-3.6e-5, 0.0885, 2.507)))
-            pstep    = np.concatenate((pstep,    (0.001, 0.001,    0.1)))
-            pmin     = np.concatenate((pmin,     (-1.0,  0.05, -np.pi)))
-            pmax     = np.concatenate((pmax,     ( 1.0,  0.15,  np.pi)))
-            pnames   = np.concatenate((pnames,   ('Amp.', 'Period', 'Phase')))
-            texnames = np.concatenate((texnames, ('Amp.', 'Period', 'Phase')))
+            params   = np.concatenate((params,   (1.0, -3.6e-5, 0.0885, 2.507)))
+            pstep    = np.concatenate((pstep,    (0.01, 0.001, 0.001,    0.1)))
+            pmin     = np.concatenate((pmin,     (0.8, -1.0,  0.05, -np.pi)))
+            pmax     = np.concatenate((pmax,     (1.2, 1.0,  0.15,  np.pi)))
+            pnames   = np.concatenate((pnames,   ('b', 'Amp.', 'Period', 'Phase')))
+            texnames = np.concatenate((texnames, ('$b$', 'Amp.', 'Period', 'Phase')))
             npar = 3
         elif v.baseline == 'exponential':    
-            params   = np.concatenate((params,   (0.00001, 0.00001, 0.00001)))
-            pstep    = np.concatenate((pstep,    (0.01, 0.01,    0.01)))
-            pmin     = np.concatenate((pmin,     (-5,  -5, -5)))
-            pmax     = np.concatenate((pmax,     ( 30, 30,  30))) 
-            pnames   = np.concatenate((pnames,   ('r0', 'r1', 'r2'))) 
-            texnames = np.concatenate((texnames, ('$r_0$', '$r_1$', '$r_2$')))
+            params   = np.concatenate((params,   (1.0, 0.00001, 0.00001, 0.00001)))
+            pstep    = np.concatenate((pstep,    (0.01, 0.01, 0.01,    0.01)))
+            pmin     = np.concatenate((pmin,     (0.8, -5,  -5, -5)))
+            pmax     = np.concatenate((pmax,     (1.2, 30, 30,  30))) 
+            pnames   = np.concatenate((pnames,   ('r0', 'r1', 'r2', 'r3'))) 
+            texnames = np.concatenate((texnames, ('$r_0$', '$r_1$', '$r_2$', '$r_3$')))
             npar = 3
-        elif v.baseline == 'exponential2':
-            params   = np.concatenate((params, (0.00001, 0.00001, 0.00001, 0.00001, 0.00001, 0.00001)))
-            pstep    = np.concatenate((pstep,    (0.01, 0.01,    0.1, 0.1, 0.1, 0.1 ))) 
-            pmin     = np.concatenate((pmin,     (0,  0, -5, 0, 0, -5)))
-            pmax     = np.concatenate((pmax,     ( 10,  20,  10, 10, 20, 10)))
-            pnames   = np.concatenate((pnames,   ('r0', 'r1', 'r2', 'r3', 'r4', 'r5')))
-            texnames = np.concatenate((texnames, ('$r_0$', '$r_1$', '$r_2$', '$r_3$', '$r_4$', '$r_5$')))
-            npar = 6
-        elif v.baseline == 'linexp2':
-            params   = np.concatenate((params,   (-0.00305, 0.00124, 0.01358, 0.00000001, 0.00000001))) 
-            pstep    = np.concatenate((pstep,    (0.001, 0.001, 0.001, 0.001, 0.001)))
-            pmin     = np.concatenate((pmin,     (-10, -10, -20, -20, -20)))
-            pmax     = np.concatenate((pmax,     (10, 10, 20, 20, 20)))
-            pnames   = np.concatenate((pnames,   ('p1', 'A', 'tau', 'A2', 'tau2')))
-            texnames = np.concatenate((texnames, ('$p_1$', '$A_1$', '$\\tau_1$', '$A_2$', '$\\tau_2$')))
-            npar = 5
         elif v.baseline == 'linexp':
-            params   = np.concatenate((params,   (-0.00219881,0.00010304,0.01629347)))
-            pstep    = np.concatenate((pstep,    (0.001, 0.001, 0.001)))
-            pmin     = np.concatenate((pmin,     (-10, -10, -20)))
-            pmax     = np.concatenate((pmax,     (10, 10, 20)))
-            pnames   = np.concatenate((pnames,   ('p1', 'A', 'tau')))
-            texnames = np.concatenate((texnames, ('$p_1$', '$A$', '$\\tau$')))
-            npar = 3
+            params   = np.concatenate((params,   (1.0, -0.00219881,0.00010304,0.01629347)))
+            pstep    = np.concatenate((pstep,    (0.01, 0.001, 0.001, 0.001)))
+            pmin     = np.concatenate((pmin,     (0.8, -1, -0.01, 0.0)))
+            pmax     = np.concatenate((pmax,     (1.2, 1, 0.01, 0.2)))
+            pnames   = np.concatenate((pnames,   ('b', 'm', 'A', 'tau')))
+            texnames = np.concatenate((texnames, ('$b$', '$m$', '$A$', '$\\tau$')))
+            npar = 4
         else:
             print("Unrecognized baseline model.")
             sys.exit()
 
         nramppar.append(npar)
 
-    npar = np.concatenate(([nmappar], nramppar))
+    npar = np.concatenate(([nmappar], [nnormpar], nramppar))
     totpar = np.sum(npar)
     cumpar = np.cumsum(npar)
-    nmodel = 1 + len(d.visits)
+    nmodel = 2 + len(d.visits)
 
     pindex = np.zeros((nmodel, totpar), dtype=bool)
 
