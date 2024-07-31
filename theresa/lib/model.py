@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import mc3
 import gc
 import sys
-from numba import jit
+from numba import jit, literal_unroll
 
 # Lib imports
 import cf
@@ -31,7 +31,7 @@ from taurex.data.profiles.temperature.temparray import TemperatureArray
 
 @jit(nopython=True)
 def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, pindex,
-           baselines, tlocs):
+           baselines, tlocs, dvecs):
     """
     Basic 2D fitting routine for a single wavelength.
 
@@ -81,8 +81,15 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, pindex,
     tlocs: list of 1D float arrays
         Local time (relative to start of visit) for each visit.
         Used for ramp model evaluation.
+
+    dvecs: list of 2D float arrays
+        Detrending vectors for each visit. This can be things
+        like x-position, y-position, PSF-width, etc. Anything
+        you think might be correlated with your light curve.
     """
-    mparams = params[pindex[0]]
+    imodel = 0 # Keeps track of which model we are on
+    mparams = params[pindex[imodel]]
+    imodel += 1
     
     # Check for negative intensities
     if intens is not None:
@@ -102,22 +109,38 @@ def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, pindex,
     for i in range(ncurves):
         f += ecurves[i] * mparams[i]
    
-    f += params[ncurves] * y00
+    f += mparams[ncurves] * y00
 
-    f += params[ncurves+1]
+    f += mparams[ncurves+1]
 
     # Renormalize (e.g., stellar variability between visits)
     istart = 0
-    for tloc, norm in zip(tlocs, params[pindex[1]]):
+    normparams = params[pindex[imodel]]
+    imodel += 1
+    for tloc, norm in zip(tlocs, normparams):
         f[istart:istart + len(tloc)] *= norm
         istart += len(tloc)
         
     f += sflux
+
+    # Apply detrending vectors
+    alldvec = np.zeros(len(t))
+    istart = 0
+    for dvec in literal_unroll(dvecs):
+        dmodel = np.ones(dvec.shape[1])
+        for j, par in enumerate(params[pindex[imodel]]):
+            dmodel += par * dvec[j]
+
+        alldvec[istart:istart + dvec.shape[1]] += dmodel
+        istart += dvec.shape[1]
+        imodel += 1
+
+    f *= alldvec
     
     # Apply ramps
     allramp = np.zeros(len(t))
     istart = 0
-    for bl, tloc, ipar in zip(baselines, tlocs, pindex[2:]):
+    for bl, tloc, ipar in zip(baselines, tlocs, pindex[imodel:]):
         rparams = params[ipar]
         if bl == 'none':
             ramp = np.ones(len(tloc))
@@ -474,7 +497,7 @@ def get_par_2d(fit, d, ln):
     pnames.append("scorr")
     texnames.append("$s_{corr}$")
 
-    # Renormalize paramters
+    # Renormalize parameters
     nnormpar = len(d.visits)
     params   = np.concatenate((params,   np.repeat(1.0,  nnormpar)))
     pmin     = np.concatenate((pmin,     np.repeat(0.8,  nnormpar)))
@@ -489,6 +512,22 @@ def get_par_2d(fit, d, ln):
         else:
             pstep = np.concatenate((pstep, (0.0,)))
 
+    # Detrending vector coefficients
+    ndvecpar = []
+    for v in d.visits:
+        if v.detrend:
+            npar = v.dvec.shape[0]
+            params   = np.concatenate((params,   np.repeat(0.0, npar)))
+            pstep    = np.concatenate((pstep,    np.repeat(0.1, npar)))
+            pmin     = np.concatenate((pmin,     np.repeat(-np.inf, npar)))
+            pmax     = np.concatenate((pmax,     np.repeat( np.inf, npar)))
+            pnames   = np.concatenate((pnames,   ['d{}'.format(i) for i in range(1, npar+1)]))
+            texnames = np.concatenate((texnames, ['$d_{}$'.format(i) for i in range(1, npar+1)]))
+        else:
+            npar = 0
+
+        ndvecpar.append(npar)
+    
     nramppar = []
 
     # Parse baseline models
@@ -541,10 +580,12 @@ def get_par_2d(fit, d, ln):
 
         nramppar.append(npar)
 
-    npar = np.concatenate(([nmappar], [nnormpar], nramppar))
+    npar = np.concatenate(([nmappar], [nnormpar], ndvecpar, nramppar))
     totpar = np.sum(npar)
     cumpar = np.cumsum(npar)
-    nmodel = 2 + len(d.visits)
+
+    # Map model, normalization model, detrend model (per visit), ramp model (per visit)
+    nmodel = 2 + 2 * len(d.visits)
 
     pindex = np.zeros((nmodel, totpar), dtype=bool)
 

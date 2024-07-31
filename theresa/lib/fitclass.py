@@ -214,6 +214,10 @@ class Fit:
             obs.timefile = self.cfg.cfg.get(section, 'timefile')
             obs.fluxfile = self.cfg.cfg.get(section, 'fluxfile')
             obs.ferrfile = self.cfg.cfg.get(section, 'ferrfile')
+            if self.cfg.cfg.has_option(section, 'dvecfile'):
+                obs.dvecfile = self.cfg.cfg.get(section, 'dvecfile')
+            else:
+                obs.dvecfile = None
 
             obs.name = self.cfg.cfg.get(section, 'name')
             obs.instrument = self.cfg.cfg.getint(section, 'instrument')
@@ -270,10 +274,23 @@ class Fit:
                     visit.tuc    = np.loadtxt(obs.timefile, ndmin=1)
                     visit.fluxuc = np.loadtxt(obs.fluxfile, ndmin=2).T
                     visit.ferruc = np.loadtxt(obs.ferrfile, ndmin=2).T
+                    if obs.dvecfile is not None:
+                        visit.detrend = True
+                        visit.dvecuc = np.loadtxt(obs.dvecfile, ndmin=2).T
+                    else:
+                        # Dvec of all zeros if not supplied
+                        # (we do this because down the road numba likes
+                        #  tuples to be all the same type, so we want
+                        #  all dvecs to be 2D arrays, even if no dvecs
+                        #  are supplied for a given visit)
+                        visit.detrend = False
+                        visit.dvecuc = np.zeros((len(visit.tuc), 1),
+                                                 dtype=float).T
 
                     visit.timefile  = obs.timefile
                     visit.fluxfile  = obs.fluxfile
                     visit.ferrfile  = obs.ferrfile
+                    visit.dvecfile  = obs.dvecfile
 
                     visit.name       = obs.name
                     visit.instrument = obs.instrument
@@ -287,6 +304,7 @@ class Fit:
                         visit.t    = np.copy(visit.tuc)
                         visit.flux = np.copy(visit.fluxuc)
                         visit.ferr = np.copy(visit.ferruc)
+                        visit.dvec = np.copy(visit.dvecuc)
                     else:
                         nclip = len(visit.clip) // 2
                         whereclip = np.ones(len(visit.tuc), dtype=bool)
@@ -296,6 +314,7 @@ class Fit:
                         visit.t    = np.copy(visit.tuc[whereclip])
                         visit.flux = np.copy(visit.fluxuc[:,whereclip])
                         visit.ferr = np.copy(visit.ferruc[:,whereclip])
+                        visit.dvec = np.copy(visit.dvecuc[:,whereclip])
 
                     visit.tloc = visit.t - np.min(visit.t)
 
@@ -307,6 +326,11 @@ class Fit:
                     if len(visit.t) != visit.ferr.shape[1]:
                         print("WARNING: Number of times does not match" +
                               "the size of the ferr array.")
+                        sys.exit()
+                        
+                    if len(visit.t) != visit.dvec.shape[1]:
+                        print("WARNING: Number of times does not match" +
+                              "the size of the dvec array.")
                         sys.exit()
 
                     data.visits.append(visit)

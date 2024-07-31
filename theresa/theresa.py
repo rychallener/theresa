@@ -200,10 +200,12 @@ def map2d(cfile):
                     baselines = tuple(v.baseline for v in d.visits)
 
                     tlocs = tuple(v.tloc for v in d.visits)
+
+                    dvecs = tuple(v.dvec for v in d.visits)
                         
                     indparams = (ln.ecurves, d.t, d.pflux_y00, d.sflux,
                                  ln.ncurves, intens, pindex,
-                                 baselines, tlocs)
+                                 baselines, tlocs, dvecs)
 
                     # Better initial guess if possible
                     if hasattr(m, "l{}n{}".format(l,n-1)):
