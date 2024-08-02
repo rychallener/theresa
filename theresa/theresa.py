@@ -233,7 +233,8 @@ def map2d(cfile):
                                         plots=cfg.twod.plots, pmin=pmin,
                                         pmax=pmax, pnames=pnames,
                                         texnames=texnames, thinning=10,
-                                        fgamma=cfg.twod.fgamma)
+                                        fgamma=cfg.twod.fgamma,
+                                        grbreak=1.01)
 
                     # MC3 doesn't clear its plots >:(
                     plt.close('all')
