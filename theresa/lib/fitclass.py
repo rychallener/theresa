@@ -245,6 +245,12 @@ class Fit:
                     self.cfg.cfg.getboolean(section, 'renormalize')
             else:
                 obs.renormalize = False
+
+            if self.cfg.cfg.has_option(section, 'dvecmedsub'):
+                obs.dvecmedsub = \
+                    self.cfg.cfg.getboolean(section, 'dvecmedsub')
+            else:
+                obs.dvecmedsub = False
         
     def read_data(self):
         '''
@@ -299,6 +305,7 @@ class Fit:
                     visit.clip = obs.clip
 
                     visit.renormalize = obs.renormalize
+                    visit.dvecmedsub  = obs.dvecmedsub
 
                     if visit.clip is None:
                         visit.t    = np.copy(visit.tuc)
@@ -315,6 +322,11 @@ class Fit:
                         visit.flux = np.copy(visit.fluxuc[:,whereclip])
                         visit.ferr = np.copy(visit.ferruc[:,whereclip])
                         visit.dvec = np.copy(visit.dvecuc[:,whereclip])
+
+                    if visit.dvecmedsub:
+                        for i in range(visit.dvec.shape[0]):
+                            visit.dvec[i]   -= np.median(visit.dvec[i])
+                            visit.dvecuc[i] -= np.median(visit.dvec[i])
 
                     visit.tloc = visit.t - np.min(visit.t)
 
