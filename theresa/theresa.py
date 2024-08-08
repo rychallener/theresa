@@ -222,6 +222,9 @@ def map2d(cfile):
                                               n,
                                               d.wlmid[i]))
 
+
+                    # Make sure we don't use too much RAM
+                    thinning = np.max((10, cfg.twod.nsamples // 1e5))
                     mc3out = mc3.sample(data=mc3data, uncert=mc3unc,
                                         func=model.fit_2d,
                                         nsamples=cfg.twod.nsamples,
@@ -232,7 +235,7 @@ def map2d(cfile):
                                         leastsq=cfg.twod.leastsq,
                                         plots=cfg.twod.plots, pmin=pmin,
                                         pmax=pmax, pnames=pnames,
-                                        texnames=texnames, thinning=10,
+                                        texnames=texnames, thinning=thinning,
                                         fgamma=cfg.twod.fgamma,
                                         grbreak=1.01)
 
@@ -246,9 +249,6 @@ def map2d(cfile):
                     ln.post    = mc3out['posterior']
                     ln.zmask   = mc3out['zmask']
 
-                    # Insert fixed values into posterior and bestp. Only
-                    # does something if you manually fix parameters by
-                    # editing code...
                     niter, nfree = ln.post.shape
                     nparams = len(params)
                     for ip in range(nparams):
