@@ -224,7 +224,7 @@ def map2d(cfile):
 
 
                     # Make sure we don't use too much RAM
-                    thinning = np.max((10, cfg.twod.nsamples // 1e5))
+                    thinning = int(np.max((10, cfg.twod.nsamples // 1e5)))
                     mc3out = mc3.sample(data=mc3data, uncert=mc3unc,
                                         func=model.fit_2d,
                                         nsamples=cfg.twod.nsamples,
