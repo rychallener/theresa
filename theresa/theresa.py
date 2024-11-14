@@ -324,6 +324,8 @@ def map2d(cfile):
         d.vis, d.lat3d, d.lon3d = utils.visibility(
             fit, d.t, d.x, d.y, d.z, vis_lmax)
 
+    fit.ncolumn = fit.datasets[0].vis.shape[1]
+
     print("Checking for negative fluxes in visible cells:")
     for d in fit.datasets:
         print(d.name)

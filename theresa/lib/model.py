@@ -176,16 +176,14 @@ def specgrid(params, fit):
     """
     cfg = fit.cfg
    
-    nlat, nlon = fit.lat.shape
+    ncolumn = fit.ncolumn
 
-    ilat = fit.ivislat3d
-    ilon = fit.ivislon3d
+    irun = fit.ivis3d
 
     # Initialize to a list because we don't know the native wavenumber
     # resolution a priori of creating the model
-    nlat, nlon = fit.lat.shape
-    fluxgrid = np.empty((nlat, nlon), dtype=list)
-    taugrid = np.empty((nlat, nlon), dtype=list)
+    fluxgrid = np.empty(ncolumn, dtype=list)
+    taugrid  = np.empty(ncolumn, dtype=list)
 
     pmaps = atm.pmaps(params, fit)
     tgrid, p = atm.tgrid(cfg.threed.nlayers, cfg.twod.nlat,
