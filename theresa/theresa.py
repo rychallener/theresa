@@ -312,21 +312,9 @@ def map2d(cfile):
     print("Calculating planet visibility with time.")
     for d in fit.datasets:
         print(d.name)
-        pbar = progressbar.ProgressBar(max_value=len(d.t))
-        nt = len(d.t)
-        d.vis = np.zeros((nt, cfg.twod.nlat, cfg.twod.nlon))
-        for it in range(len(d.t)):
-            d.vis[it] = utils.visibility(d.t[it],
-                                         np.deg2rad(fit.lat),
-                                         np.deg2rad(fit.lon),
-                                         np.deg2rad(fit.dlatgrid),
-                                         np.deg2rad(fit.dlongrid),
-                                         np.deg2rad(180.),
-                                         cfg.planet.prot,
-                                         cfg.planet.t0,
-                                         cfg.planet.r, cfg.star.r,
-                                         d.x[:,it], d.y[:,it])
-            pbar.update(it+1)
+        vis_lmax = np.max([m.bestln.lmax for m in d.maps])
+        d.vis, d.lat3d, d.lon3d = utils.visibility(
+            fit, d.t, d.x, d.y, d.z, vis_lmax)
 
     print("Checking for negative fluxes in visible cells:")
     for d in fit.datasets:

@@ -167,9 +167,47 @@ def readfilters(filterfiles):
     wlmid = 1 / (c.um2cm * wnmid)
 
     return filtwl_list, filtwn_list, filttrans_list, wnmid, wlmid
-        
-def visibility(t, latgrid, longrid, dlatgrid, dlongrid, theta0, prot,
-               t0, rp, rs, x, y):
+
+def visibility(fit, t, x, y, z, lmax):
+    """
+    Calculate the visibility of a grid of cells on a planet for
+    a series of times using starry's design matrices to do this
+    analytically. Returns the visibility array with the associated
+    latitudes and longitudes. The samplinng is done on a Mollweide
+    grid such that all grid cells are of equal area.
+    """
+    # Lmax only influences the number of grid cells such that the
+    # planet is well sampled.
+    star, planet, system = initsystem(fit, lmax)
+
+    rp = fit.cfg.planet.r
+    rs = fit.cfg.star.r
+    t0 = fit.cfg.planet.t0
+    prot = fit.cfg.planet.prot
+
+    rprs = rp / rs
+
+    xo = (x[0] - x[1]) / rp
+    yo = (y[0] - y[1]) / rp
+    zo = (z[0] - z[1]) / rp
+
+    # Rotation of the planet assuming 0 is mid-transit.
+    theta = ((t - t0) / prot) % 1 * 360.
+
+    A = planet.map.design_matrix(xo=xo, yo=yo, ro=1/rprs, theta=theta).eval()
+
+    lat, lon, Y2P, P2Y, Dx, Dy = \
+        planet.map.get_pixel_transforms(oversample=10)
+
+    vis = A @ P2Y
+
+    # Get to the same units as the old visiblity function for simplicity
+    vis /= np.pi
+    
+    return vis, lat, lon
+    
+def visibility_old(t, latgrid, longrid, dlatgrid, dlongrid, theta0, prot,
+                   t0, rp, rs, x, y):
     """
     Calculate the visibility of a grid of cells on a planet at a specific
     time. Returns a combined visibility based on the observer's
