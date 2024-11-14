@@ -310,9 +310,17 @@ def map2d(cfile):
     #    fit.scorr[i] = fit.maps[i].bestln.bestp[fit.maps[i].bestln.ncurves+1]
 
     print("Calculating planet visibility with time.")
+    # TODO: this could be moved to 3D function.
+    # Determine highest lmax which sets how much we sample
+    # the 3D grid
+    vis_lmax = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            if m.bestln.lmax > vis_lmax:
+                vis_lmax = m.bestln.lmax
+                
     for d in fit.datasets:
         print(d.name)
-        vis_lmax = np.max([m.bestln.lmax for m in d.maps])
         d.vis, d.lat3d, d.lon3d = utils.visibility(
             fit, d.t, d.x, d.y, d.z, vis_lmax)
 
@@ -432,14 +440,12 @@ def map3d(fit, system):
         fit.cheminfo = None
 
     # Determine which grid cells to use
-    # Get all unique lat/lon combinations from all datasets
-    # Only considers longitudes currently
-    allivislon = np.concatenate([d.ivislon for d in fit.datasets])
-    allivislat = np.concatenate([d.ivislat for d in fit.datasets])
-    allivis = [(a,b) for a, b in zip(allivislat, allivislon)]
-    allivis = np.unique(allivis, axis=1)
-    fit.ivislat3d = np.array([a[0] for a in allivis])
-    fit.ivislon3d = np.array([a[1] for a in allivis])
+    # TODO: update for new 3D grid. Currently just uses all cells.
+    #       Needs to loop over all dataset objects, figure out which
+    #       cells are visible (all datasets have the same grid), and
+    #       effectivley do an OR operation to get them all.
+    ncell = fit.datasets[0].vis.shape[1]
+    fit.ivis3d = np.arange(0, ncell)
         
     print("Fitting spectrum.")
     # This doesn't work. Stick to TauREx.
