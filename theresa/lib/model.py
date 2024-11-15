@@ -176,7 +176,7 @@ def specgrid(params, fit):
     """
     cfg = fit.cfg
 
-    irun = fit.ivis3d
+    ivis = fit.ivis3d
 
     # Initialize to a list because we don't know the native wavenumber
     # resolution a priori of creating the model
@@ -200,8 +200,7 @@ def specgrid(params, fit):
     mols = np.concatenate((cfg.threed.mols, cfg.threed.cmols))
     abn, spec = atm.atminit(cfg.threed.atmtype, mols, p, tgrid,
                             cfg.planet.m, cfg.planet.r, cfg.planet.p0,
-                            z, ilat=ilat, ilon=ilon,
-                            cheminfo=fit.cheminfo)
+                            z, ivis=ivis, cheminfo=fit.cheminfo)
     
     negativeT = False
 

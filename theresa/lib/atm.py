@@ -18,7 +18,7 @@ sys.path.append(ratedir)
 import rate
 
 def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
-            ilat=None, ilon=None, cheminfo=None):
+            ivis=None, cheminfo=None):
     """
     Initializes atmospheres of various types.
     
@@ -51,12 +51,8 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
     z: float
         Metallicity. E.g., z=0 is solar.
 
-    ilat: 2d array
-        Optional array of latitude indices where atmosphere should 
-        be evaluated.
-
-    ilon: 2d array
-        Optional array of longitude indices where atmosphere should
+    ivis: 1d array
+        Optional array of indices where atmosphere should 
         be evaluated.
 
     cheminfo: list or tuple
@@ -82,12 +78,10 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
     rp *= c.Rsun / c.Rjup
     mp *= c.Msun / c.Mjup
 
-    nlayers, nlat, nlon = t.shape
+    nlayers, ncolumn = t.shape
 
-    if ilat is None:
-        ilat = np.repeat(np.arange(nlat), nlon)
-    if ilon is None:
-        ilon = np.tile(  np.arange(nlon), nlat)
+    if ivis is None:
+        ivis = np.arange(ncolumn)
     
     # Equilibrium atmosphere
     if atmtype == 'rate':
@@ -97,15 +91,15 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
                          fHe=0.0851)
         spec = robj.species
         nspec = len(spec)
-        abn = np.zeros((nspec, nlayers, nlat, nlon))
-        for i, j in zip(ilat, ilon):
-            abn[:,:,i,j] = robj.solve(t[:,i,j], p)
+        abn = np.zeros((nspec, nlayers, ncolumn))
+        for i in ivis:
+            abn[:,:,i] = robj.solve(t[:,i], p)
 
     elif atmtype == 'ggchem':
         ggchemT, ggchemp, ggchemz, spec, ggchemabn = cheminfo
         tic = time.time()
         nspec, nump, numt, numz = ggchemabn.shape
-        abn = np.zeros((nspec, nlayers, nlat, nlon))
+        abn = np.zeros((nspec, nlayers, ncolumn))
         
         if not np.all(np.isclose(p, ggchemp)):
             print("Pressures of fit and chemistry do not match. Exiting.")
@@ -126,12 +120,12 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
                         iz = np.where(ggchemz == z)
                         fcn = spi.interp1d(ggchemT,
                                            ggchemabn[s,k,:,iz])
-                        abn[s,k,ilat,ilon] = fcn(t[k,ilat,ilon])
+                        abn[s,k,ivis] = fcn(t[k,ivis])
                     else:
                         fcn = spi.interp2d(ggchemz, ggchemT,
                                            ggchemabn[s,k])
-                        for i,j in zip(ilat, ilon):
-                            abn[s,k,i,j] = fcn(z, t[k,i,j])
+                        for i in ivis:
+                            abn[s,k,ivis] = fcn(z, t[k,ivis])
 
     else:
         print("Unrecognized atmosphere type.")
