@@ -343,27 +343,23 @@ def specvtime(params, fit):
     # Integrate to filters
     intfluxgrid = np.zeros((fit.ncolumn, nmaps))
 
-    for i in range(fit.ncolumn):
-        count = 0
-        for d in fit.datasets:
-            for m in d.maps:
+    count = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            for i in range(fit.ncolumn):
                 intfluxgrid[i,count] = \
-                    utils.specint(wn, fluxgrid[count], [m.filtwn],
+                    utils.specint(wn, fluxgrid[i], [m.filtwn],
                                   [m.filttrans])
-                count += 1
+            count += 1
 
     fluxvtime = []
 
     # Account for vis and sum over grid cells
     # TODO: make sure this is handling datasets correctly
-    # Also this loop over time seems unnecessary
     count = 0
     for d in fit.datasets:
         for m in d.maps:
-            nt = len(d.t)
-            tempfvt = np.zeros(nt)
-            for it in range(nt):
-                tempfvt[it] = np.sum(intfluxgrid[:,count] * d.vis[it])
+            tempfvt = np.sum(intfluxgrid[:,count] * d.vis, axis=1)
             fluxvtime.append(tempfvt)
             count += 1
 
@@ -383,10 +379,12 @@ def sysflux(params, fit):
     # TODO: this needs to be modifed to not use scorr and instead account
     #       for all systematics models (normalization, detrend vectors, ramps)
     #       In a perfect world, we also fit for those. Ugh.
+    count = 0
     for d in fit.datasets:
-        for i, m in enumerate(d.maps):
-            fpfscorr = fpfs[i] * d.sflux / (d.sflux + 0)
+        for m in d.maps:
+            fpfscorr = fpfs[count] * d.sflux / (d.sflux + 0)
             systemflux.append(fpfscorr + 1)
+            count += 1
     
     return systemflux, tgrid, taugrid, p, wn, pmaps
 
@@ -718,28 +716,6 @@ def get_par_3d(fit):
             for i in range(nwl):
                 par[i*nppwl]   = np.linspace(-2, 0, nwl)[ipar][i]
 
-            modeltype.append('pmap')
-            nparams[im] = npar
-            allparams.append(par)
-            allpmin.append(pmin)
-            allpmax.append(pmax)
-            allpstep.append(pstep)
-            allpnames.append(pnames)
-        elif mname == 'flexible':
-            ilat, ilon = np.where((fit.lon + fit.dlon / 2. > fit.minvislon) &
-                                  (fit.lon - fit.dlon / 2. < fit.maxvislon))
-            nvislat = len(np.unique(ilat))
-            nvislon = len(np.unique(ilon))
-            nppwl = nvislat * nvislon * len(fit.maps)
-            npar  = nppwl * npar
-            par   = np.zeros(nppwl)
-            pstep = np.ones(nppwl) * 1e-3
-            pmin  = np.ones(nppwl) * np.log10(fit.cfg.threed.ptop)
-            pmax  = np.ones(nppwl) * np.log10(fit.cfg.threed.pbot)
-            pnames = ['log(p{},{},{})'.format(i,j,k) \
-                      for i in np.arange(1, nmaps+1) \
-                      for j in ilat \
-                      for k in ilon]
             modeltype.append('pmap')
             nparams[im] = npar
             allparams.append(par)
