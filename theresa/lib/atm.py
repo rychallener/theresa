@@ -527,15 +527,16 @@ def pmaps(params, fit):
             pmaps[i] = 10.**(mapparams[ip] + \
                 mapparams[ip+1]*np.cos((lat                )*np.pi/180.) + \
                 mapparams[ip+2]*np.cos((lon-mapparams[ip+3])*np.pi/180.))
-    elif mapfunc == 'flexible':
-        ilat, ilon = np.where((lon + dlon / 2. > fit.minvislon) &
-                              (lon - dlon / 2. < fit.maxvislon))
-        nvis = len(ilat)
-        for i in range(nmap):
-            ip = 0
-            for j, k in zip(ilat, ilon):
-                pmaps[i,j,k] = 10.**mapparams[i*nvis+ip]
-                ip += 1
+    # This one needs to be updated for the new 3D grid
+    # elif mapfunc == 'flexible':
+    #     ilat, ilon = np.where((lon + dlon / 2. > fit.minvislon) &
+    #                           (lon - dlon / 2. < fit.maxvislon))
+    #     nvis = len(ilat)
+    #     for i in range(nmap):
+    #         ip = 0
+    #         for j, k in zip(ilat, ilon):
+    #             pmaps[i,j,k] = 10.**mapparams[i*nvis+ip]
+    #             ip += 1
     elif mapfunc == 'quadratic':
         npar = 6
         for i in range(nmap):
