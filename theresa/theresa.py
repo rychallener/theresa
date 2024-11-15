@@ -385,8 +385,8 @@ def map2d(cfile):
     imap = 0
     for d in fit.datasets:
         for m in d.maps:
-            fit.tmaps[imap] = m.tmap
-            fit.fmaps[imap] = m.fmap
+            fit.tmaps2d[imap] = m.tmap
+            fit.fmaps2d[imap] = m.fmap
             imap += 1
 
     if cfg.twod.plots:

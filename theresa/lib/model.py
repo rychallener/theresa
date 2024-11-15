@@ -375,6 +375,9 @@ def sysflux(params, fit):
     systemflux = []
     # Account for stellar correction
     # Transform fp/fs -> fp/(fs + corr) -> (fp + fs + corr)/(fs + corr)
+    # TODO: this needs to be modifed to not use scorr and instead account
+    #       for all systematics models (normalization, detrend vectors, ramps)
+    #       In a perfect world, we also fit for those. Ugh.
     for d in fit.datasets:
         for i, m in enumerate(d.maps):
             fpfscorr = fpfs[i] * d.sflux / (d.sflux + fit.scorr[i])

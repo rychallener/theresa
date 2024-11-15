@@ -749,7 +749,7 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
 
             # Not efficient to do this all the time...
             p3d = p.reshape((fit.cfg.threed.nlayers, 1))
-            p3d = np.tile(p3d, (1, fit.ncolumn)))
+            p3d = np.tile(p3d, (1, fit.ncolumn))
 
             lon3d = fit.lon.reshape((1, fit.ncolumn))
             lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1))
@@ -801,7 +801,7 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
 
             # Not efficient to do this all the time...
             p3d = p.reshape((fit.cfg.threed.nlayers, 1))
-            p3d = np.tile(p3d, (1, fit.ncolumn)))
+            p3d = np.tile(p3d, (1, fit.ncolumn))
 
             lon3d = fit.lon.reshape((1, fit.ncolumn))
             lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1))

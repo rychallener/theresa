@@ -152,8 +152,8 @@ def pltmaps(fit, proj='rect'):
     naxes = nrows * ncols
     extra = nmaps % ncols
 
-    vmax = np.max(fit.tmaps[~np.isnan(fit.tmaps)])
-    vmin = np.min(fit.tmaps[~np.isnan(fit.tmaps)])
+    vmax = np.max(fit.tmaps2d[~np.isnan(fit.tmaps2d)])
+    vmin = np.min(fit.tmaps2d[~np.isnan(fit.tmaps2d)])
     
     if proj == 'rect':
         extent = (-180, 180, -90, 90)
@@ -576,7 +576,7 @@ def bestfittgrid(fit, outdir=''):
                 for k in range(nmaps):
                     alpha = np.sum(fit.cf[i,j,:,k]) / cfnorm_dots
                     alpha = np.round(alpha, 2)
-                    ax.scatter(fit.tmaps[k,i,j], fit.pmaps[k,i,j],
+                    ax.scatter(fit.tmaps3d[k,i,j], fit.pmaps[k,i,j],
                                c=colors[k], marker='o', zorder=3, s=1,
                                alpha=alpha)
 
@@ -751,12 +751,12 @@ def pmaps3d(fit, animate=False, outdir=''):
     
     nmaps = fit.pmaps.shape[0]
 
-    tmax = np.nanmax(fit.tmaps)
-    tmin = np.nanmin(fit.tmaps)
+    tmax = np.nanmax(fit.tmaps3d)
+    tmin = np.nanmin(fit.tmaps3d)
 
     def init():
         for i in range(nmaps):
-            cm = mpl.cm.coolwarm((fit.tmaps[i] - tmin)/(tmax - tmin))
+            cm = mpl.cm.coolwarm((fit.tmaps3d[i] - tmin)/(tmax - tmin))
             ax.plot_surface(fit.lat, fit.lon, np.log10(fit.pmaps[i]),
                             facecolors=cm, linewidth=3, shade=False)
             ax.plot_wireframe(fit.lat, fit.lon,
@@ -831,7 +831,7 @@ def tgrid_unc(fit, outdir=''):
     for i in range(ncalc):
         ipost = i * niter // ncalc
         pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
-        tgridpost[i], p = atm.tgrid(nlev, nlat, nlon, fit.tmaps,
+        tgridpost[i], p = atm.tgrid(nlev, nlat, nlon, fit.tmaps3d,
                                     pmaps, fit.cfg.threed.pbot,
                                     fit.cfg.threed.ptop,
                                     fit.posterior3d[ipost],
