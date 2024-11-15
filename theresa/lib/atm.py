@@ -497,16 +497,14 @@ def pmaps(params, fit):
     Calculates pressures of tmaps using a variety of mapping functions.
     '''
     tmaps = fit.tmaps
-    lat   = fit.lat
-    lon   = fit.lon
-    dlat  = fit.dlat
-    dlon  = fit.dlon
+    lat   = fit.lat3d
+    lon   = fit.lon3d
     im = np.where(fit.modeltype3d == 'pmap')[0][0]
     mapfunc = fit.cfg.threed.modelnames[im]
     mapparams = params[fit.imodel3d[im]]
     
     pmaps = np.zeros(tmaps.shape)
-    nmap, nlat, nlon = pmaps.shape
+    nmap, ncell = pmaps.shape
     if   mapfunc == 'isobaric':
         for i in range(nmap):
             pmaps[i] = 10.**mapparams[i]
