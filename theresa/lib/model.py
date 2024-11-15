@@ -175,22 +175,19 @@ def specgrid(params, fit):
     grid cells.
     """
     cfg = fit.cfg
-   
-    ncolumn = fit.ncolumn
 
     irun = fit.ivis3d
 
     # Initialize to a list because we don't know the native wavenumber
     # resolution a priori of creating the model
-    fluxgrid = np.empty(ncolumn, dtype=list)
-    taugrid  = np.empty(ncolumn, dtype=list)
+    fluxgrid = np.empty(fit.ncolumn, dtype=list)
+    taugrid  = np.empty(fit.ncolumn, dtype=list)
 
     pmaps = atm.pmaps(params, fit)
-    tgrid, p = atm.tgrid(cfg.threed.nlayers, cfg.twod.nlat,
-                         cfg.twod.nlon, fit.tmaps, pmaps,
-                         cfg.threed.pbot, cfg.threed.ptop, params,
-                         fit.nparams3d, fit.modeltype3d, fit.imodel3d,
-                         interptype=cfg.threed.interp,
+    tgrid, p = atm.tgrid(cfg.threed.nlayers, fit.ncolumn, fit.tmaps,
+                         pmaps, cfg.threed.pbot, cfg.threed.ptop,
+                         params, fit.nparams3d, fit.modeltype3d,
+                         fit.imodel3d, interptype=cfg.threed.interp,
                          smooth=cfg.threed.smooth)
     
     if cfg.threed.z == 'fit':

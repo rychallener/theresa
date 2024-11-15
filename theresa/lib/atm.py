@@ -410,7 +410,7 @@ def calcrad(p, t, mu, r0, mp, p0):
     return r
         
 
-def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
+def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
           nparams, modeltype, imodel, interptype='linear',
           smooth=None):
     """
@@ -420,7 +420,7 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
 
     """
     
-    temp3d = np.zeros((nlayers, nlat, nlon))
+    temp3d = np.zeros((nlayers, ncolumn))
 
     logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
 
@@ -444,52 +444,51 @@ def tgrid(nlayers, nlat, nlon, tmaps, pmaps, pbot, ptop, params,
         else:
             oob = 'isothermal'
 
-    for i in range(nlat):
-        for j in range(nlon):
-            if oob == 'extrapolate':
-                fill_value = 'extrapolate'
-                p_interp = np.copy(pmaps[:,i,j])
-                t_interp = np.copy(tmaps[:,i,j])
-            elif oob == 'isothermal':
-                imax = np.argsort(pmaps[:,i,j])[-1]
-                imin = np.argsort(pmaps[:,i,j])[0]
-                fill_value = (tmaps[:,i,j][imin], tmaps[:,i,j][imax])
-                p_interp = np.copy(pmaps[:,i,j])
-                t_interp = np.copy(tmaps[:,i,j])
-            elif oob == 'top':
-                ttop = oobparams[0]
-                p_interp = np.concatenate((pmaps[:,i,j], (ptop,)))
-                t_interp = np.concatenate((tmaps[:,i,j], (ttop,)))
-                imax = np.argsort(pmaps[:,i,j])[-1]
-                fill_value = (ttop, tmaps[:,i,j][imax])
-            elif oob == 'bot':
-                tbot = oobparams[0]
-                p_interp = np.concatenate((pmaps[:,i,j], (pbot,)))
-                t_interp = np.concatenate((tmaps[:,i,j], (tbot,)))
-                imin = np.argsort(pmaps[:,i,j])[0]
-                fill_value = (tmaps[:,i,j][imin], tbot)
-            elif oob == 'both':
-                ttop = oobparams[0]
-                tbot = oobparams[1]
-                p_interp = np.concatenate((pmaps[:,i,j],
-                                           (ptop, pbot)))
-                t_interp = np.concatenate((tmaps[:,i,j],
-                                           (ttop, tbot)))
-                fill_value = 'extrapolate' # shouldn't matter
-                
-            interp = spi.interp1d(np.log10(p_interp),
-                                  t_interp, kind=interptype,
-                                  bounds_error=False,
-                                  fill_value=fill_value)
-            
-            temp3d[:,i,j] = interp(logp1d)
+    for i in range(ncolumn):
+        if oob == 'extrapolate':
+            fill_value = 'extrapolate'
+            p_interp = np.copy(pmaps[:,i,j])
+            t_interp = np.copy(tmaps[:,i,j])
+        elif oob == 'isothermal':
+            imax = np.argsort(pmaps[:,i])[-1]
+            imin = np.argsort(pmaps[:,i])[0]
+            fill_value = (tmaps[:,i][imin], tmaps[:,i][imax])
+            p_interp = np.copy(pmaps[:,i])
+            t_interp = np.copy(tmaps[:,i])
+        elif oob == 'top':
+            ttop = oobparams[0]
+            p_interp = np.concatenate((pmaps[:,i], (ptop,)))
+            t_interp = np.concatenate((tmaps[:,i], (ttop,)))
+            imax = np.argsort(pmaps[:,i])[-1]
+            fill_value = (ttop, tmaps[:,i][imax])
+        elif oob == 'bot':
+            tbot = oobparams[0]
+            p_interp = np.concatenate((pmaps[:,i], (pbot,)))
+            t_interp = np.concatenate((tmaps[:,i], (tbot,)))
+            imin = np.argsort(pmaps[:,i])[0]
+            fill_value = (tmaps[:,i][imin], tbot)
+        elif oob == 'both':
+            ttop = oobparams[0]
+            tbot = oobparams[1]
+            p_interp = np.concatenate((pmaps[:,i],
+                                       (ptop, pbot)))
+            t_interp = np.concatenate((tmaps[:,i],
+                                       (ttop, tbot)))
+            fill_value = 'extrapolate' # shouldn't matter
 
-            if smooth is not None:
-                T = temp3d[:,i,j]
-                Tsmooth = np.convolve(T, np.ones(smooth), 'valid') / smooth
-                nedge = np.int((len(T) - len(Tsmooth)) / 2)
-                temp3d[:,i,j][nedge:-nedge] = Tsmooth
-            
+        interp = spi.interp1d(np.log10(p_interp),
+                              t_interp, kind=interptype,
+                              bounds_error=False,
+                              fill_value=fill_value)
+
+        temp3d[:,i] = interp(logp1d)
+
+        if smooth is not None:
+            T = temp3d[:,i]
+            Tsmooth = np.convolve(T, np.ones(smooth), 'valid') / smooth
+            nedge = np.int((len(T) - len(Tsmooth)) / 2)
+            temp3d[:,i][nedge:-nedge] = Tsmooth
+
     return temp3d, 10**logp1d
 
 def pmaps(params, fit):
@@ -504,7 +503,7 @@ def pmaps(params, fit):
     mapparams = params[fit.imodel3d[im]]
     
     pmaps = np.zeros(tmaps.shape)
-    nmap, ncell = pmaps.shape
+    nmap, ncolumn = pmaps.shape
     if   mapfunc == 'isobaric':
         for i in range(nmap):
             pmaps[i] = 10.**mapparams[i]
