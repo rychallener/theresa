@@ -379,8 +379,8 @@ def map2d(cfile):
 
     # Make a single array of tmaps for convenience
     fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
-    fit.tmaps = np.zeros((fit.nmaps, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
-    fit.fmaps = np.zeros((fit.nmaps, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+    fit.tmaps2d = np.zeros((fit.nmaps, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+    fit.fmaps2d = np.zeros((fit.nmaps, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
 
     imap = 0
     for d in fit.datasets:

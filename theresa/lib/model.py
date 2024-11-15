@@ -408,18 +408,17 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
     The sigma distance is computed for every visible grid cell
     and returned in a flattened array.
     '''
-    allfiltwn    = [m.filtwn for m in fit.maps]
-    allfilttrans = [m.filttrans for m in fit.maps]
+    allfiltwn    = [m.filtwn for d in fit.datasets for m in d.maps]
+    allfilttrans = [m.filttrans for d in fit.datasets for m in d.maps]
     cfs = cf.contribution_filters(tgrid, wn, taugrid, p, allfiltwn,
                                   allfilttrans)
 
     # Where the maps "should" be
-    # Find the roots of the derivative of a spline fit to
-    # the contribution functions, then calculate some sort
-    # of goodness of fit
-    nlev, nlat, nlon = tgrid.shape
-    nmaps = len(fit.maps)
-    ncf = np.sum([d.ivislat.size * len(d.wlmid) for d in fit.datasets])
+    # Find the roots of the derivative of a spline fit to the
+    # contribution functions, then calculate something like a goodness
+    # of fit
+    ncolumn, nlon = tgrid.shape
+    ncf = fit.ivis3d.size * fit.nmaps
     cfsigdiff = np.zeros(ncf)
     logp = np.log10(p)
     order = np.argsort(logp)
@@ -429,22 +428,21 @@ def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
                        np.amax(logp),
                        10*len(logp))
     count = 0
-    for k, m in enumerate(fit.maps):
-        for i, j in zip(m.dataset.ivislat, m.dataset.ivislon):
-            # Check for 0 contribution and handle to avoid errors
-            if np.all(cfs[i,j,order,k] == 0.0):
+    for k in range(fit.nmaps):
+        for i in fit.ivis3d:
+            if np.all(cfs[i,order,k] == 0.0):
                 print("Contribution function zero for all layers at "
                       "lat = {:.2f}, lon = {:.2f}. Likely a numerical "
                       "issue with high opacity at low pressures.".format(
-                          fit.lat[i,j], fit.lon[i,j]))
+                          fit.lat3d[i], fit.lon3d[i]))
                 cfsigdiff += -np.inf
                 return cfsigdiff
-            
+
             # Where the map is placed
-            xval = np.log10(pmaps[k,i,j])
+            xval = np.log10(pmaps[k,i])
 
             # Interpolate CF to 10x finer atmospheric layers
-            pdf = np.interp(xpdf, logp[order], cfs[i,j,order,k])
+            pdf = np.interp(xpdf, logp[order], cfs[i,order,k])
 
             # Compute minimum density of 68.3% region
             pdf, xpdf, HPDmin = mc3.stats.cred_region(pdf=pdf, xpdf=xpdf)
