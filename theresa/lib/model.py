@@ -337,29 +337,30 @@ def specvtime(params, fit):
     """
     # Calculate grid of spectra without visibility correction
     fluxgrid, tgrid, taugrid, p, wn, pmaps = specgrid(params, fit)
-
-    nlat, nlon = fit.lat.shape
+    
     nmaps = len(fit.maps)
 
     # Integrate to filters
-    intfluxgrid = np.zeros((nlat, nlon, nmaps))
+    intfluxgrid = np.zeros((fit.ncolumn, nmaps))
 
-    for i in range(nlat):
-        for j in range(nlon):
-            for im, m in enumerate(fit.maps):
-                intfluxgrid[i,j,im] = utils.specint(wn, fluxgrid[i,j],
-                                                    [m.filtwn],
-                                                    [m.filttrans])
+    for i in range(ncolumn):
+        for im, m in enumerate(fit.maps):
+            intfluxgrid[i,im] = utils.specint(wn, fluxgrid[i],
+                                              [m.filtwn],
+                                              [m.filttrans])
 
     fluxvtime = []
 
     # Account for vis and sum over grid cells
-    for im, m in enumerate(fit.maps):
-        nt = len(m.dataset.t)
-        tempfvt = np.zeros(nt)
-        for it in range(nt):
-            tempfvt[it] = np.sum(intfluxgrid[:,:,im] * m.dataset.vis[it])
-        fluxvtime.append(tempfvt)
+    # TODO: make sure this is handling datasets correctly
+    # Also this loop over time seems unnecessary
+    for d in fit.datasets:
+        for im, m in enumerate(d.maps):
+            nt = len(d.t)
+            tempfvt = np.zeros(nt)
+            for it in range(nt):
+                tempfvt[it] = np.sum(intfluxgrid[:,im] * d.vis[it])
+            fluxvtime.append(tempfvt)
 
     # There is a very small memory leak somewhere, but this seems to
     # fix it. Not an elegant solution, but ¯\_(ツ)_/¯
@@ -374,9 +375,10 @@ def sysflux(params, fit):
     systemflux = []
     # Account for stellar correction
     # Transform fp/fs -> fp/(fs + corr) -> (fp + fs + corr)/(fs + corr)
-    for i, m in enumerate(fit.maps):
-        fpfscorr = fpfs[i] * m.dataset.sflux / (m.dataset.sflux + fit.scorr[i])
-        systemflux.append(fpfscorr + 1)
+    for d in fit.datasets:
+        for i, m in enumerate(d.maps):
+            fpfscorr = fpfs[i] * d.sflux / (d.sflux + fit.scorr[i])
+            systemflux.append(fpfscorr + 1)
     
     return systemflux, tgrid, taugrid, p, wn, pmaps
 

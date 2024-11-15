@@ -450,13 +450,13 @@ def map3d(fit, system):
     #       Needs to loop over all dataset objects, figure out which
     #       cells are visible (all datasets have the same grid), and
     #       effectivley do an OR operation to get them all.
-    ncell = fit.datasets[0].vis.shape[1]
-    fit.ivis3d = np.arange(0, ncell)
+    ncolumn = fit.datasets[0].vis.shape[1]
+    fit.ivis3d = np.arange(0, ncolumn)
 
     # Make a single array of tmaps on the 3D grid
     fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
-    fit.tmaps = np.zeros((fit.nmaps, ncell))
-    fit.fmaps = np.zeros((fit.nmaps, ncell))
+    fit.tmaps = np.zeros((fit.nmaps, ncolumn))
+    fit.fmaps = np.zeros((fit.nmaps, ncolumn))
 
     imap = 0
     for d in fit.datasets:
