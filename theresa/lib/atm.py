@@ -63,22 +63,19 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
 
     Returns
     -------
-    r: 1D array
-        Radius at each layer of the atmosphere.
-
-    p: 1D array
-        Pressure at each layer of the atmosphere.
-
-    abn: 2D array
+    abn: 3D array
         Abundance (mixing ratio) of each species in the atmosphere.
-        Rows are atmosphere layers and columns are species abundances.
+        nspec X nlayer X ncolumn
+
+    spec: list
+        Species associated with the abundances in abn
     """
 
     # Convert planet mass and radius to Jupiter
     rp *= c.Rsun / c.Rjup
     mp *= c.Msun / c.Mjup
 
-    nlayers, ncolumn = t.shape
+    nlayer, ncolumn = t.shape
 
     if ivis is None:
         ivis = np.arange(ncolumn)
@@ -91,7 +88,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
                          fHe=0.0851)
         spec = robj.species
         nspec = len(spec)
-        abn = np.zeros((nspec, nlayers, ncolumn))
+        abn = np.zeros((nspec, nlayer, ncolumn))
         for i in ivis:
             abn[:,:,i] = robj.solve(t[:,i], p)
 
@@ -99,7 +96,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
         ggchemT, ggchemp, ggchemz, spec, ggchemabn = cheminfo
         tic = time.time()
         nspec, nump, numt, numz = ggchemabn.shape
-        abn = np.zeros((nspec, nlayers, ncolumn))
+        abn = np.zeros((nspec, nlayer, ncolumn))
         
         if not np.all(np.isclose(p, ggchemp)):
             print("Pressures of fit and chemistry do not match. Exiting.")
@@ -115,7 +112,7 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
 
         for s in range(nspec):
             if spec[s] in mols or spec[s] in exmols:
-                for k in range(nlayers):
+                for k in range(nlayer):
                     if z in ggchemz:
                         iz = np.where(ggchemz == z)
                         fcn = spi.interp1d(ggchemT,
