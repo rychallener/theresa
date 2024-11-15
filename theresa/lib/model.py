@@ -249,27 +249,27 @@ def specgrid(params, fit):
             HMCon.debug = do_nothing
             
         # Latitudes (all visible) and Longitudes
-        for i, j in zip(ilat, ilon):
+        for i in irun:
             # Check for nonphysical atmosphere and return a bad fit
             # if so
-            if not np.all(tgrid[:,i,j] >= 0):
+            if not np.all(tgrid[:,i] >= 0):
                 msg = "WARNING: Nonphysical TP profile at Lat: {}, Lon: {}"
-                print(msg.format(fit.lat[i,j], fit.lon[i,j]))
+                print(msg.format(fit.lat3d[i], fit.lon3d[i]))
                 negativeT = True
             rtt = TemperatureArray(
-                tp_array=tgrid[:,i,j])
+                tp_array=tgrid[:,i])
             rtchem = taurex.chemistry.TaurexChemistry()
             for k in range(len(spec)):
                 if (spec[k] not in ['H2', 'He']) and \
                    (spec[k]     in fit.cfg.threed.mols):
-                    gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
+                    gas = trc.ArrayGas(spec[k], abn[k,:,i])
                     rtchem.addGas(gas)
                 if 'H-' in fit.cfg.threed.mols:
                     if spec[k] == 'H':
-                        gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
+                        gas = trc.ArrayGas(spec[k], abn[k,:,i])
                         rtchem.addGas(gas)
                     elif spec[k] == 'e-':
-                        gas = trc.ArrayGas(spec[k], abn[k,:,i,j])
+                        gas = trc.ArrayGas(spec[k], abn[k,:,i])
                         rtchem.addGas(gas)
             rt = trc.EmissionModel3D(
                 planet=rtplan,
@@ -285,9 +285,9 @@ def specgrid(params, fit):
                 for icloud in range(len(crl)):
                     rt.add_contribution(
                         trc.LeeMieVaryMixContribution(
-                            lee_mie_radius=crl[icloud][:,i,j],
-                            lee_mie_q=ql[icloud][:,i,j],
-                            lee_mie_mix_ratio=10.**cml[icloud][:,i,j],
+                            lee_mie_radius=crl[icloud][:,i],
+                            lee_mie_q=ql[icloud][:,i],
+                            lee_mie_mix_ratio=10.**cml[icloud][:,i],
                             lee_mie_bottomP=-1,
                             lee_mie_topP=-1))
             if 'H-' in fit.cfg.threed.mols:
@@ -311,18 +311,17 @@ def specgrid(params, fit):
                 print("WARNING: taulimit reached at top of the atmosphere! "
                       "Increase taulimit or decrease minimum pressure.")
 
-            fluxgrid[i,j] = flux
-            taugrid[i,j] = tau
+            fluxgrid[i] = flux
+            taugrid[i] = tau
 
         # Fill in non-visible cells with zeros
         # (np.where doesn't work because of broadcasting issues)
         nwn = len(wn)
-        for i in range(nlat):
-            for j in range(nlon):
-                if type(fluxgrid[i,j]) == type(None):
-                    fluxgrid[i,j] = np.zeros(nwn)
-                if type(taugrid[i,j]) == type(None):
-                    taugrid[i,j] = np.zeros((cfg.threed.nlayers, nwn))
+        for i in range(fit.ncolumn):
+            if type(fluxgrid[i]) == type(None):
+                fluxgrid[i] = np.zeros(nwn)
+            if type(taugrid[i]) == type(None):
+                taugrid[i] = np.zeros((cfg.threed.nlayers, nwn))
 
     else:
         print("ERROR: Unrecognized RT function.")       
