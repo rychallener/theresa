@@ -682,8 +682,7 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
     if 'eqclouds' in fit.cfg.threed.modelnames:
         nclouds += len(fit.cfg.threed.cmols) - 1 # already counted once
 
-    allshape = (nclouds, fit.cfg.threed.nlayers, fit.cfg.twod.nlat,
-                fit.cfg.twod.nlon)
+    allshape = (nclouds, fit.cfg.threed.nlayers, fit.ncolumn)
     
     allrad = np.zeros(allshape)
     allmix = np.zeros(allshape)
@@ -705,16 +704,15 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             topp    = 10**leepar[4]
 
             shape = (fit.cfg.threed.nlayers,
-                     fit.cfg.twod.nlat,
-                     fit.cfg.twod.nlon)
+                     fit.ncolumn)
             radii = np.zeros(shape)
             mix   = np.zeros(shape)
             q     = np.zeros(shape)
 
             where = np.where((p >= topp) & (p <= bottomp))
-            radii[where,:,:] = radius
-            mix[  where,:,:] = mixrat
-            q[    where,:,:] = q0
+            radii[where,:] = radius
+            mix[  where,:] = mixrat
+            q[    where,:] = q0
 
             allrad[ic] = radii
             allmix[ic] = mix
@@ -744,18 +742,17 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             lon2     = center + width / 2.
 
             shape = (fit.cfg.threed.nlayers,
-                     fit.cfg.twod.nlat,
-                     fit.cfg.twod.nlon)
+                     fit.ncolumn)
             radii = np.zeros(shape)
             mix   = np.zeros(shape)
             q     = np.zeros(shape)
 
             # Not efficient to do this all the time...
-            p3d = p.reshape((fit.cfg.threed.nlayers, 1, 1))
-            p3d = np.tile(p3d, (1, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+            p3d = p.reshape((fit.cfg.threed.nlayers, 1))
+            p3d = np.tile(p3d, (1, fit.ncolumn)))
 
-            lon3d = fit.lon.reshape((1, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
-            lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1, 1))
+            lon3d = fit.lon.reshape((1, fit.ncolumn))
+            lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1))
 
             # Cloud 1
             pcond1   = (p3d >= topp1)  & (p3d <= bottomp1)
@@ -803,11 +800,11 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             q     = np.zeros(shape)
 
             # Not efficient to do this all the time...
-            p3d = p.reshape((fit.cfg.threed.nlayers, 1, 1))
-            p3d = np.tile(p3d, (1, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
+            p3d = p.reshape((fit.cfg.threed.nlayers, 1))
+            p3d = np.tile(p3d, (1, fit.ncolumn)))
 
-            lon3d = fit.lon.reshape((1, fit.cfg.twod.nlat, fit.cfg.twod.nlon))
-            lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1, 1))
+            lon3d = fit.lon.reshape((1, fit.ncolumn))
+            lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1))
 
             pcond   = (p3d >= topp)   & (p3d <= bottomp)
             loncond = (lon3d <= lon1) | (lon3d >= lon2)
@@ -830,8 +827,7 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             q0     = par[1]
             
             shape = (fit.cfg.threed.nlayers,
-                     fit.cfg.twod.nlat,
-                     fit.cfg.twod.nlon)
+                     fit.ncolumn)
             for s in range(len(spec)):
                 if spec[s] in fit.cfg.threed.cmols:
                     radii = np.zeros(shape)
