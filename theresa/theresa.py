@@ -324,6 +324,10 @@ def map2d(cfile):
         d.vis, d.lat3d, d.lon3d = utils.visibility(
             fit, d.t, d.x, d.y, d.z, vis_lmax)
 
+    # These are the same for all datasets
+    fit.lat3d = fit.datasets[0].lat3d
+    fit.lon3d = fit.datasets[0].lon3d
+
     fit.ncolumn = fit.datasets[0].vis.shape[1]
 
     print("Checking for negative fluxes in visible cells:")
@@ -448,7 +452,33 @@ def map3d(fit, system):
     #       effectivley do an OR operation to get them all.
     ncell = fit.datasets[0].vis.shape[1]
     fit.ivis3d = np.arange(0, ncell)
-        
+
+    # Make a single array of tmaps on the 3D grid
+    fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
+    fit.tmaps = np.zeros((fit.nmaps, ncell))
+    fit.fmaps = np.zeros((fit.nmaps, ncell))
+
+    imap = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            star, planet, system = utils.initsystem(fit, m.bestln.lmax)
+            fwl    = m.filtwl
+            ftrans = m.filttrans
+            swl    = fit.starwl
+            sspec  = fit.starflux
+            fmap, tmap = eigen.mkmaps(planet, m.bestln.eigeny,
+                                      m.bestln.bestp,
+                                      m.bestln.ncurves, m.wlmid,
+                                      cfg.star.r, cfg.planet.r,
+                                      cfg.star.t, fit.lat3d, fit.lon3d,
+                                      starspec=cfg.star.starspec,
+                                      fwl=fwl, ftrans=ftrans, swl=swl,
+                                      sspec=sspec)
+            
+            fit.tmaps[imap] = tmap
+            fit.fmaps[imap] = fmap
+            imap += 1
+
     print("Fitting spectrum.")
     # This doesn't work. Stick to TauREx.
     if cfg.threed.rtfunc == 'transit':

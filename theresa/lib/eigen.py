@@ -185,17 +185,15 @@ def mkmaps(planet, eigeny, params, ncurves, wl, rs, rp, ts, lat, lon,
 
     Returns
     -------
-    fmap: 3D array
-        Array with shape (nlat, nlon) of planetary emission at
+    fmap: 1D/2D array
+        Array with shape matching lat and lon of planetary emission at
         each wavelength and location
 
-    tmap: 3D array
+    tmap: 1D/2D array
         Same as fmap but for brightness temperature.
     """
-    nlat, nlon = lat.shape
-    
-    fmap = np.zeros((nlat, nlon)) # flux maps
-    tmap = np.zeros((nlat, nlon)) # temp maps
+    fmap = np.zeros(lat.shape) # flux maps
+    tmap = np.zeros(lat.shape) # temp maps
 
     planet.map[1:,:] = 0.0
 
