@@ -32,8 +32,8 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
     p: 1D array
         Pressure layers of the atmosphere
 
-    t: 3D array
-        Temperature array, of size (nlayers, res, res)
+    t: 2D array
+        Temperature array, of size (nlayers, ncolumns)
     
     mp: float
         Mass of the planet, in solar masses
@@ -406,8 +406,8 @@ def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
           smooth=None):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
-    placed at the supplied pressures. Dimensions are (nlayers, nlat,
-    nlon). Will optionally smooth with a rolling average.
+    placed at the supplied pressures. Dimensions are (nlayers,
+    ncolumns). Will optionally smooth with a rolling average.
 
     """
     
@@ -486,7 +486,7 @@ def pmaps(params, fit):
     '''
     Calculates pressures of tmaps using a variety of mapping functions.
     '''
-    tmaps = fit.tmaps
+    tmaps = fit.tmaps3d
     lat   = fit.lat3d
     lon   = fit.lon3d
     im = np.where(fit.modeltype3d == 'pmap')[0][0]

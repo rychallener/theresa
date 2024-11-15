@@ -184,7 +184,7 @@ def specgrid(params, fit):
     taugrid  = np.empty(fit.ncolumn, dtype=list)
 
     pmaps = atm.pmaps(params, fit)
-    tgrid, p = atm.tgrid(cfg.threed.nlayers, fit.ncolumn, fit.tmaps,
+    tgrid, p = atm.tgrid(cfg.threed.nlayers, fit.ncolumn, fit.tmaps3d,
                          pmaps, cfg.threed.pbot, cfg.threed.ptop,
                          params, fit.nparams3d, fit.modeltype3d,
                          fit.imodel3d, interptype=cfg.threed.interp,
@@ -249,7 +249,7 @@ def specgrid(params, fit):
             HMCon.debug = do_nothing
             
         # Latitudes (all visible) and Longitudes
-        for i in irun:
+        for i in ivis:
             # Check for nonphysical atmosphere and return a bad fit
             # if so
             if not np.all(tgrid[:,i] >= 0):
@@ -338,29 +338,34 @@ def specvtime(params, fit):
     # Calculate grid of spectra without visibility correction
     fluxgrid, tgrid, taugrid, p, wn, pmaps = specgrid(params, fit)
     
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
 
     # Integrate to filters
     intfluxgrid = np.zeros((fit.ncolumn, nmaps))
 
-    for i in range(ncolumn):
-        for im, m in enumerate(fit.maps):
-            intfluxgrid[i,im] = utils.specint(wn, fluxgrid[i],
-                                              [m.filtwn],
-                                              [m.filttrans])
+    for i in range(fit.ncolumn):
+        count = 0
+        for d in fit.datasets:
+            for m in d.maps:
+                intfluxgrid[i,count] = \
+                    utils.specint(wn, fluxgrid[count], [m.filtwn],
+                                  [m.filttrans])
+                count += 1
 
     fluxvtime = []
 
     # Account for vis and sum over grid cells
     # TODO: make sure this is handling datasets correctly
     # Also this loop over time seems unnecessary
+    count = 0
     for d in fit.datasets:
-        for im, m in enumerate(d.maps):
+        for m in d.maps:
             nt = len(d.t)
             tempfvt = np.zeros(nt)
             for it in range(nt):
-                tempfvt[it] = np.sum(intfluxgrid[:,im] * d.vis[it])
+                tempfvt[it] = np.sum(intfluxgrid[:,count] * d.vis[it])
             fluxvtime.append(tempfvt)
+            count += 1
 
     # There is a very small memory leak somewhere, but this seems to
     # fix it. Not an elegant solution, but ¯\_(ツ)_/¯
@@ -380,7 +385,7 @@ def sysflux(params, fit):
     #       In a perfect world, we also fit for those. Ugh.
     for d in fit.datasets:
         for i, m in enumerate(d.maps):
-            fpfscorr = fpfs[i] * d.sflux / (d.sflux + fit.scorr[i])
+            fpfscorr = fpfs[i] * d.sflux / (d.sflux + 0)
             systemflux.append(fpfscorr + 1)
     
     return systemflux, tgrid, taugrid, p, wn, pmaps
@@ -600,7 +605,7 @@ def get_par_3d(fit):
 
     This function should be edited when additional models are created.
     '''
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
 
     # Number of parameters for each model, in order.
     nparams   = np.zeros(len(fit.cfg.threed.modelnames), dtype=int)
@@ -630,7 +635,7 @@ def get_par_3d(fit):
         if mname == 'isobaric':
             npar  = nmaps
             # Guess that higher temps are deeper
-            ipar  = np.argsort(np.max(fit.tmaps, axis=(1,2)))
+            ipar  = np.argsort(np.max(fit.tmaps3d, axis=1))
             par   = np.linspace(-2, 0, npar)[ipar]
             pstep = np.ones(npar) * 1e-3
             pmin  = np.ones(npar) * np.log10(fit.cfg.threed.ptop)
@@ -670,7 +675,7 @@ def get_par_3d(fit):
                                      for a in np.arange(1, nmaps+1)]) # Trust me
 
             # Guess that higher temps are deeper
-            ipar = np.argsort(np.max(fit.tmaps, axis=(1,2)))
+            ipar = np.argsort(np.max(fit.tmaps3d, axis=1))
             for i in range(nwl):
                 par[i*nppwl]   = np.linspace(-2, 0, nwl)[ipar][i]
                 par[i*nppwl+1] = np.linspace(-2, 0, nwl)[ipar][i]
@@ -709,7 +714,7 @@ def get_par_3d(fit):
             for i in range(nwl):
                 par[3+i*nppwl] = fit.maps[i].hslocbest[1]
             # Guess that higher temps are deeper
-            ipar = np.argsort(np.max(fit.tmaps, axis=(1,2)))
+            ipar = np.argsort(np.max(fit.tmaps3d, axis=1))
             for i in range(nwl):
                 par[i*nppwl]   = np.linspace(-2, 0, nwl)[ipar][i]
 

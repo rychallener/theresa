@@ -28,7 +28,7 @@ def contribution(tgrid, wn, taugrid, p):
         for k in range(nlev-1, 0, -1):
             dt[k] = trans[k] - trans[k-1]
 
-        cf[i,j] = bb * dt / dlp
+        cf[i] = bb * dt / dlp
         # Replace division-by-zero NaNs with zero
         cf[i,0,:] = 0.0
 

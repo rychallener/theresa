@@ -455,8 +455,8 @@ def map3d(fit, system):
 
     # Make a single array of tmaps on the 3D grid
     fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
-    fit.tmaps = np.zeros((fit.nmaps, ncolumn))
-    fit.fmaps = np.zeros((fit.nmaps, ncolumn))
+    fit.tmaps3d = np.zeros((fit.nmaps, ncolumn))
+    fit.fmaps3d = np.zeros((fit.nmaps, ncolumn))
 
     imap = 0
     for d in fit.datasets:
@@ -475,8 +475,8 @@ def map3d(fit, system):
                                       fwl=fwl, ftrans=ftrans, swl=swl,
                                       sspec=sspec)
             
-            fit.tmaps[imap] = tmap
-            fit.fmaps[imap] = fmap
+            fit.tmaps3d[imap] = tmap
+            fit.fmaps3d[imap] = fmap
             imap += 1
 
     print("Fitting spectrum.")
@@ -510,13 +510,14 @@ def map3d(fit, system):
         wnhigh = cfg.cfg.getfloat('taurex', 'wnhigh')
         wndelt = 1.0
 
-        for m in fit.maps:
-            filtwn = m.filtwn
-            filttrans = m.filttrans
-            nonzero = filtwn[np.where(filttrans != 0.0)]
-            if not np.all((nonzero > wnlow) & (nonzero < wnhigh)):
-                print("ERROR: Wavenumber range does not cover all filters!")
-                sys.exit()
+        for d in fit.datasets:
+            for m in d.maps:
+                filtwn = m.filtwn
+                filttrans = m.filttrans
+                nonzero = filtwn[np.where(filttrans != 0.0)]
+                if not np.all((nonzero > wnlow) & (nonzero < wnhigh)):
+                    print("ERROR: Wavenumber range does not cover all filters!")
+                    sys.exit()
                 
         fit.wngrid = np.arange(wnlow, wnhigh, wndelt)
 
@@ -555,14 +556,14 @@ def map3d(fit, system):
         
 
         # Build data and uncert arrays for mc3
-        mc3data   = np.concatenate([m.flux for m in fit.maps])
-        mc3uncert = np.concatenate([m.ferr for m in fit.maps])
+        mc3data   = \
+            np.concatenate([m.flux for d in fit.datasets for m in d.maps])
+        mc3uncert = \
+            np.concatenate([m.ferr for d in fit.datasets for m in d.maps])
         
         if cfg.threed.fitcf:
-            ncfpar = np.sum([
-                d.ivislat.size * len(d.wlmid) for d in fit.datasets])
+            ncfpar = fit.ivis3d.size * fit.nmaps
             print("ncf: " + str(ncfpar))
-            #ncfpar = fit.ivislat.size * len(cfg.twod.filtfiles)
             # Here we use 0s and 1s for the cf data and uncs, then
             # have the model return a value equal to the number
             # of sigma away from the cf peak, so MC3 computes the
@@ -639,7 +640,7 @@ def map3d(fit, system):
               f"{fit.ess3d[i]:7.1f} " +
               f"{fit.crsig3d[i]:13.2e}")
           
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
 
     print("Calculating best fit.")
     specout = model.specgrid(fit.specbestp, fit)
@@ -659,14 +660,13 @@ def map3d(fit, system):
                                            allmols, fit.p, fit.besttgrid,
                                            cfg.planet.m, cfg.planet.r,
                                            cfg.planet.p0, 0.0,
-                                           ilat=fit.ivislat3d,
-                                           ilon=fit.ivislon3d,
+                                           ivis=fit.ivis3d,
                                            cheminfo=fit.cheminfo)
                                            
 
     print("Calculating contribution functions.")
-    allfiltwn    = [m.filtwn    for m in fit.maps]
-    allfilttrans = [m.filttrans for m in fit.maps]
+    allfiltwn    = [m.filtwn    for d in fit.datasets for m in d.maps]
+    allfilttrans = [m.filttrans for d in fit.datasets for m in d.maps]
     fit.cf = cf.contribution_filters(fit.besttgrid, fit.modelwngrid,
                                      fit.taugrid, fit.p, allfiltwn,
                                      allfilttrans)
@@ -679,24 +679,20 @@ def map3d(fit, system):
         plots.bestfitlcsspec(fit, outdir=outdir)
         plots.bestfittgrid(fit, outdir=outdir)
         plots.tau(fit, outdir=outdir)
-        plots.pmaps3d(fit, outdir=outdir)
         plots.tgrid_unc(fit, outdir=outdir)
-        plots.cf_by_location(fit, outdir=outdir)
         plots.cf_by_filter(fit, outdir=outdir)
-        plots.cf_slice(fit, outdir=outdir)
         plots.spectra(fit, outdir=outdir)
-        if 'clouds' in fit.modeltype3d:
-            plots.clouds(fit, outdir=outdir)
 
+    # There actually aren't any of these at the moment
     if cfg.threed.animations:
-        plots.pmaps3d(fit, animate=True, outdir=outdir)
+        pass
 
         
 if __name__ == "__main__":
     print("#########################################################")
     print("  ThERESA: Three-dimensional Exoplanet Retrieval from    ")
     print("           Eclipse Spectroscopy of Atmospheres           ")
-    print("  Copyright 2021-2022 Ryan C. Challener & collaborators  ")
+    print("  Copyright 2021-2024 Ryan C. Challener & collaborators  ")
     print("#########################################################")
     
     if len(sys.argv) < 3:

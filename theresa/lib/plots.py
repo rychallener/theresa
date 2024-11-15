@@ -477,7 +477,7 @@ def bics(fit, outdir=''):
 def bestfitlcsspec(fit, outdir=''):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
 
     hratios = np.zeros(nmaps+1)
     hratios[0] = 0.5
@@ -488,23 +488,30 @@ def bestfitlcsspec(fit, outdir=''):
     fig, axes = plt.subplots(nrows=nmaps+1, ncols=1, sharex=True,
                              gridspec_kw=gridspec_kw, figsize=(8,10))
 
-    for i, m in enumerate(fit.maps):
-        axes[0].scatter(m.dataset.t, m.flux, s=0.1, zorder=1,
-                        color=colors[i])
-        axes[0].plot(m.dataset.t, fit.specbestmodel[i],
-                     label='{:.2f} um'.format(m.wlmid), zorder=2,
-                     color=colors[i])
+    i = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            axes[0].scatter(d.t, m.flux, s=0.1, zorder=1,
+                            color=colors[i])
+            axes[0].plot(d.t, fit.specbestmodel[i],
+                         label='{:.2f} um'.format(m.wlmid), zorder=2,
+                         color=colors[i])
+            i += 1
 
     axes[0].legend()
     axes[0].set_ylabel(r'($F_s + F_p$)/$F_s$')
 
-    for i, m in enumerate(fit.maps):
-        axes[i+1].scatter(m.dataset.t, m.flux - fit.specbestmodel[i], s=0.1,
-                          color=colors[i])
-        axes[i+1].set_ylabel('Residuals')
-        axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
-        if i == nmaps-1:
-            axes[i+1].set_xlabel('Time (days)')
+    i = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            axes[i+1].scatter(d.t, m.flux - fit.specbestmodel[i],
+                              s=0.1,
+                              color=colors[i])
+            axes[i+1].set_ylabel('Residuals')
+            axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
+            if i == nmaps-1:
+                axes[i+1].set_xlabel('Time (days)')
+            i += 1
 
     plt.tight_layout()
     plt.savefig(os.path.join(outdir, 'bestfit-lcs-spec.png'))
@@ -519,76 +526,70 @@ def bestfittgrid(fit, outdir=''):
     # Line colors from colormap
     cmap = mpl.cm.get_cmap('hsv')
 
-    nmaps = len(fit.maps)
-
-    # Latitude index 
-    ieq = fit.cfg.twod.nlat // 2
+    nmaps = fit.nmaps
 
     cfnorm_lines = np.nanmax(fit.cf)
-    cfnorm_dots  = np.nanmax(np.sum(fit.cf, axis=2))
+    cfnorm_dots  = np.nanmax(np.sum(fit.cf, axis=1))
     
-    for i in range(fit.cfg.twod.nlat):
-        for j in range(fit.cfg.twod.nlon):
-            lat = fit.lat[i,j]
-            lon = fit.lon[i,j]
-            if i == ieq:
-                label = "Lat: {:.1f}, Lon: {:.1f}".format(lat, lon)
-                
-                ic = lon / 360.
-                if ic < 0.0:
-                    ic += 1.0
-                    
-                color = cmap(ic)
-                zorder = 2
-            else:
-                label = None
-                color = mpl.colors.to_rgba('gray')
-                zorder = 1
+    for i in range(fit.ncolumn):
+        lat = fit.lat3d[i]
+        lon = fit.lon3d[i]
 
-            minvislon = np.min([d.minvislon for d in fit.datasets])
-            maxvislon = np.max([d.maxvislon for d in fit.datasets])
-                
-            if ((lon + fit.dlon < minvislon) or
-                (lon - fit.dlon > maxvislon)):
-                linestyle = '--'
-            else:
-                linestyle = '-'
+        label = "Lat: {:.1f}, Lon: {:.1f}".format(lat, lon)
 
-            points = np.array([fit.besttgrid[:,i,j], fit.p]).T.reshape(-1,1,2)
-            segments = np.concatenate([points[:-1], points[1:]],
-                                      axis=1)
-            norm = plt.Normalize(0, 1)
+        ic = lon / 360.
+        if ic < 0.0:
+            ic += 1.0
 
-            # Set up CF shading
-            alpha = np.max(fit.cf[i,j,:-1], axis=1) / cfnorm_lines
-            rgba = np.zeros((len(segments), 4))
-            rgba[:,:3] = color[:3]
-            rgba[:,3]  = alpha
+        color = cmap(ic)
+        zorder = 2
 
-            lc = collections.LineCollection(segments,
-                                            colors=rgba,
-                                            norm=norm,
-                                            zorder=zorder)
+        minvislon = np.min([d.minvislon for d in fit.datasets])
+        maxvislon = np.max([d.maxvislon for d in fit.datasets])
 
-            line = ax.add_collection(lc)
+        if i not in fit.ivis3d:
+            linestyle = '--'
+        else:
+            linestyle = '-'
 
-            if linestyle != '--':
-                for k in range(nmaps):
-                    alpha = np.sum(fit.cf[i,j,:,k]) / cfnorm_dots
-                    alpha = np.round(alpha, 2)
-                    ax.scatter(fit.tmaps3d[k,i,j], fit.pmaps[k,i,j],
-                               c=colors[k], marker='o', zorder=3, s=1,
-                               alpha=alpha)
+        points = np.array([fit.besttgrid[:,i], fit.p]).T.reshape(-1,1,2)
+        segments = np.concatenate([points[:-1], points[1:]],
+                                  axis=1)
+        norm = plt.Normalize(0, 1)
+
+        # Set up CF shading
+        alpha = np.max(fit.cf[i,:-1], axis=1) / cfnorm_lines
+        rgba = np.zeros((len(segments), 4))
+        rgba[:,:3] = color[:3]
+        rgba[:,3]  = alpha
+
+        lc = collections.LineCollection(segments,
+                                        colors=rgba,
+                                        norm=norm,
+                                        zorder=zorder)
+
+        line = ax.add_collection(lc)
+
+        if linestyle != '--':
+            for k in range(nmaps):
+                alpha = np.sum(fit.cf[i,:,k]) / cfnorm_dots
+                alpha = np.round(alpha, 2)
+                ax.scatter(fit.tmaps3d[k,i], fit.pmaps[k,i],
+                           c=colors[k], marker='o', zorder=3, s=1,
+                           alpha=alpha)
 
     # Build custom legend
     legend_elements = []
-    for i in range(nmaps):
-        label = str(np.round(fit.maps[i].wlmid, 2)) + ' um'
-        legend_elements.append(mpll.Line2D([0], [0], color='w',
-                                           label=label,
-                                           marker='o',
-                                           markerfacecolor=colors[i],
-                                           markersize=4))
+    i = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            label = str(np.round(m.wlmid, 2)) + ' um'
+            legend_elements.append(mpll.Line2D([0], [0], color='w',
+                                               label=label,
+                                               marker='o',
+                                               markerfacecolor=colors[i],
+                                               markersize=4))
+            i += 1
 
     ax.set_yscale('log')
     ax.invert_yaxis()
@@ -684,18 +685,16 @@ def fluxmapanimation(fit, fps=60, step=10, outdir=''):
     plt.close(fig)
 
 
-def tau(fit, ilat=None, ilon=None, outdir=''):
+def tau(fit, icolumn=None, outdir=''):
     fig, ax = plt.subplots()
     
     cfg = fit.cfg
     
-    if type(ilat) == type(None):
-        ilat = cfg.twod.nlat // 2
-    if type(ilon) == type(None):
-        ilon = cfg.twod.nlon // 2
+    if type(icolumn) == type(None):
+        icolumn = np.where((fit.lat3d == 0.0) & (fit.lon3d == 0.0))[0][0]
         
-    nlat, nlon = fit.taugrid.shape
-    npress, nwn = fit.taugrid[0,0].shape
+    ncolumn = fit.taugrid.shape
+    npress, nwn = fit.taugrid[0].shape
     wn = fit.modelwngrid
     wl = 10000 / fit.modelwngrid
     p = fit.p
@@ -708,7 +707,7 @@ def tau(fit, ilat=None, ilon=None, outdir=''):
     maxlogwl = np.max(logwl)
     minlogwl = np.min(logwl)
 
-    tau = fit.taugrid[ilat,ilon]
+    tau = fit.taugrid[icolumn]
     
     plt.imshow(np.flip(np.exp(-tau)), aspect='auto',
                extent=(minlogwl, maxlogwl, maxlogp, minlogp),
@@ -725,16 +724,19 @@ def tau(fit, ilat=None, ilon=None, outdir=''):
     plt.xlabel('Wavelength (um)')
     plt.ylabel('Pressure (bars)')
 
-    nmaps = len(fit.maps)
+    nmaps = fit.nmaps
     ax = plt.gca()
     transform = mpl.transforms.blended_transform_factory(
         ax.transData, ax.transAxes)
     # Note: assumes all filters are normalized to 1, and plots them
     # in the top tenth of the image.
-    for m in fit.maps:
-        plt.plot(np.log10(m.filtwl), 1.0 - m.filttrans/10.,
-                 transform=transform, label='{:.2f} um'.format(m.wlmid),
-                 linestyle='--')
+    for d in fit.datasets:
+        for m in d.maps:
+            plt.plot(np.log10(m.filtwl),
+                     1.0 - m.filttrans/10.,
+                     transform=transform,
+                     label='{:.2f} um'.format(m.wlmid),
+                     linestyle='--')
 
     leg = plt.legend(frameon=False, ncol=4, fontsize=8)
     for text in leg.get_texts():
@@ -742,71 +744,6 @@ def tau(fit, ilat=None, ilon=None, outdir=''):
         
     plt.colorbar(label=r'$e^{-\tau}$')
     plt.savefig(os.path.join(outdir, 'transmission.png'))
-    plt.close(fig)
-
-def pmaps3d(fit, animate=False, outdir=''):
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    
-    nmaps = fit.pmaps.shape[0]
-
-    tmax = np.nanmax(fit.tmaps3d)
-    tmin = np.nanmin(fit.tmaps3d)
-
-    def init():
-        for i in range(nmaps):
-            cm = mpl.cm.coolwarm((fit.tmaps3d[i] - tmin)/(tmax - tmin))
-            ax.plot_surface(fit.lat, fit.lon, np.log10(fit.pmaps[i]),
-                            facecolors=cm, linewidth=3, shade=False)
-            ax.plot_wireframe(fit.lat, fit.lon,
-                              np.log10(fit.pmaps[i]), linewidth=0.5,
-                              color=colors[i])
-
-        ax.invert_zaxis()
-        ax.set_xlabel('Latitude (deg)')
-        ax.set_ylabel('Longitude (deg)')
-        ax.set_zlabel('log(p) (bars)')
-        plt.tight_layout()
-        return fig,
-
-    init()
-    plt.savefig(os.path.join(outdir, 'pmaps.png'))
-    plt.close(fig)
-    
-    if not animate:
-        return
-
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    
-    nframes = 80
-    
-    Writer = animation.writers['pillow']
-    writer = Writer(fps=15)
-
-    base_azim = 45.0
-    base_elev = 15.0
-
-    azim_vary = np.concatenate((np.linspace(0., 45., nframes // 4),
-                                np.linspace(45., 0., nframes // 4),
-                                np.zeros(nframes // 2)))
-    azim = base_azim + azim_vary
-
-    elev_vary = np.concatenate((np.zeros(nframes // 2),
-                                np.linspace(0., 30., nframes // 4),
-                                np.linspace(30., 0., nframes // 4)))
-    elev = base_elev + elev_vary
-    
-    def animate(i):
-        ax.view_init(elev=elev[i], azim=azim[i])
-        return fig,
-        
-    anim = animation.FuncAnimation(fig, animate, init_func=init,
-                                   frames=nframes, interval=20, blit=True)
-
-    anim.save(os.path.join(outdir, 'pmaps3d.gif'), dpi=300,
-              writer=writer)
-
     plt.close(fig)
     
 def tgrid_unc(fit, outdir=''):
@@ -822,16 +759,16 @@ def tgrid_unc(fit, outdir=''):
     mcmcout = np.load(outdir + '/3dmcmc.npz')
 
     niter, npar = fit.posterior3d.shape
-    nlev, nlat, nlon = fit.besttgrid.shape
+    nlev, ncolumn = fit.besttgrid.shape
 
     # Limit calculations if large number of samples
     ncalc = np.min((5000, niter))
     
-    tgridpost = np.zeros((ncalc, nlev, nlat, nlon))
+    tgridpost = np.zeros((ncalc, nlev, fit.ncolumn))
     for i in range(ncalc):
         ipost = i * niter // ncalc
         pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
-        tgridpost[i], p = atm.tgrid(nlev, nlat, nlon, fit.tmaps3d,
+        tgridpost[i], p = atm.tgrid(nlev, fit.ncolumn, fit.tmaps3d,
                                     pmaps, fit.cfg.threed.pbot,
                                     fit.cfg.threed.ptop,
                                     fit.posterior3d[ipost],
@@ -840,9 +777,8 @@ def tgrid_unc(fit, outdir=''):
                                     interptype=fit.cfg.threed.interp,
                                     smooth=fit.cfg.threed.smooth)
 
-    # Collapse to 1D for easier indexing
-    lat = np.unique(fit.lat)
-    lon = np.unique(fit.lon)
+    lat = fit.lat3d
+    lon = fit.lon3d
     
     for i in range(ncols*nrows):
         irow = i // nrows
@@ -851,35 +787,37 @@ def tgrid_unc(fit, outdir=''):
         # Hotspot
         if i == 0:
             # Average over all maps
-            hslatavg = np.mean([a.hslocbest[0] for a in fit.maps])
-            hslonavg = np.mean([a.hslocbest[1] for a in fit.maps])
-            ilat = np.abs(lat - hslatavg).argmin()
-            ilon = np.abs(lon - hslonavg).argmin()
+            hslatavg = np.mean(
+                [a.hslocbest[0] for d in fit.datasets for a in d.maps])
+            hslonavg = np.mean(
+                [a.hslocbest[1] for d in fit.datasets for a in d.maps])
+            dist = ((fit.lat3d - hslatavg)**2 + (fit.lon3d - hslonavg)**2)**0.5
+            ind  = dist.argmin()
             title = 'Hotspot'
         # Substellar point
         if i == 1:
-            ilat = np.abs(lat -  0.0).argmin()
-            ilon = np.abs(lon -  0.0).argmin()
+            dist = ((fit.lat3d - 0.0)**2 + (fit.lon3d - 0.0)**2)**0.5
+            ind  = dist.argmin()
             title = 'Substellar'
         # West terminator
         if i == 2:
-            ilat = np.abs(lat -  0.0).argmin()
-            ilon = np.abs(lon + 90.0).argmin()
+            dist = ((fit.lat3d - 0.0)**2 + (fit.lon3d + 90.)**2)**0.5
+            ind  = dist.argmin()
             title = 'West Terminator'
         # East terminator
         if i == 3:
-            ilat = np.abs(lat -  0.0).argmin()
-            ilon = np.abs(lon - 90.0).argmin()
+            dist = ((fit.lat3d - 0.0)**2 + (fit.lon3d - 90.)**2)**0.5
+            ind  = dist.argmin()
             title = 'East Terminator'
 
-        tdist = tgridpost[:,:,ilat,ilon]
+        tdist = tgridpost[:,:,ind]
 
         l1 = np.percentile(tdist, 15.87, axis=0)
         l2 = np.percentile(tdist,  2.28, axis=0)
         h1 = np.percentile(tdist, 84.13, axis=0)
         h2 = np.percentile(tdist, 97.72, axis=0)
 
-        bf = fit.besttgrid[:,ilat,ilon]
+        bf = fit.besttgrid[:,ind]
 
         ax.fill_betweenx(fit.p, l2, h2, facecolor='royalblue')
         ax.fill_betweenx(fit.p, l1, h1, facecolor='cornflowerblue')
@@ -891,7 +829,7 @@ def tgrid_unc(fit, outdir=''):
         if i == 0:
             plt.gca().invert_yaxis()
 
-        subtitle = r'$\theta={}, \phi={}$'.format(lat[ilat], lon[ilon])
+        subtitle = r'$\theta={:.2f}, \phi={:.2f}$'.format(lat[ind], lon[ind])
         ax.set_title(title + '\n' + subtitle)
 
 
@@ -899,55 +837,8 @@ def tgrid_unc(fit, outdir=''):
     plt.savefig(os.path.join(outdir, 'tgrid_unc.png'))
     plt.close(fig)
 
-def cf_by_location(fit, outdir=''):
-    nlat, nlon, nlev, nfilt = fit.cf.shape
-    fig, axes = plt.subplots(nrows=nlat, ncols=nlon, sharey=True, sharex=True)
-    fig.set_size_inches(16, 8)
-
-    # Place labels on a single large axes object
-    bigax = fig.add_subplot(111, frameon=False)
-    bigax.spines['top'].set_color('none')
-    bigax.spines['bottom'].set_color('none')
-    bigax.spines['left'].set_color('none')
-    bigax.spines['right'].set_color('none')
-    bigax.tick_params(labelcolor='w', top=False, bottom=False,
-                      left=False, right=False)
-
-    bigax.set_ylabel('Pressure (bars)', labelpad=20)
-    bigax.set_xlabel('Contribution (arbitrary)', labelpad=10)
-
-    
-    cmap = mpl.cm.get_cmap('rainbow')
-    for i in range(nlat):
-        for j in range(nlon):
-            ax = axes[i,j]
-            for k in range(nfilt):
-                color = cmap(k / nfilt)
-                label = str(np.round(fit.maps[k].wlmid, 2)) + ' um'
-
-                ax.semilogy(fit.cf[i,j,:,k], fit.p, color=color,
-                            label=label)
-
-            if i == nlat - 1:
-                ax.set_xlabel(r'{}$^\circ$'.format(np.round(fit.lon[i,j], 2)))
-            if j == 0:
-                ax.set_ylabel(r'{}$^\circ$'.format(np.round(fit.lat[i,j], 2)))
-            if i == nlat -1 and j == nlon - 1:
-                ax.invert_yaxis()
-
-            ax.set_xticklabels([])
-            ax.tick_params(axis='y', labelsize=6)
-
-    # Since we share y axes, this inverts them all
-    #plt.gca().invert_yaxis()
-    #plt.legend()
-    
-    plt.tight_layout()
-    plt.savefig(os.path.join(outdir, 'cf.png'))
-    plt.close(fig)
-
 def cf_by_filter(fit, outdir=''):
-    nlat, nlon, nlev, nfilt = fit.cf.shape
+    ncolumn, nlev, nfilt = fit.cf.shape
     
     ncols = np.int(np.sqrt(nfilt) // 1)
     nrows = np.int((nfilt // ncols) + (nfilt % ncols != 0))
@@ -957,8 +848,6 @@ def cf_by_filter(fit, outdir=''):
     fig.set_size_inches(8, 8)
 
     extra = nfilt % ncols
-
-    ieq = nlat // 2
 
     for i in range(naxes):
         irow = i // ncols
@@ -978,22 +867,16 @@ def cf_by_filter(fit, outdir=''):
 
         cmap = mpl.cm.get_cmap('hsv')
         
-        for j in range(nlat):
-            for k in range(nlon):
-                if j == ieq:
-                    ic = fit.lon[j,k] / 360.
-                    if ic < 0:
-                        ic += 1
+        for j in range(ncolumn):
+                ic = fit.lon3d[j] / 360.
+                if ic < 0:
+                    ic += 1
 
-                    color = cmap(ic)
-                    label = r"${} ^\circ$".format(np.round(fit.lon[j,k], 2))
-                    zorder = 1
-                else:
-                    color = 'gray'
-                    label = None
-                    zorder = 0
-                    
-                ax.semilogy(fit.cf[j,k,:,i], fit.p, color=color,
+                color = cmap(ic)
+                label = r"${} ^\circ$".format(np.round(fit.lon3d[j], 2))
+                zorder = 1
+    
+                ax.semilogy(fit.cf[j,:,i], fit.p, color=color,
                             label=label, zorder=zorder)
 
         if icol == 0:
@@ -1001,7 +884,12 @@ def cf_by_filter(fit, outdir=''):
         if i >= naxes - ncols - (ncols - extra):
             ax.set_xlabel('Contribution (arbitrary)')
 
-        ax.set_title("{} um".format(np.round(fit.maps[i].wlmid, 2)))
+    count = 0
+    for d in fit.datasets:
+        for f in d.filtfiles:
+            title = f.split('/')[-1]
+            axes.flatten()[count].set_title(title)
+            count += 1
 
     plt.gca().invert_yaxis()
     plt.tight_layout()
@@ -1009,12 +897,17 @@ def cf_by_filter(fit, outdir=''):
     plt.close(fig)
 
         
-def cf_slice(fit, ilat=None, ilon=None, fname=None, outdir=''):   
+def cf_slice(fit, ivis=None, fname=None, outdir=''):
+    """
+    Slices no longer make much sense because the 3D grid is not
+    rectangular. So this function needs significant revising to
+    be able to function. Currently unused.
+    """
     if ilat is not None and ilon is not None:
         print("Must specify either ilat or ilon, not both.")
         return
 
-    nlat, nlon, nlev, nfilt = fit.cf.shape 
+    ncolumn, nlev, nfilt = fit.cf.shape 
     logp = np.log10(fit.p)
     minlogp = np.min(logp)
     maxlogp = np.max(logp)
@@ -1077,6 +970,7 @@ def cf_slice(fit, ilat=None, ilon=None, fname=None, outdir=''):
     plt.savefig(os.path.join(outdir, fname))
     plt.close(fig)
 
+# This function doesn't work. I'll come back to it.
 def clouds(fit, outdir=''):
     allrad, allmix, allq = atm.cloudmodel_to_grid(fit, fit.p,
                                                   fit.specbestp,
@@ -1180,10 +1074,8 @@ def spectra(fit, outdir=''):
 
     cmap = copy.copy(mpl.cm.get_cmap('hsv'))
 
-    ilat = fit.cfg.twod.nlat // 2
-
-    for i in range(fit.cfg.twod.nlon):
-        c = fit.lon[ilat,i] / 360
+    for i in range(fit.ncolumn):
+        c = fit.lon3d[i] / 360
         if c < 0:
             c += 1
 
@@ -1191,9 +1083,9 @@ def spectra(fit, outdir=''):
 
         offset = 0.0005 * i
         
-        if not np.all(fit.fluxgrid[ilat,i] == 0.0):
+        if not np.all(fit.fluxgrid[i] == 0.0):
             ax.plot(10000/fit.modelwngrid,
-                    fit.fluxgrid[ilat,i] + offset,
+                    fit.fluxgrid[i] + offset,
                     color=color)
 
     ax.set_ylabel(r'$F_p/F_s$ + offset')
