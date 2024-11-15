@@ -6,10 +6,10 @@ from numba import njit
 from numba import  jit
 
 def contribution(tgrid, wn, taugrid, p):
-    nlev, nlat, nlon = tgrid.shape
+    nlev, ncolumn = tgrid.shape
     nwn = len(wn)
     
-    cf = np.zeros((nlat, nlon, nlev, nwn))
+    cf = np.zeros((ncolumn, nlev, nwn))
 
     # Pressure is always the same. Calculate out of the loop
     # Skip bottom layer (99 gradients and 100 cells -- have to put
@@ -19,31 +19,30 @@ def contribution(tgrid, wn, taugrid, p):
     for k in range(nlev-1, 0, -1):
         dlp[k] = np.log(p[k-1]) - np.log(p[k])
 
-    for i in range(nlat):
-        for j in range(nlon):
-            bb = utils.blackbody(tgrid[:,i,j], wn)
-            trans = np.exp(-taugrid[i,j])
-            dt = np.zeros((nlev, nwn))
-            
-            # Skip bottom layer (leave as 0s)
-            for k in range(nlev-1, 0, -1):
-                dt[k] = trans[k] - trans[k-1]
+    for i in range(ncolumn):
+        bb = utils.blackbody(tgrid[:,i], wn)
+        trans = np.exp(-taugrid[i])
+        dt = np.zeros((nlev, nwn))
 
-            cf[i,j] = bb * dt / dlp
-            # Replace division-by-zero NaNs with zero
-            cf[i,j,0,:] = 0.0
+        # Skip bottom layer (leave as 0s)
+        for k in range(nlev-1, 0, -1):
+            dt[k] = trans[k] - trans[k-1]
+
+        cf[i,j] = bb * dt / dlp
+        # Replace division-by-zero NaNs with zero
+        cf[i,0,:] = 0.0
 
     return cf
 
 def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
-    nlev, nlat, nlon = np.shape(tgrid)
+    nlev, ncolumn = np.shape(tgrid)
     nwn = len(wn)
     nfilt = len(filtwn)
 
     cf = contribution(tgrid, wn, taugrid, p)
 
     # Filter-integrated contribution functions
-    filter_cf = np.zeros((nlat, nlon, nlev, nfilt))
+    filter_cf = np.zeros((ncolumn, nlev, nfilt))
 
     for i in range(nfilt):
         # Interpolate filter to spectrum resolution. Assume zero
@@ -57,9 +56,8 @@ def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
         cf_trans = cf * interptrans
 
         # Integrate
-        for j in range(nlat):
-            for k in range(nlon):
-                filter_cf[j,k,:,i] = \
-                    np.trapz(cf_trans[j,k], axis=1) / integtrans
+        for j in range(ncolumn):
+            filter_cf[j,:,i] = \
+                np.trapz(cf_trans[j], axis=1) / integtrans
         
     return filter_cf
