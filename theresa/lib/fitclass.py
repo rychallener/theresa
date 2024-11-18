@@ -128,6 +128,12 @@ class Fit:
             self.cfg.threed.grbreak = self.cfg.cfg.getfloat('3D', 'grbreak')
         else:
             self.cfg.threed.grbreak = 0.0
+
+        if self.cfg.cfg.has_option('3D', 'oversample'):
+            self.cfg.threed.oversample = \
+                self.cfg.cfg.getint('3D', 'oversample')
+        else:
+            self.cfg.threed.oversample = 10
         
         self.cfg.threed.smooth  = self.cfg.cfg.get('3D', 'smooth')
         if self.cfg.threed.smooth == 'None':

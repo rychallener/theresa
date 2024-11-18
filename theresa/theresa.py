@@ -309,27 +309,6 @@ def map2d(cfile):
     #for i in range(len(fit.maps)):
     #    fit.scorr[i] = fit.maps[i].bestln.bestp[fit.maps[i].bestln.ncurves+1]
 
-    print("Calculating planet visibility with time.")
-    # TODO: this could be moved to 3D function.
-    # Determine highest lmax which sets how much we sample
-    # the 3D grid
-    vis_lmax = 0
-    for d in fit.datasets:
-        for m in d.maps:
-            if m.bestln.lmax > vis_lmax:
-                vis_lmax = m.bestln.lmax
-                
-    for d in fit.datasets:
-        print(d.name)
-        d.vis, d.lat3d, d.lon3d = utils.visibility(
-            fit, d.t, d.x, d.y, d.z, vis_lmax)
-
-    # These are the same for all datasets
-    fit.lat3d = fit.datasets[0].lat3d
-    fit.lon3d = fit.datasets[0].lon3d
-
-    fit.ncolumn = fit.datasets[0].vis.shape[1]
-
     print("Checking for negative fluxes in visible cells:")
     for d in fit.datasets:
         print(d.name)
@@ -411,10 +390,12 @@ def map2d(cfile):
         plots.hshist(fit)
         plots.bics(fit, outdir=cfg.twod.outdir)
 
+    # With the new grid and visibility calculation moved to the 3D
+    # function, these no longer function
     if cfg.twod.animations:
-        print("Making animations.")
-        plots.visanimation(fit, outdir=cfg.twod.outdir)
-        plots.fluxmapanimation(fit, outdir=cfg.twod.outdir)
+        pass
+        #plots.visanimation(fit, outdir=cfg.twod.outdir)
+        #plots.fluxmapanimation(fit, outdir=cfg.twod.outdir)
 
     fit.save(cfg.twod.outdir)
 
@@ -445,18 +426,37 @@ def map3d(fit, system):
     else:
         fit.cheminfo = None
 
+    print("Pre-calculating planet visibility with time.")
+    # Determine highest lmax which sets how much we sample
+    # the 3D grid
+    vis_lmax = 0
+    for d in fit.datasets:
+        for m in d.maps:
+            if m.bestln.lmax > vis_lmax:
+                vis_lmax = m.bestln.lmax
+                
+    for d in fit.datasets:
+        print(d.name)
+        d.vis, d.lat3d, d.lon3d = utils.visibility(
+            fit, d.t, d.x, d.y, d.z, vis_lmax)
+
+    # These are the same for all datasets
+    fit.lat3d = fit.datasets[0].lat3d
+    fit.lon3d = fit.datasets[0].lon3d
+
+    fit.ncolumn = fit.datasets[0].vis.shape[1]
+
     # Determine which grid cells to use
     # TODO: update for new 3D grid. Currently just uses all cells.
     #       Needs to loop over all dataset objects, figure out which
     #       cells are visible (all datasets have the same grid), and
     #       effectivley do an OR operation to get them all.
-    ncolumn = fit.datasets[0].vis.shape[1]
-    fit.ivis3d = np.arange(0, ncolumn)
+    fit.ivis3d = np.arange(0, fit.ncolumn)
 
     # Make a single array of tmaps on the 3D grid
     fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
-    fit.tmaps3d = np.zeros((fit.nmaps, ncolumn))
-    fit.fmaps3d = np.zeros((fit.nmaps, ncolumn))
+    fit.tmaps3d = np.zeros((fit.nmaps, fit.ncolumn))
+    fit.fmaps3d = np.zeros((fit.nmaps, fit.ncolumn))
 
     imap = 0
     for d in fit.datasets:
