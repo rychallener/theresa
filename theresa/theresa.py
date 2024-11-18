@@ -682,6 +682,7 @@ def map3d(fit, system):
         plots.tgrid_unc(fit, outdir=outdir)
         plots.cf_by_filter(fit, outdir=outdir)
         plots.spectra(fit, outdir=outdir)
+        plots.spatialsampling(fit, outdir=outdir)
 
     # There actually aren't any of these at the moment
     if cfg.threed.animations:

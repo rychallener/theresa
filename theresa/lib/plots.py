@@ -1105,6 +1105,24 @@ def spectra(fit, outdir=''):
 
     plt.savefig(os.path.join(outdir, 'spectra.png'))
     plt.close()
+
+def spatialsampling(fit, outdir=None):
+    r = 1
+
+    lon = np.deg2rad(fit.lon3d)
+    lat = np.deg2rad(fit.lat3d)
+
+    x = r * np.cos(lat) * np.cos(lon)
+    y = r * np.cos(lat) * np.sin(lon)
+    z = r * np.sin(lat)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.scatter(x, y , z, color='black', s=10)
+
+    plt.savefig(os.path.join(outdir, 'spatialsampling.png'))
+    plt.close()
     
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
 def gradient_cmap(color):
