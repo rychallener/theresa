@@ -1119,7 +1119,27 @@ def spatialsampling(fit, outdir=None):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    ax.scatter(x, y , z, color='black', s=10)
+    ax.scatter(x, y , z, color='black', s=20, zorder=2, label='Cell centers')
+
+    # Wireframe
+    latwf, lonwf = np.meshgrid(np.linspace( -90.,  90., 20, endpoint=True),
+                               np.linspace(-180., 180., 40, endpoint=True),
+                               indexing='ij')
+
+    lonwf = np.deg2rad(lonwf)
+    latwf = np.deg2rad(latwf)
+
+    xwf = r * np.cos(latwf) * np.cos(lonwf)
+    ywf = r * np.cos(latwf) * np.sin(lonwf)
+    zwf = r * np.sin(latwf)
+
+    ax.plot_wireframe(xwf, ywf, zwf, alpha=0.2, zorder=1)
+
+    ax.set_xlabel(r'x ($R_p$)')
+    ax.set_ylabel(r'y ($R_p$)')
+    ax.set_zlabel(r'z ($R_p$)')
+
+    ax.legend()
 
     plt.savefig(os.path.join(outdir, 'spatialsampling.png'))
     plt.close()
