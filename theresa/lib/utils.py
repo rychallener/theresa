@@ -173,7 +173,7 @@ def visibility(fit, t, x, y, z, lmax):
     Calculate the visibility of a grid of cells on a planet for
     a series of times using starry's design matrices to do this
     analytically. Returns the visibility array with the associated
-    latitudes and longitudes. The samplinng is done on a Mollweide
+    latitudes and longitudes. The sampling is done on a Mollweide
     grid such that all grid cells are of equal area.
     """
     # Lmax only influences the number of grid cells such that the
@@ -192,7 +192,7 @@ def visibility(fit, t, x, y, z, lmax):
     zo = (z[0] - z[1]) / rp
 
     # Rotation of the planet assuming 0 is mid-transit.
-    theta = ((t - t0) / prot) % 1 * 360.
+    theta = ((t - t0) / prot) % 1 * 360. + 180.
 
     A = planet.map.design_matrix(xo=xo, yo=yo, ro=1/rprs, theta=theta).eval()
 
