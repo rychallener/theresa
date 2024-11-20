@@ -359,19 +359,12 @@ def specvtime(params, fit):
     fluxvtime = [0] * nmaps
 
     # Account for vis and sum over grid cells
-    # TODO: make sure this is handling datasets correctly
     count = 0
     for d in fit.datasets:
         for m in d.maps:
             tempfvt = np.sum(intfluxgrid[:,count] * d.vis, axis=1)
             fluxvtime[count] = tempfvt
             count += 1
-
-    # There is a very small memory leak somewhere, but this seems to
-    # fix it. Not an elegant solution, but ¯\_(ツ)_/¯
-    # TODO: Removing this could save up to 10% runtime for sparsely-
-    #       sampled grids.
-    #gc.collect()
 
     return fluxvtime, tgrid, taugrid, p, wn, pmaps
 
