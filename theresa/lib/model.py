@@ -199,7 +199,6 @@ def specgrid(params, fit):
 
     mols = np.concatenate((cfg.threed.mols, cfg.threed.cmols))
     abn, spec = atm.atminit(cfg.threed.atmtype, mols, p, tgrid,
-                            cfg.planet.m, cfg.planet.r, cfg.planet.p0,
                             z, ivis=ivis, cheminfo=fit.cheminfo)
     
     negativeT = False
@@ -252,6 +251,8 @@ def specgrid(params, fit):
         for i in ivis:
             # Check for nonphysical atmosphere and return a bad fit
             # if so
+            # TODO: this should be removable, as it should never happen.
+            #       Same goes for the return below.
             if not np.all(tgrid[:,i] >= 0):
                 msg = "WARNING: Nonphysical TP profile at Lat: {}, Lon: {}"
                 print(msg.format(fit.lat3d[i], fit.lon3d[i]))
@@ -299,7 +300,7 @@ def specgrid(params, fit):
             # If we have negative temperatures, don't run the model
             # (it will fail). Return a bad fit instead. 
             if negativeT:
-                fluxgrid = -1 * np.ones((nlat, nlon,
+                fluxgrid = -1 * np.ones((ncolumn,
                                          len(rt.nativeWavenumberGrid)))
                 return fluxgrid, rt.nativeWavenumberGrid
 
@@ -352,7 +353,10 @@ def specvtime(params, fit):
                                   [m.filttrans])
             count += 1
 
-    fluxvtime = []
+    # fluxvtime could be different sizes for each dataset, so we
+    # can't use an array. And we don't want to be appending lists
+    # for efficiency's sake.
+    fluxvtime = [0] * nmaps
 
     # Account for vis and sum over grid cells
     # TODO: make sure this is handling datasets correctly
@@ -360,12 +364,14 @@ def specvtime(params, fit):
     for d in fit.datasets:
         for m in d.maps:
             tempfvt = np.sum(intfluxgrid[:,count] * d.vis, axis=1)
-            fluxvtime.append(tempfvt)
+            fluxvtime[count] = tempfvt
             count += 1
 
     # There is a very small memory leak somewhere, but this seems to
     # fix it. Not an elegant solution, but ¯\_(ツ)_/¯
-    gc.collect()
+    # TODO: Removing this could save up to 10% runtime for sparsely-
+    #       sampled grids.
+    #gc.collect()
 
     return fluxvtime, tgrid, taugrid, p, wn, pmaps
 
@@ -664,7 +670,7 @@ def get_par_3d(fit):
                       'W.Disc.{}',
                       'E.Disc.{}']
             # Repeat for each wavelength
-            nwl = len(fit.maps)
+            nwl = nmaps
             par   = np.tile(par,   nwl)
             pstep = np.tile(pstep, nwl)
             pmin  = np.tile(pmin,  nwl)
@@ -685,7 +691,7 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)
-        elif mname == 'sinusoidal':
+        elif mname == 'sh1':
             # For a single wavelength
             nppwl = 4
             nwl   = nmaps
@@ -693,24 +699,21 @@ def get_par_3d(fit):
             par   = np.zeros(nppwl)
             pstep = np.ones(nppwl) * 1e-3
             pmin  = np.array([np.log10(fit.cfg.threed.ptop),
-                              -np.inf, -np.inf, -180.0])
+                              -np.inf, -np.inf, -np.inf])
             pmax  = np.array([np.log10(fit.cfg.threed.pbot),
-                              np.inf,  np.inf,  180.0])
-            pnames = ['log(p{})',
-                      'Lat. Amp. {}',
-                      'Lon. Amp. {}',
-                      'Lon. Phase {}']
+                              np.inf,  np.inf,   np.inf])
+            pnames = ['Y00  {}',
+                      'Y1-1 {}',
+                      'Y10  {}',
+                      'Y11  {}']
             # Repeat for each wavelength
-            nwl = len(fit.maps)
+            nwl = nmaps
             par   = np.tile(par,   nwl)
             pstep = np.tile(pstep, nwl)
             pmin  = np.tile(pmin,  nwl)
             pmax  = np.tile(pmax,  nwl)
             pnames = np.concatenate([[pname.format(a) for pname in pnames] \
                                      for a in np.arange(1, nmaps+1)]) # Trust me
-            # Guess that longitudinal sinusoid follows the hotpost
-            for i in range(nwl):
-                par[3+i*nppwl] = fit.maps[i].hslocbest[1]
             # Guess that higher temps are deeper
             ipar = np.argsort(np.max(fit.tmaps3d, axis=1))
             for i in range(nwl):
@@ -723,81 +726,13 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)
-        elif mname == 'quadratic':
-            # For a single wavelength
-            nppwl = 6
-            npar  = nppwl * nwl
-            par   = np.zeros(nppwl)
-            pstep = np.ones(nppwl) * 1e-3
-            pmin  = np.array([np.log10(fit.cfg.threed.ptop),
-                              -np.inf, -np.inf, -np.inf, -np.inf, -np.inf])
-            pmax  = np.array([np.log10(fit.cfg.threed.pbot),
-                              np.inf, np.inf, np.inf, np.inf, np.inf])
-            pnames = ['log(p{})',
-                      'LatLat {}',
-                      'LonLon {}',
-                      'Lat {}',
-                      'Lon {}',
-                      'LatLon {}']
-            # Repeat for each wavelength
-            nwl = len(fit.maps)
-            par   = np.tile(par,   nwl)
-            pstep = np.tile(pstep, nwl)
-            pmin  = np.tile(pmin,  nwl)
-            pmax  = np.tile(pmax,  nwl)
-            pnames = np.concatenate([[pname.format(a) for pname in pnames] \
-                                     for a in np.arange(1, nmaps+1)]) # Trust me
-            modeltype.append('pmap')
-            nparams[im] = npar
-            allparams.append(par)
-            allpmin.append(pmin)
-            allpmax.append(pmax)
-            allpstep.append(pstep)
-            allpnames.append(pnames)
-        elif mname == 'cubic':
-            # For a single wavelength
-            nppwl = 10
-            npar  = nppwl * nwl
-            par   = np.zeros(nppwl)
-            pstep = np.ones(nppwl) * 1e-3
-            pmin  = np.array([np.log10(fit.cfg.threed.ptop),
-                              -np.inf, -np.inf, -np.inf, -np.inf, -np.inf,
-                              -np.inf, -np.inf, -np.inf, -np.inf])
-            pmax  = np.array([np.log10(fit.cfg.threed.pbot),
-                              np.inf, np.inf, np.inf, np.inf, np.inf,
-                              np.inf, np.inf, np.inf, np.inf])
-            pnames = ['log(p{})',
-                      'LatLatLat {}',
-                      'LonLonLon {}',
-                      'LatLat {}',
-                      'LonLon {}',
-                      'Lat {}',
-                      'Lon {}',
-                      'LatLatLon {}',
-                      'LatLonLon {}',
-                      'LatLon {}']
-            # Repeat for each wavelength
-            nwl = len(fit.maps)
-            par   = np.tile(par,   nwl)
-            pstep = np.tile(pstep, nwl)
-            pmin  = np.tile(pmin,  nwl)
-            pmax  = np.tile(pmax,  nwl)
-            pnames = np.concatenate([[pname.format(a) for pname in pnames] \
-                                     for a in np.arange(1, nmaps+1)]) # Trust me
-            modeltype.append('pmap')
-            nparams[im] = npar
-            allparams.append(par)
-            allpmin.append(pmin)
-            allpmax.append(pmax)
-            allpstep.append(pstep)
-            allpnames.append(pnames)
         # Temperature profile options
         elif mname == 'ttop':
             npar   = 1
             par    = [1000.]
             pstep  = [   1.]
-            pmin   = [   0.]
-            pmax   = [4000.]
+            pmin   = [ 150.]
+            pmax   = [2000.]
             pnames = ['Ttop']
             modeltype.append('ttop')
             nparams[im] = npar
@@ -810,7 +745,7 @@ def get_par_3d(fit):
             npar   = 1
             par    = [2000.]
             pstep  = [   1.]
-            pmin   = [ 150.]
+            pmin   = [1000.]
             pmax   = [5000.]
             pnames = ['Tbot']
             modeltype.append('tbot')

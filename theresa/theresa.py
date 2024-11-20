@@ -655,11 +655,18 @@ def map3d(fit, system):
     #fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
 
     allmols = np.concatenate((cfg.threed.mols, cfg.threed.cmols))
-    print("WARNING: assuming solar metallicity for plotting (fix this)!")
+    if type(fit.cfg.threed.z) is float:
+        z = fit.cfg.threed.z
+    elif fit.cfg.threed.z == 'fit':
+        izmodel = np.where(fit.modeltype3d == 'z')[0][0]
+        istart = np.sum(fit.nparams3d[:izmodel])
+        z = params[istart]
+    else:
+        print("Something has gone wrong.")
+        
     fit.abnbest, fit.abnspec = atm.atminit(fit.cfg.threed.atmtype,
-                                           allmols, fit.p, fit.besttgrid,
-                                           cfg.planet.m, cfg.planet.r,
-                                           cfg.planet.p0, 0.0,
+                                           allmols, fit.p,
+                                           fit.besttgrid, z,
                                            ivis=fit.ivis3d,
                                            cheminfo=fit.cheminfo)
                                            
@@ -683,6 +690,7 @@ def map3d(fit, system):
         plots.cf_by_filter(fit, outdir=outdir)
         plots.spectra(fit, outdir=outdir)
         plots.spatialsampling(fit, outdir=outdir)
+        plots.abundances(fit, outdir=outdir)
 
     # There actually aren't any of these at the moment
     if cfg.threed.animations:

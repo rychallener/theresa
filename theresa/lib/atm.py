@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import scipy as sp
 import scipy.constants as sc
+import scipy.special as ss
 import constants as c
 import utils
 import scipy.interpolate as spi
@@ -17,8 +18,7 @@ ratedir = os.path.join(moddir, 'rate')
 sys.path.append(ratedir)
 import rate
 
-def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
-            ivis=None, cheminfo=None):
+def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
     """
     Initializes atmospheres of various types.
     
@@ -29,24 +29,14 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
             rate: thermochemical eqilibrium with RATE
             ggchem: thermochemical equilibrium with GGchem
 
+    mols: array
+        List of molecules for which to calculate abundances.
+
     p: 1D array
         Pressure layers of the atmosphere
 
     t: 2D array
         Temperature array, of size (nlayers, ncolumns)
-    
-    mp: float
-        Mass of the planet, in solar masses
-
-    rp: float
-        Radius of the planet, in solar radii
-
-    refpress: float
-        Reference pressure at rp (i.e., p(rp) = refpress). Used to calculate
-        radii of each layer, assuming hydrostatic equilibrium.
-
-    outdir: string
-        Directory where atmospheric file will be written.
 
     z: float
         Metallicity. E.g., z=0 is solar.
@@ -70,11 +60,6 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
     spec: list
         Species associated with the abundances in abn
     """
-
-    # Convert planet mass and radius to Jupiter
-    rp *= c.Rsun / c.Rjup
-    mp *= c.Msun / c.Mjup
-
     nlayer, ncolumn = t.shape
 
     if ivis is None:
@@ -110,19 +95,31 @@ def atminit(atmtype, mols, p, t, mp, rp, refpress, z,
         else:
             exmols = []
 
+        # It continues to vex me that TauREx wants pressures to be
+        # descending.
+        psort = np.argsort(ggchemp)
+
         for s in range(nspec):
             if spec[s] in mols or spec[s] in exmols:
-                for k in range(nlayer):
-                    if z in ggchemz:
-                        iz = np.where(ggchemz == z)
-                        fcn = spi.interp1d(ggchemT,
-                                           ggchemabn[s,k,:,iz])
-                        abn[s,k,ivis] = fcn(t[k,ivis])
-                    else:
-                        fcn = spi.interp2d(ggchemz, ggchemT,
-                                           ggchemabn[s,k])
-                        for i in ivis:
-                            abn[s,k,ivis] = fcn(z, t[k,ivis])
+                f = spi.RegularGridInterpolator((ggchemp[psort],
+                                                 ggchemT,
+                                                 ggchemz),
+                                                ggchemabn[s,psort])
+
+                for k in range(ncolumn):
+                    pts = \
+                        np.array([(intp, intt, z) for (intp, intt) in zip(p, t[:,k])])
+                    abn[s,:,k] = f(pts)
+                # for k in range(nlayer):
+                #     if z in ggchemz:
+                #         iz = np.where(ggchemz == z)
+                #         fcn = spi.interp1d(ggchemT,
+                #                            ggchemabn[s,k,:,iz])
+                #         abn[s,k,ivis] = fcn(t[k,ivis])
+                #     else:
+                #         fcn = spi.interp2d(ggchemz, ggchemT,
+                #                            ggchemabn[s,k])
+                #         abn[s,k,ivis] = fcn(z, t[k,ivis])
 
     else:
         print("Unrecognized atmosphere type.")
@@ -421,8 +418,8 @@ def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
             itop = np.where(modeltype == 'ttop')[0][0]
             ibot = np.where(modeltype == 'tbot')[0][0]
             oobparams = \
-                (params[imodel[itop]],
-                 params[imodel[ibot]])
+                (params[imodel[itop]][0],
+                 params[imodel[ibot]][0])
         else:
             oob = 'bot'
             ibot = np.where(modeltype == 'tbot')[0][0]
@@ -436,43 +433,70 @@ def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
             oob = 'isothermal'
 
     for i in range(ncolumn):
-        if oob == 'extrapolate':
-            fill_value = 'extrapolate'
-            p_interp = np.copy(pmaps[:,i,j])
-            t_interp = np.copy(tmaps[:,i,j])
-        elif oob == 'isothermal':
+        # Sort
+        psort = np.argsort(pmaps[:,i])
+        p_interp = pmaps[:,i][psort]
+        t_interp = tmaps[:,i][psort]
+
+        if np.any(p_interp > pbot) or np.any(p_interp < ptop):
+            print("WARNING: pmaps outside atmosphere pressure range.")
+        
+        if oob == 'isothermal':
             imax = np.argsort(pmaps[:,i])[-1]
             imin = np.argsort(pmaps[:,i])[0]
-            fill_value = (tmaps[:,i][imin], tmaps[:,i][imax])
-            p_interp = np.copy(pmaps[:,i])
-            t_interp = np.copy(tmaps[:,i])
+            p_interp = np.concatenate(([ptop],
+                                       p_interp,
+                                       [pbot]))
+            t_interp = np.concatenate(((tmaps[:,i][imin],),
+                                       t_interp,
+                                       (tmaps[:,i][imax],)))
         elif oob == 'top':
             ttop = oobparams[0]
-            p_interp = np.concatenate((pmaps[:,i], (ptop,)))
-            t_interp = np.concatenate((tmaps[:,i], (ttop,)))
             imax = np.argsort(pmaps[:,i])[-1]
-            fill_value = (ttop, tmaps[:,i][imax])
+            p_interp = np.concatenate(([ptop],
+                                       p_interp,
+                                       [pbot]))
+            t_interp = np.concatenate(((ttop,),
+                                       t_interp,
+                                       (tmaps[:,i][imax],)))            
         elif oob == 'bot':
             tbot = oobparams[0]
-            p_interp = np.concatenate((pmaps[:,i], (pbot,)))
-            t_interp = np.concatenate((tmaps[:,i], (tbot,)))
             imin = np.argsort(pmaps[:,i])[0]
-            fill_value = (tmaps[:,i][imin], tbot)
+            p_interp = np.concatenate(([ptop],
+                                       p_interp,
+                                       [pbot]))
+            t_interp = np.concatenate(((tmaps[:,i][imin],),
+                                       t_interp,
+                                       (tbot,)))
         elif oob == 'both':
             ttop = oobparams[0]
             tbot = oobparams[1]
-            p_interp = np.concatenate((pmaps[:,i],
-                                       (ptop, pbot)))
-            t_interp = np.concatenate((tmaps[:,i],
-                                       (ttop, tbot)))
-            fill_value = 'extrapolate' # shouldn't matter
+            p_interp = np.concatenate(([ptop],
+                                       p_interp,
+                                       [pbot]))
+            t_interp = np.concatenate(((ttop,),
+                                       t_interp,
+                                       (tbot,)))
 
-        interp = spi.interp1d(np.log10(p_interp),
-                              t_interp, kind=interptype,
-                              bounds_error=False,
-                              fill_value=fill_value)
+        # One last check that p_interp is increasing. This only does
+        # something if the pmaps get outside the normal pressure
+        # bounds. Such models should eventually be rejected, but let's
+        # make sure they don't result in crashes.
+        psort = np.argsort(p_interp)
+        p_interp = p_interp[psort]
+        t_interp = t_interp[psort]
 
-        temp3d[:,i] = interp(logp1d)
+        # TODO: replace these with RegularGridInterpolator
+        if interptype in ['linear', 'cubic']:
+            interp = spi.interp1d(np.log10(p_interp),
+                                  t_interp, kind=interptype,
+                                  bounds_error=False)
+
+            temp3d[:,i] = interp(logp1d)
+
+        elif interptype == 'pchip':
+            temp3d[:,i] = spi.pchip_interpolate(np.log10(p_interp),
+                                                t_interp, logp1d)
 
         if smooth is not None:
             T = temp3d[:,i]
@@ -489,6 +513,7 @@ def pmaps(params, fit):
     tmaps = fit.tmaps3d
     lat   = fit.lat3d
     lon   = fit.lon3d
+    ncolumn = fit.ncolumn
     im = np.where(fit.modeltype3d == 'pmap')[0][0]
     mapfunc = fit.cfg.threed.modelnames[im]
     mapparams = params[fit.imodel3d[im]]
@@ -510,49 +535,28 @@ def pmaps(params, fit):
             where2 = np.where((lon >  lon1) & (lon <  lon2))
             pmaps[i][where1] = 10**lev1
             pmaps[i][where2] = 10**lev2
-    elif mapfunc == 'sinusoidal':
+    elif mapfunc == 'sh1':
         npar = 4
+        lmax = 1
+        sh  = np.zeros((npar, ncolumn))
+        ish = 0
+        
+        # Radians and bounds required by sph_harm
+        templat = np.deg2rad(fit.lat3d) + np.pi / 2
+        templon = np.deg2rad(fit.lon3d) + np.pi
+        
+        for l in range(lmax+1):
+            for m in range(-l, l+1):
+                sh[ish] = ss.sph_harm(m, l, templat, templon)
+                ish += 1
+                
         for i in range(nmap):
+            logpmap = np.zeros(ncolumn)
             ip = npar * i
-            pmaps[i] = 10.**(mapparams[ip] + \
-                mapparams[ip+1]*np.cos((lat                )*np.pi/180.) + \
-                mapparams[ip+2]*np.cos((lon-mapparams[ip+3])*np.pi/180.))
-    # This one needs to be updated for the new 3D grid
-    # elif mapfunc == 'flexible':
-    #     ilat, ilon = np.where((lon + dlon / 2. > fit.minvislon) &
-    #                           (lon - dlon / 2. < fit.maxvislon))
-    #     nvis = len(ilat)
-    #     for i in range(nmap):
-    #         ip = 0
-    #         for j, k in zip(ilat, ilon):
-    #             pmaps[i,j,k] = 10.**mapparams[i*nvis+ip]
-    #             ip += 1
-    elif mapfunc == 'quadratic':
-        npar = 6
-        for i in range(nmap):
-            ip = npar*i
-            pmaps[i] = 10.**(
-                mapparams[ip  ]          +
-                mapparams[ip+1] * lat**2 +
-                mapparams[ip+2] * lon**2 +
-                mapparams[ip+3] * lat    +
-                mapparams[ip+4] * lon    +
-                mapparams[ip+5] * lat*lon)
-    elif mapfunc == 'cubic':
-        npar = 10
-        for i in range(nmap):
-            ip = npar*i
-            pmaps[i] = 10.**(
-                mapparams[ip  ]              +
-                mapparams[ip+1] * lat**3     +
-                mapparams[ip+2] * lon**3     +
-                mapparams[ip+3] * lat**2     +
-                mapparams[ip+4] * lon**2     +
-                mapparams[ip+5] * lat        +
-                mapparams[ip+6] * lon        +
-                mapparams[ip+7] * lat**2*lon +
-                mapparams[ip+8] * lat*lon**2 +
-                mapparams[ip+9] * lat*lon)
+            for j in range(npar):
+                logpmap += mapparams[ip+j] * sh[j]
+                
+            pmaps[i] = 10.**logpmap
     else:
         print("WARNING: Unrecognized pmap model.")
 

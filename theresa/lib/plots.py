@@ -1106,7 +1106,7 @@ def spectra(fit, outdir=''):
     plt.savefig(os.path.join(outdir, 'spectra.png'))
     plt.close()
 
-def spatialsampling(fit, outdir=None):
+def spatialsampling(fit, outdir=''):
     r = 1
 
     lon = np.deg2rad(fit.lon3d)
@@ -1142,6 +1142,20 @@ def spatialsampling(fit, outdir=None):
     ax.legend()
 
     plt.savefig(os.path.join(outdir, 'spatialsampling.png'))
+    plt.close()
+
+def abundances(fit, outdir=''):
+    fig, ax = plt.subplots(figsize=(6,10))
+
+    for mol in fit.cfg.threed.mols:
+        ind = np.where(fit.abnspec == mol)[0][0]
+        plt.loglog(fit.abnbest[ind,:,4], fit.p, label=mol)
+
+
+    ax.invert_yaxis()
+        
+    ax.legend()    
+    plt.savefig(os.path.join(outdir, 'abundances.png'))
     plt.close()
     
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
