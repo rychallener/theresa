@@ -1147,12 +1147,18 @@ def spatialsampling(fit, outdir=''):
 def abundances(fit, outdir=''):
     fig, ax = plt.subplots(figsize=(6,10))
 
+    dist = (fit.lat3d**2 + fit.lon3d**2)**0.5
+    iss = np.where(dist == np.min(np.abs(dist)))[0][0]
+
     for mol in fit.cfg.threed.mols:
         ind = np.where(fit.abnspec == mol)[0][0]
-        plt.loglog(fit.abnbest[ind,:,4], fit.p, label=mol)
+        plt.loglog(fit.abnbest[ind,:,iss], fit.p, label=mol)
 
+    ax.set_title('Substellar point abundances')
 
     ax.invert_yaxis()
+
+    ax.set_xlim((10**-12, 1))
         
     ax.legend()    
     plt.savefig(os.path.join(outdir, 'abundances.png'))
