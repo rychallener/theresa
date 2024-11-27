@@ -291,7 +291,17 @@ def map2d(cfile):
                              m.hsloctserr[1][0],
                              m.hsloctserr[1][1]))
 
-            print("Calculating temperature map uncertainties.")
+            # Populate blackbody spectra outside posterior map
+            # calculation loop for speed
+            # This is only used if a stellar spectrum is supplied
+            # Note: numerical issues can occur below 50 K, but it's
+            #       possible that the model returns a map with fluxes
+            #       low enough for such cold temperatures, which
+            #       could result in issues in the future.
+            m.trange = np.linspace(50, 5000, 10000)
+            m.bbs = utils.blackbody_wl(m.trange, m.filtwl * 1e-6)
+
+            print("Calculating flux and temperature map uncertainties.")
             m.fmappost, m.tmappost = utils.tmappost(fit, m, m.bestln)
             m.tmapunc = np.std(m.tmappost, axis=0)
             m.fmapunc = np.std(m.fmappost, axis=0)
@@ -342,7 +352,8 @@ def map2d(cfile):
                                       cfg.star.t, fit.lat, fit.lon,
                                       starspec=cfg.star.starspec,
                                       fwl=fwl, ftrans=ftrans, swl=swl,
-                                      sspec=sspec)
+                                      sspec=sspec, trange=m.trange,
+                                      bbs=m.bbs)
             m.fmap = fmap
             m.tmap = tmap
 

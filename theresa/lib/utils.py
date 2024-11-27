@@ -555,14 +555,16 @@ def tmappost(fit, m, ln):
                                 post[ipost,ncurves+1],
                                 starspec=fit.cfg.star.starspec,
                                 fwl=m.filtwl, ftrans=m.filttrans,
-                                swl=fit.starwl, sspec=fit.starflux)
+                                swl=fit.starwl, sspec=fit.starflux,
+                                trange=m.trange, bbs=m.bbs)
         
         pbar.update(i+1)
 
     return fmaps, tmaps
 
 def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
-                 fwl=None, ftrans=None, swl=None, sspec=None):
+                 fwl=None, ftrans=None, swl=None, sspec=None, trange=None,
+                 bbs=None):
     '''
     Convert flux map to brightness temperatures.
     See Rauscher et al., 2018, eq. 8
@@ -602,6 +604,13 @@ def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
 
     sspec: Array
         Array of stellar spectrum, same units as the Planck function (mks)
+
+    trange: 1D Array
+        Array of temperatures corresponding to spectra in bbs
+
+    bbs: 2D Array
+        Blackbody spectra corresponding with temperatures in trange and
+        wavelengths in fwl
     '''
     meanwl_m = meanwl * 1e-6 # convert to m
     ptemp = (sc.h * sc.c) / (meanwl_m * sc.k)
@@ -628,8 +637,10 @@ def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
         if ((fwl is None) or
             (ftrans is None) or
             (sspec is None) or
-            (swl is None)):
-            print('Must specify filter and stellar spectrum.')  
+            (swl is None) or
+            (trange is None) or
+            (bbs is None)):
+            print('Must specify filter, stellar spectrum, trange, and blackbody spectra.')  
 
         # Convert units
         fwl_m = fwl * 1e-6
@@ -640,11 +651,6 @@ def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
         # Interpolate stellar spectrum to filter wls
         interp_spec = spi.interp1d(swl_m, sspec)
         sspec_int   = interp_spec(fwl_m)
-
-        # Calculate blackbody spectra for a range of temperatures
-        # (consider doing this outside this function)
-        trange = np.linspace(50, 5000, 10000)
-        bbs = blackbody_wl(trange, fwl_m)
 
         fpfs_spec = rprs2 * bbs / sspec_int
 
