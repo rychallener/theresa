@@ -556,15 +556,16 @@ def tmappost(fit, m, ln):
                                 starspec=fit.cfg.star.starspec,
                                 fwl=m.filtwl, ftrans=m.filttrans,
                                 swl=fit.starwl, sspec=fit.starflux,
-                                trange=m.trange, bbs=m.bbs)
+                                trange=m.trange,
+                                fpfs_bb=m.fpfs_for_interp)
         
         pbar.update(i+1)
 
     return fmaps, tmaps
 
 def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
-                 fwl=None, ftrans=None, swl=None, sspec=None, trange=None,
-                 bbs=None):
+                 fwl=None, ftrans=None, swl=None, sspec=None,
+                 trange=None, fpfs_bb=None):
     '''
     Convert flux map to brightness temperatures.
     See Rauscher et al., 2018, eq. 8
@@ -606,11 +607,13 @@ def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
         Array of stellar spectrum, same units as the Planck function (mks)
 
     trange: 1D Array
-        Array of temperatures corresponding to spectra in bbs
+        Array of temperatures corresponding to fpfs_bb
 
-    bbs: 2D Array
-        Blackbody spectra corresponding with temperatures in trange and
-        wavelengths in fwl
+    fpfs_bb: 2D array
+        Filter-integrated star-normalized planetary blackbody spectra at each 
+        temperature in trange. Will be used to interpolate to temperatures
+        using fmap. Calculated on the fly if not supplied. This can be
+        very slow.
     '''
     meanwl_m = meanwl * 1e-6 # convert to m
     ptemp = (sc.h * sc.c) / (meanwl_m * sc.k)
@@ -637,30 +640,32 @@ def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
         if ((fwl is None) or
             (ftrans is None) or
             (sspec is None) or
-            (swl is None) or
-            (trange is None) or
-            (bbs is None)):
-            print('Must specify filter, stellar spectrum, trange, and blackbody spectra.')  
+            (swl is None)):
+            print('Must specify filter and stellar spectrum.')
+
+        if (trange is None) and (fpfs_bb is not None):
+            print('Must specify temperatures if supplying fpfs_bb.')
 
         # Convert units
         fwl_m = fwl * 1e-6
         swl_m = swl * 1e-6
-
-        rprs2 = (rp / rs)**2
-
-        # Interpolate stellar spectrum to filter wls
-        interp_spec = spi.interp1d(swl_m, sspec)
-        sspec_int   = interp_spec(fwl_m)
-
-        fpfs_spec = rprs2 * bbs / sspec_int
-
-        # Integrate over the filter throughput
-        fpfs_bb = np.trapz(fpfs_spec * ftrans * sspec_int, fwl_m, axis=1) / \
-            np.trapz(ftrans * sspec_int, fwl_m)
+        
+        if fpfs_bb is None:
+            sspec_int = np.interp(fwl_m, swl_m, sspec)
+            
+            trange = np.linspace(50, 5000, 10000)
+            bbs = blackbody_wl(trange, fwl_m)
+            
+            sspec_fint = np.trapz(ftrans * sspec_int, fwl_m)
+            
+            # Integrate over the filter throughput
+            rprs2 = (rp / rs)**2
+            fpfs_spec = rprs2 * bbs / sspec_int
+            fpfs_bb = np.trapz(fpfs_spec * ftrans * sspec_int,
+                               fwl_m, axis=1) / sspec_fint
 
         # Function to interpolate fluxes to temperatures
-        interp_fpfs = spi.interp1d(fpfs_bb, trange, kind='cubic',
-                                   bounds_error=False)
+        interp_fpfs = spi.CubicSpline(fpfs_bb, trange)
 
         tmap = interp_fpfs(fmap * np.pi)
                

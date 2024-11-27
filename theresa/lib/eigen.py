@@ -144,8 +144,7 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
     return eigeny, evalues, evectors, proj, lcs
 
 def mkmaps(planet, eigeny, params, ncurves, wl, rs, rp, ts, lat, lon,
-           starspec='bb', fwl=None, ftrans=None, swl=None, sspec=None,
-           trange=None, bbs=None):
+           starspec='bb', fwl=None, ftrans=None, swl=None, sspec=None):
     """
     Calculate flux map and brightness temperature map from
     a single 2D map fit.
@@ -216,7 +215,7 @@ def mkmaps(planet, eigeny, params, ncurves, wl, rs, rp, ts, lat, lon,
     tmap = utils.fmap_to_tmap(fmap, wl, rp, rs, ts,
                               params[ncurves+1], starspec=starspec,
                               fwl=fwl, ftrans=ftrans, swl=swl,
-                              sspec=sspec, trange=trange, bbs=bbs)
+                              sspec=sspec)
 
     return fmap, tmap
 
