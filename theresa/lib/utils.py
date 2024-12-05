@@ -197,7 +197,8 @@ def visibility(fit, t, x, y, z, lmax):
     A = planet.map.design_matrix(xo=xo, yo=yo, ro=1/rprs, theta=theta).eval()
 
     lat, lon, Y2P, P2Y, Dx, Dy = \
-        planet.map.get_pixel_transforms(oversample=fit.cfg.threed.oversample)
+        planet.map.get_pixel_transforms(oversample=fit.cfg.threed.oversample,
+                                        lam=1e-12)
 
     vis = A @ P2Y
 
