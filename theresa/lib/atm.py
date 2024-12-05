@@ -520,7 +520,11 @@ def pmaps(params, fit):
     
     pmaps = np.zeros(tmaps.shape)
     nmap, ncolumn = pmaps.shape
-    if   mapfunc == 'isobaric':
+    if   mapfunc == 'sh0':
+        # No need to both with spherical harmonics here. Just
+        # assign each pmap to a uniform pressure level.
+        # (Could consider merging with sh1 and generalizing to
+        #  higher order spherical harmonics)
         for i in range(nmap):
             pmaps[i] = 10.**mapparams[i]
     elif mapfunc == 'isobaric2':
@@ -547,7 +551,18 @@ def pmaps(params, fit):
         
         for l in range(lmax+1):
             for m in range(-l, l+1):
-                sh[ish] = ss.sph_harm(m, l, templat, templon)
+                # Real form of the spherical harmonics
+                if m == 0:
+                    sh[ish] = ss.sph_harm(m, l, templon, templat)
+                elif m < 0:
+                    tsh = ss.sph_harm(-m, l, templon, templat)
+                    sh[ish] = 2**0.5 * (-1)**m * np.imag(tsh)
+                elif m > 0:
+                    tsh = ss.sph_harm(m, l, templon, templat)
+                    sh[ish] = 2**0.5 * (-1)**m * np.real(tsh)
+
+                # Normalize to 1 for convenience
+                sh[ish] /= np.max(sh[ish])
                 ish += 1
                 
         for i in range(nmap):

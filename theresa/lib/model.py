@@ -397,7 +397,18 @@ def mcmc_wrapper(params, fit):
     # Integrate cf if asked for
     if fit.cfg.threed.fitcf:
         cfsd = cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps)
-        print("Model Evaluation: {} s".format(time.time() - tic))
+        # Experimental: weight the cf penalty by the relative number
+        #               of grid cells and data points such that the
+        #               effect of the penalty is not dependent on the
+        #               horizontal resolution (oversampling) of the
+        #               model. "factor" is the goal effectiveness of
+        #               the penalty where, e.g., 0.25 means that
+        #               overall the penalty contributes 25% as much to
+        #               the "chisq" as the actual data.
+        factor = 0.03
+        cfsd *= factor * systemflux.shape[0] / cfsd.shape[0]
+        #print(factor * systemflux.shape[0] / cfsd.shape[0])
+        #print("Model Evaluation: {} s".format(time.time() - tic))
         return np.concatenate((systemflux, cfsd))
     
     else:
@@ -629,7 +640,7 @@ def get_par_3d(fit):
     # parameters, as well as sensible initial guesses, parameter
     # boundaries, and step sizes.
     for im, mname in enumerate(fit.cfg.threed.modelnames):   
-        if mname == 'isobaric':
+        if mname == 'sh0':
             npar  = nmaps
             # Guess that higher temps are deeper
             ipar  = np.argsort(np.max(fit.tmaps3d, axis=1))
