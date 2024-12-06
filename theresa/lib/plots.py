@@ -689,9 +689,11 @@ def tau(fit, icolumn=None, outdir=''):
     fig, ax = plt.subplots()
     
     cfg = fit.cfg
-    
+
+    # Default to column nearest the substellar point
     if type(icolumn) == type(None):
-        icolumn = np.where((fit.lat3d == 0.0) & (fit.lon3d == 0.0))[0][0]
+        dist = (fit.lat3d**2 + fit.lon3d**2)**0.5
+        icolumn = dist.argmin()
         
     ncolumn = fit.taugrid.shape
     npress, nwn = fit.taugrid[0].shape
