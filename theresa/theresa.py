@@ -368,8 +368,7 @@ def map2d(cfile):
                                       cfg.star.t, fit.lat, fit.lon,
                                       starspec=cfg.star.starspec,
                                       fwl=fwl, ftrans=ftrans, swl=swl,
-                                      sspec=sspec, trange=m.trange,
-                                      bbs=m.bbs)
+                                      sspec=sspec, trange=m.trange)
             m.fmap = fmap
             m.tmap = tmap
 
@@ -604,7 +603,8 @@ def map3d(fit, system):
                          func=model.mcmc_wrapper,
                          nsamples=cfg.threed.nsamples,
                          burnin=cfg.threed.burnin,
-                         ncpu=cfg.threed.ncpu, sampler='snooker',
+                         #ncpu=cfg.threed.ncpu,
+                         sampler='snooker',
                          savefile=mc3npz, params=params,
                          indparams=indparams, pstep=pstep, pmin=pmin,
                          pmax=pmax, pnames=pnames,
