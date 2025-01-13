@@ -368,7 +368,7 @@ def map2d(cfile):
                                       cfg.star.t, fit.lat, fit.lon,
                                       starspec=cfg.star.starspec,
                                       fwl=fwl, ftrans=ftrans, swl=swl,
-                                      sspec=sspec, trange=m.trange)
+                                      sspec=sspec)
             m.fmap = fmap
             m.tmap = tmap
 
