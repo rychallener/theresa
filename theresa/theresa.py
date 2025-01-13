@@ -681,6 +681,19 @@ def map3d(fit, system):
     fit.specbestmodel = model.sysflux(fit.specbestp, fit)[0]
     #fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
 
+    # Calculate chisq of just light curve (ignoring cf penalty)
+    lcs  = [m.flux for d in fit.datasets for m in d.maps]
+    elcs = [m.ferr for d in fit.datasets for m in d.maps]
+    fit.chisq3d_lc = 0
+    for i in range(len(lcs)):
+        fit.chisq3d_lc += np.sum(((lcs[i] - fit.specbestmodel[i]) / elcs[i])**2)
+
+    nlcdata = len(np.concatenate(lcs))
+    fit.redchisq3d_lc = fit.chisq3d / (nlcdata - nfree)
+    print("Light Curve Chisq:      {:.2f}".format(fit.chisq3d_lc))
+    print("Light Curve Red. Chisq: {:.4f}".format(fit.redchisq3d_lc))
+    print("CF Penalty:             {:.2f}".format(fit.chisq3d - fit.chisq3d_lc))
+
     allmols = np.concatenate((cfg.threed.mols, cfg.threed.cmols))
     if type(fit.cfg.threed.z) is float:
         z = fit.cfg.threed.z
