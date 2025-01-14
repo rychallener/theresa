@@ -663,6 +663,8 @@ def map3d(fit, system):
     print("\nParameter        SPEIS     ESS   68.3% Error"
           "\n-------------- ------- ------- -------------")
     for i in range(nparams):
+        if pstep[i] == 0:
+            continue
         print(f"{pnames[i]:<14s} " +
               f"{fit.speis3d[i]:7d} " +
               f"{fit.ess3d[i]:7.1f} " +
