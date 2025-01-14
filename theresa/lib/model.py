@@ -790,7 +790,7 @@ def get_par_3d(fit):
             pstep   = [  0.1,    1.0,   1.0,         0.1,         0.1]
             pmin    = [ -4.0,    0.0, -20.0, logptop - 1, logptop - 1]
             pmax    = [  8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1]
-            pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)']
+            pnames  = ['log(a)', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)']
             modeltype.append('clouds')
             nparams[im] = npar
             allparams.append(par)
@@ -809,7 +809,7 @@ def get_par_3d(fit):
             pstep   = [ 0.1,    1.0,   1.0,         0.1,         0.1,  0.1,    1.0,   1.0,         0.1,         0.1,   10.,   10.]
             pmin    = [-4.0,    0.0, -20.0, logptop - 1, logptop - 1, -4.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.,    0.]
             pmax    = [ 8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.,  360.]
-            pnames  = ['a1', 'Q01', 'mix1', 'log(cloud bottom)1', 'log(cloud top)1', 'a2', 'Q02', 'mix2', 'log(cloud bottom)2', 'log(cloud top)2', 'Cl.2 Center', 'Cl.2 Width']
+            pnames  = ['log(a1)', 'Q01', 'mix1', 'log(cloud bottom)1', 'log(cloud top)1', 'log(a2)', 'Q02', 'mix2', 'log(cloud bottom)2', 'log(cloud top)2', 'Cl.2 Center', 'Cl.2 Width']
             modeltype.append('clouds')
             nparams[im] = npar
             allparams.append(par)
@@ -828,7 +828,7 @@ def get_par_3d(fit):
             pstep   = [ 0.1,    1.0,   1.0,         0.1,         0.1,   10.0,   10.0]
             pmin    = [-4.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.0,    0.0]
             pmax    = [ 8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.0,  360.0]
-            pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)', 'Spot Center', 'Spot Width']
+            pnames  = ['log(a)', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)', 'Spot Center', 'Spot Width']
             modeltype.append('clouds')
             nparams[im] = npar
             allparams.append(par)
