@@ -394,6 +394,9 @@ def map2d(cfile):
             fit.fmaps2d[imap] = m.fmap
             imap += 1
 
+    # Save fit object before plotting in case of crashes
+    fit.save(cfg.twod.outdir)
+
     if cfg.twod.plots:
         print("Making plots.")
         for d in fit.datasets:
@@ -422,8 +425,6 @@ def map2d(cfile):
         pass
         #plots.visanimation(fit, outdir=cfg.twod.outdir)
         #plots.fluxmapanimation(fit, outdir=cfg.twod.outdir)
-
-    fit.save(cfg.twod.outdir)
 
 def map3d(fit, system):
     cfg = fit.cfg
