@@ -10,6 +10,7 @@ import scipy.interpolate as spi
 import time
 import taurex_ggchem
 import progressbar
+import multiprocessing as mp
 
 libdir = os.path.dirname(os.path.realpath(__file__))
 moddir = os.path.join(libdir, 'modules')
@@ -729,7 +730,7 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             q     = np.zeros(shape)
 
             where = np.where((p >= topp) & (p <= bottomp))
-            radii[where,:] = radius
+            radii[where,:] = 10**radius
             mix[  where,:] = mixrat
             q[    where,:] = q0
 
@@ -766,11 +767,12 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             mix   = np.zeros(shape)
             q     = np.zeros(shape)
 
-            # Not efficient to do this all the time...
+            # Not efficient to do this all the time, but the time
+            # cost is like 0.0002s per model evaluation
             p3d = p.reshape((fit.cfg.threed.nlayers, 1))
             p3d = np.tile(p3d, (1, fit.ncolumn))
 
-            lon3d = fit.lon.reshape((1, fit.ncolumn))
+            lon3d = fit.lon3d.reshape((1, fit.ncolumn))
             lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1))
 
             # Cloud 1
@@ -778,7 +780,7 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             loncond1 = (lon3d <= lon1) | (lon3d >= lon2)
             where1 = np.where(pcond1 & loncond1)
 
-            radii[where1] = radius1
+            radii[where1] = 10**radius1
             mix[  where1] = mixrat1
             q[    where1] = q01
 
@@ -787,7 +789,7 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             loncond2 = (lon3d >  lon1) & (lon3d <  lon2)
             where2 = np.where(pcond2 & loncond2)
 
-            radii[where2] = radius2
+            radii[where2] = 10**radius2
             mix[  where2] = mixrat2
             q[    where2] = q02
         
@@ -812,24 +814,27 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
             lon2    =  center + width / 2.
 
             shape = (fit.cfg.threed.nlayers,
-                     fit.cfg.twod.nlat,
-                     fit.cfg.twod.nlon)
+                     fit.ncolumn)
             radii = np.zeros(shape)
             mix   = np.zeros(shape)
             q     = np.zeros(shape)
 
-            # Not efficient to do this all the time...
+            # Not efficient to do this all the time, but the time
+            # cost is like 0.0002s per model evaluation
             p3d = p.reshape((fit.cfg.threed.nlayers, 1))
             p3d = np.tile(p3d, (1, fit.ncolumn))
 
-            lon3d = fit.lon.reshape((1, fit.ncolumn))
+            # NOTE: poles are considered to be at 0 longitude
+            #       which could matter for sparsely sampled
+            #       model grids
+            lon3d = fit.lon3d.reshape((1, fit.ncolumn))
             lon3d = np.tile(lon3d, (fit.cfg.threed.nlayers, 1))
 
             pcond   = (p3d >= topp)   & (p3d <= bottomp)
             loncond = (lon3d <= lon1) | (lon3d >= lon2)
             where = np.where(pcond & loncond)
 
-            radii[where] = radius
+            radii[where] = 10.**radius
             mix[  where] = mixrat
             q[    where] = q0
 
@@ -854,7 +859,7 @@ def cloudmodel_to_grid(fit, p, params, abn, spec):
 
                     where = np.where(abn[s] != 0)
                     
-                    radii[where] = radius
+                    radii[where] = 10.**radius
                     q[    where] = q0
 
                     allmix[ic] = abn[s]

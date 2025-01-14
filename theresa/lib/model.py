@@ -407,7 +407,12 @@ def mcmc_wrapper(params, fit):
         #               the "chisq" as the actual data.
         factor = 0.03
         cfsd *= factor * systemflux.shape[0] / cfsd.shape[0]
+
         #print(factor * systemflux.shape[0] / cfsd.shape[0])
+
+        # If you, dear reader, can determine why sometimes the
+        # calculation takes about 3x more time than usual during MCMC,
+        # find me at a conference and I will buy you a drink.
         #print("Model Evaluation: {} s".format(time.time() - tic))
         return np.concatenate((systemflux, cfsd))
     
@@ -783,8 +788,8 @@ def get_par_3d(fit):
             logptop = np.log10(fit.cfg.threed.ptop)
             par     = [  0.1,   40.0, -10.0,         2.0,        -1.0]
             pstep   = [  0.1,    1.0,   1.0,         0.1,         0.1]
-            pmin    = [  0.0,    0.0, -20.0, logptop - 1, logptop - 1]
-            pmax    = [100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1]
+            pmin    = [ -4.0,    0.0, -20.0, logptop - 1, logptop - 1]
+            pmax    = [  8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1]
             pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)']
             modeltype.append('clouds')
             nparams[im] = npar
@@ -795,14 +800,15 @@ def get_par_3d(fit):
             allpnames.append(pnames)
         elif mname == 'leemie2':
             npar    = 12
+            # Two clouds
             # Parameters: part. size, Q0, mix ratio (log),
             #             bottom p (log), top p (log)
             logpbot = np.log10(fit.cfg.threed.pbot)
             logptop = np.log10(fit.cfg.threed.ptop)
-            par     = [  0.1,   40.0, -10.0,         2.0,        -1.0,   0.1,   40.0, -10.0,         2.0,        -1.0,    0.,  180.]
-            pstep   = [  0.1,    1.0,   1.0,         0.1,         0.1,   0.1,    1.0,   1.0,         0.1,         0.1,   10.,   10.]
-            pmin    = [  0.0,    0.0, -20.0, logptop - 1, logptop - 1,   0.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.,    0.]
-            pmax    = [100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1, 100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.,  360.]
+            par     = [-1.0,   40.0, -10.0,         2.0,        -1.0, -1.0,   40.0, -10.0,         2.0,        -1.0,    0.,  180.]
+            pstep   = [ 0.1,    1.0,   1.0,         0.1,         0.1,  0.1,    1.0,   1.0,         0.1,         0.1,   10.,   10.]
+            pmin    = [-4.0,    0.0, -20.0, logptop - 1, logptop - 1, -4.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.,    0.]
+            pmax    = [ 8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.,  360.]
             pnames  = ['a1', 'Q01', 'mix1', 'log(cloud bottom)1', 'log(cloud top)1', 'a2', 'Q02', 'mix2', 'log(cloud bottom)2', 'log(cloud top)2', 'Cl.2 Center', 'Cl.2 Width']
             modeltype.append('clouds')
             nparams[im] = npar
@@ -813,14 +819,15 @@ def get_par_3d(fit):
             allpnames.append(pnames)
         elif mname == 'leemie-clearspot':          
             npar    = 7
+            # Partial cloud
             # Parameters: part. size, Q0, mix ratio (log),
             #             bottom p (log), top p (log)
             logpbot = np.log10(fit.cfg.threed.pbot)
             logptop = np.log10(fit.cfg.threed.ptop)
-            par     = [  0.1,   40.0, -10.0,         2.0,        -1.0,    0.0,  180.0]
-            pstep   = [  0.1,    1.0,   1.0,         0.1,         0.1,   10.0,   10.0]
-            pmin    = [  0.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.0,    0.0]
-            pmax    = [100.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.0,  360.0]
+            par     = [-1.0,   40.0, -10.0,         2.0,        -1.0,    0.0,  180.0]
+            pstep   = [ 0.1,    1.0,   1.0,         0.1,         0.1,   10.0,   10.0]
+            pmin    = [-4.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.0,    0.0]
+            pmax    = [ 8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.0,  360.0]
             pnames  = ['a', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)', 'Spot Center', 'Spot Width']
             modeltype.append('clouds')
             nparams[im] = npar
@@ -830,12 +837,14 @@ def get_par_3d(fit):
             allpstep.append(pstep)
             allpnames.append(pnames)
         elif mname == 'eqclouds':
+            # Clouds from equilibrium chemistry (cloud species
+            # specified in configuration)
             npar = 2
             # Parameters: part. size, Q0
-            par    = [  0.1,   40.0]
-            pstep  = [  0.1,    1.0]
-            pmin   = [  0.0,    0.0]
-            pmax   = [100.0, 1000.0]
+            par    = [-1.0,   40.0]
+            pstep  = [ 0.1,    1.0]
+            pmin   = [-4.0,    0.0]
+            pmax   = [ 8.0, 1000.0]
             pnames = ['a', 'Q0']
             modeltype.append('clouds')
             nparams[im] = npar
