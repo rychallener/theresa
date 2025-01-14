@@ -700,8 +700,10 @@ def ess(chain):
             idx = np.where(pairsum < 0)[0][0]
         else:
             idx = len(pairsum)
-            print("WARNING: parameter {} did not decorrelate!"
-                  "Do not trust ESS/SPEIS!".format(i))
+            # Only warn the user if this parameter was varied
+            if len(np.unique(chain[:,i])) > 1:
+                print("WARNING: parameter {} did not decorrelate!"
+                      "Do not trust ESS/SPEIS!".format(i))
         # Calculate SPEIS
         speis[i] = -1 + 2 * np.sum(pairsum[:idx])
         ess[i]   = nciter / speis[i]
