@@ -744,7 +744,7 @@ if __name__ == "__main__":
     print("#########################################################")
     print("  ThERESA: Three-dimensional Exoplanet Retrieval from    ")
     print("           Eclipse Spectroscopy of Atmospheres           ")
-    print("  Copyright 2021-2024 Ryan C. Challener & collaborators  ")
+    print("  Copyright 2021-2025 Ryan C. Challener & collaborators  ")
     print("#########################################################")
     
     if len(sys.argv) < 3:
