@@ -1153,7 +1153,7 @@ def abundances(fit, outdir=''):
     iss = np.where(dist == np.min(np.abs(dist)))[0][0]
 
     for mol in fit.cfg.threed.mols:
-        ind = np.where(fit.abnspec == mol)[0][0]
+        ind = np.where(np.array(fit.abnspec) == mol)[0][0]
         plt.loglog(fit.abnbest[ind,:,iss], fit.p, label=mol)
 
     ax.set_title('Substellar point abundances')

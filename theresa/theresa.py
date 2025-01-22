@@ -474,11 +474,19 @@ def map3d(fit, system):
     fit.ncolumn = fit.datasets[0].vis.shape[1]
 
     # Determine which grid cells to use
-    # TODO: update for new 3D grid. Currently just uses all cells.
-    #       Needs to loop over all dataset objects, figure out which
-    #       cells are visible (all datasets have the same grid), and
-    #       effectivley do an OR operation to get them all.
-    fit.ivis3d = np.arange(0, fit.ncolumn)
+    # Figures out which grid cells have any visibility for each dataset,
+    # folds them together with an "or" operation, then filters the column
+    # indices down to those which are visible
+    totvisbool = np.zeros(fit.ncolumn)
+    for d in fit.datasets:
+        visbool = np.zeros(fit.ncolumn)
+        for ic in range(fit.ncolumn):
+            if np.any(d.vis[ic] > 0):
+                visbool[ic] = 1
+
+        totvisbool = np.logical_or(totvisbool, visbool)
+        
+    fit.ivis3d = np.arange(0, fit.ncolumn)[totvisbool]
 
     # Make a single array of tmaps on the 3D grid
     fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
