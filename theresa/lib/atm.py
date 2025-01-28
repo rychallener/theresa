@@ -401,7 +401,7 @@ def calcrad(p, t, mu, r0, mp, p0):
 
 def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
           nparams, modeltype, imodel, interptype='linear',
-          smooth=None):
+          smooth=None, ivis=None):
     """
     Make a 3d grid of temperatures, based on supplied temperature maps
     placed at the supplied pressures. Dimensions are (nlayers,
@@ -434,6 +434,10 @@ def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
             oob = 'isothermal'
 
     for i in range(ncolumn):
+        # Skip columns that aren't visible (avoid errors in case
+        # temperatures are negative there)
+        if i not in ivis:
+            continue
         # Sort
         psort = np.argsort(pmaps[:,i])
         p_interp = pmaps[:,i][psort]

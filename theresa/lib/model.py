@@ -188,7 +188,7 @@ def specgrid(params, fit):
                          pmaps, cfg.threed.pbot, cfg.threed.ptop,
                          params, fit.nparams3d, fit.modeltype3d,
                          fit.imodel3d, interptype=cfg.threed.interp,
-                         smooth=cfg.threed.smooth)
+                         smooth=cfg.threed.smooth, ivis=fit.ivis3d)
     
     if cfg.threed.z == 'fit':
         izmodel = np.where(fit.modeltype3d == 'z')[0][0]
