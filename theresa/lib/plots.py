@@ -777,7 +777,8 @@ def tgrid_unc(fit, outdir=''):
                                     fit.nparams3d, fit.modeltype3d,
                                     fit.imodel3d,
                                     interptype=fit.cfg.threed.interp,
-                                    smooth=fit.cfg.threed.smooth)
+                                    smooth=fit.cfg.threed.smooth,
+                                    ivis=fit.ivis3d)
 
     lat = fit.lat3d
     lon = fit.lon3d
