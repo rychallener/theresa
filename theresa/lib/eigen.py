@@ -2,9 +2,9 @@ import numpy as np
 import pca
 import time
 import utils
-import starry
-import theano
-import theano.tensor as tt
+#import starry
+#import theano
+#import theano.tensor as tt
 import scipy.constants as sc
 
 def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',

@@ -1,47 +1,102 @@
 import numpy as np
 import pickle
-import theano
+#import theano
 import time
 import constants as c
 import scipy.constants as sc
 import scipy.interpolate as spi
 import eigen
-import starry
+#import starry
 import progressbar
-import theano
-import theano.tensor as tt
+#import theano
+#import theano.tensor as tt
+import scipy
 import mc3.stats as ms
 from numba import njit
+import jax
+import jax.numpy as jnp
+from jaxoplanet import units
+from jaxoplanet.starry import Surface, Ylm
+from jaxoplanet.starry.orbit import SurfaceSystem
+from jaxoplanet.orbits.keplerian import Central, Body
+from jaxoplanet.starry.light_curves import light_curve
+from jaxoplanet.starry.core.solution import solution_vector
+from jaxoplanet.starry.core.basis import A2_inv
+from jaxoplanet.units import unit_registry as ureg
+from jaxoplanet.starry.utils import ortho_grid
 
+
+'''
+fit1.cfg = type('DummyConfig', (), {})()
+        
+# Create star attribute
+fit1.cfg.star = type('DummyStar', (), {})()
+fit1.cfg.star.m = 1.0  # Solar masses
+fit1.cfg.star.r = 1.0  # Solar radii
+fit1.cfg.star.prot = 1.0  # days
+    
+# Create planet attribute
+fit1.cfg.planet = type('DummyPlanet', (), {})()
+fit1.cfg.planet.m = 0.001  # Jupiter masses
+fit1.cfg.planet.r = 0.1  # Jupiter radii
+fit1.cfg.planet.porb = 1.0  # days
+fit1.cfg.planet.prot = 1.0  # days
+fit1.cfg.planet.Omega = 0.0  # degrees
+fit1.cfg.planet.ecc = 0.0
+fit1.cfg.planet.inc = 88.5  # degrees
+fit1.cfg.planet.w = 90.0  # degrees
+fit1.cfg.planet.t0 = 0
+'''
 def initsystem(fit, ydeg):
     '''
-    Uses a fit object to build the respective starry objects. Useful
+    Uses a fit object to build the respective JAXoplanet starry objects. Useful
     because starry objects cannot be pickled. Returns a tuple of
-    (star, planet, system).
+    (central, central_surface, body, body_surface, system).
     '''
     
     cfg = fit.cfg
+    
+    # Create the star (central body)
+    central = Central(
+        mass=cfg.star.m * ureg.M_sun,
+        radius=cfg.star.r * ureg.R_sun
+    )
+    
+    # Create the star's surface map
+    central_surface = Surface(
+        y=Ylm.from_dense([1.0] + [0.0] * 3),  # ydeg=1, only Y_00 coefficient is non-zero
+        amplitude=1.0,
+        period=cfg.star.prot * ureg.day if hasattr(cfg.star, 'prot') else None
+    )
+    
+    # Create the planet (orbiting body)
+    body = Body(
+        mass=cfg.planet.m * ureg.M_jupiter,
+        radius=cfg.planet.r * ureg.R_jupiter,
+        period=cfg.planet.porb * ureg.day,
+        eccentricity=cfg.planet.ecc,
+        omega_peri=cfg.planet.w * ureg.radian if hasattr(cfg.planet, 'w') else 0.0 * ureg.radian,
+        inclination=cfg.planet.inc * ureg.radian,
+        time_transit=cfg.planet.t0 * ureg.day,
+    )
+    
+    # Create the planet's surface map
+    body_surface = Surface(
+        y=Ylm.from_dense([1.0] + [0.0] * ((ydeg+1)**2 - 1)),
+        period=cfg.planet.prot * ureg.day if hasattr(cfg.planet, 'prot') else None,
+        phase=180.0 * (np.pi/180) if hasattr(cfg.planet, 'theta0') else 0.0,
+        obl=cfg.planet.Omega * ureg.radian if hasattr(cfg.planet, 'Omega') else None
+    )
+    
+    # Create the system
+    system = SurfaceSystem(
+        central=central,
+        central_surface=central_surface,
+        bodies=[(body, body_surface)]
+    )
+    
+    return central, central_surface, body, body_surface, system
 
-    star = starry.Primary(starry.Map(ydeg=1, amp=1),
-                          m   =cfg.star.m,
-                          r   =cfg.star.r,
-                          prot=cfg.star.prot)
-
-    planet = starry.kepler.Secondary(starry.Map(ydeg=ydeg),
-                                     m    =cfg.planet.m,
-                                     r    =cfg.planet.r,
-                                     porb =cfg.planet.porb,
-                                     prot =cfg.planet.prot,
-                                     Omega=cfg.planet.Omega,
-                                     ecc  =cfg.planet.ecc,
-                                     w    =cfg.planet.w,
-                                     t0   =cfg.planet.t0,
-                                     inc  =cfg.planet.inc,
-                                     theta0=180)
-
-    system = starry.System(star, planet, light_delay=True)
-
-    return star, planet, system
 
 def specint(wn, spec, filtwn_list, filttrans_list):
     """
@@ -91,47 +146,51 @@ def specint(wn, spec, filtwn_list, filttrans_list):
     return intspec
 
     
-def vislon(planet, data):
+def vislon(body_surface, data):
     """
     Determines the range of visible longitudes based on times of
     observation.
 
     Arguments
     ---------
-    planet: starry Planet object
-        Planet object
-
-    fit: Fit object
-        Fit object. Must contain observation information.
+    body_surface: JAXoplanet Surface object
+        Surface object representing the planet's surface properties
+    
+    data: object
+        Data object with observation times in t attribute
 
     Returns
     -------
     minlon: float
-        Minimum visible longitude, in degrees
+        Minimum visible longitude in degrees
 
     maxlon: float
-        Maximum visible longitude, in degrees
+        Maximum visible longitude in degrees
     """
-    t = data.t
+    t = jnp.array(data.t)  # Observation times in days
+    
+    # Get relevant parameters from the surface
+    prot = body_surface.period.magnitude  # days / rotation
+    
+    # Convert initial phase to degrees
+    theta0 = 180
+    
+    # Find time reference point
+    t0 = 0  
+    
+    # Central longitude at each time 
+    rotation_phase = (t - t0) / prot * 360
+    centlon = theta0 - rotation_phase + 180    
 
-    porb   = planet.porb   # days / orbit
-    prot   = planet.prot   # days / rotation
-    t0     = planet.t0     # days
-    theta0 = planet.theta0 # degrees
-
-    # Central longitude at each time ("sub-observer" point)
-    centlon = theta0 - (t - t0) / prot * 360
-
-    # Minimum and maximum longitudes (assuming +/- 90 degree
-    # visibility)
+    # Minimum and maximum longitudes (assuming +/- 90 degree visibility)
     limb1 = centlon - 90
     limb2 = centlon + 90
-
+    
     # Rescale to [-180, 180]
     limb1 = (limb1 + 180) % 360 - 180
     limb2 = (limb2 + 180) % 360 - 180
-
-    return np.min(limb1.eval()), np.max(limb2.eval())
+    
+    return jnp.min(limb1), jnp.max(limb2)
     
     
 def readfilters(filterfiles):
@@ -206,7 +265,7 @@ def visibility(fit, t, x, y, z, lmax):
     vis /= np.pi
     
     return vis, lat, lon
-    
+
 def visibility_old(t, latgrid, longrid, dlatgrid, dlongrid, theta0, prot,
                    t0, rp, rs, x, y):
     """
@@ -386,6 +445,16 @@ def mapintensity(map, lat, lon, amp):
     grid = grid.reshape(lat.shape)
     return grid
 
+def mapintensity(body_surface, lat, lon, amp):
+    """
+    Calculates a grid of intensities, multiplied by the amplitude given.
+    """
+    # Convert to JAXoplanet's intensity method
+    # Call intensity on the body_surface with array as arguments since parameters can be both scalar and array
+    grid = body_surface.intensity(lat.flatten(), lon.flatten())
+    grid *= amp
+    grid = grid.reshape(lat.shape)
+    return grid
 
 def hotspotloc_driver(fit, ln):
     """
