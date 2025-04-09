@@ -493,6 +493,8 @@ def map3d(fit, system):
     fit.tmaps3d = np.zeros((fit.nmaps, fit.ncolumn))
     fit.fmaps3d = np.zeros((fit.nmaps, fit.ncolumn))
 
+    print("Calculating 2D temperature maps at oversample resolution.")
+    ncurves3d = np.max([m.bestln.ncurves for m in d.maps for d in fit.datasets])
     imap = 0
     for d in fit.datasets:
         for m in d.maps:
@@ -501,9 +503,10 @@ def map3d(fit, system):
             ftrans = m.filttrans
             swl    = fit.starwl
             sspec  = fit.starflux
-            fmap, tmap = eigen.mkmaps(planet, m.bestln.eigeny,
-                                      m.bestln.bestp,
-                                      m.bestln.ncurves, m.wlmid,
+            ln = getattr(m, 'l{}n{}'.format(m.bestln.lmax, ncurves3d))
+            fmap, tmap = eigen.mkmaps(planet, ln.eigeny,
+                                      ln.bestp,
+                                      ncurves3d, m.wlmid,
                                       cfg.star.r, cfg.planet.r,
                                       cfg.star.t, fit.lat3d, fit.lon3d,
                                       starspec=cfg.star.starspec,
