@@ -366,6 +366,10 @@ def specvtime(params, fit):
             fluxvtime[count] = tempfvt
             count += 1
 
+    # There is a very small memory leak somewhere, but this seems to
+    # fix it. Not an elegant solution, but ¯\_(ツ)_/¯
+    gc.collect()
+            
     return fluxvtime, tgrid, taugrid, p, wn, pmaps
 
 def sysflux(params, fit):
@@ -661,7 +665,7 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)
-        elif mname == 'isobaric2':
+        elif mname == 'sh0double':
             nppwl = 4
             npar  = nppwl * nmaps
             par   = np.zeros(nppwl)
