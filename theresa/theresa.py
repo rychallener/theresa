@@ -249,6 +249,24 @@ def map2d(cfile):
                     ln.post    = mc3out['posterior']
                     ln.zmask   = mc3out['zmask']
 
+                    # Isolate systematics models (used later in 3d mapping)
+                    # Do this by calculating the best-fitting model without
+                    # systematics and dividing it out of the best-fitting
+                    # model
+                    nobaselines = tuple('none' for v in d.visits)
+                    nodvecs     = \
+                        tuple(np.zeros((len(v.t), 1),
+                                       dtype=float).T for v in d.visits)
+                    
+                    nosysmodel = model.fit_2d(ln.bestp, ln.ecurves,
+                                              d.t, d.pflux_y00,
+                                              d.sflux, ln.ncurves,
+                                              intens, pindex,
+                                              nobaselines, tlocs,
+                                              nodvecs)
+
+                    ln.systematics = ln.bestfit / nosysmodel
+
                     niter, nfree = ln.post.shape
                     nparams = len(params)
                     for ip in range(nparams):
@@ -517,6 +535,14 @@ def map3d(fit, system):
             fit.fmaps3d[imap] = fmap
             imap += 1
 
+    # Make array of systematics models for correcting light curves in
+    # 3d fitting
+    fit.systematics3d = []
+    for d in fit.datasets:
+        for m in d.maps:
+            ln = getattr(m, 'l{}n{}'.format(m.bestln.lmax, ncurves3d))
+            fit.systematics3d.append(ln.systematics)
+
     print("Fitting spectrum.")
     # This doesn't work. Stick to TauREx.
     if cfg.threed.rtfunc == 'transit':
@@ -611,6 +637,13 @@ def map3d(fit, system):
             mc3data   = np.concatenate((mc3data,   cfdata))
             mc3uncert = np.concatenate((mc3uncert, cfunc))
 
+        # Avoid crashing if user tries to resume a run that never
+        # happened
+        if os.path.isfile(mc3npz) and cfg.threed.resume:
+            resume = True
+        else:
+            resume = False
+
         out = mc3.sample(data=mc3data, uncert=mc3uncert,
                          func=model.mcmc_wrapper,
                          nsamples=cfg.threed.nsamples,
@@ -624,7 +657,7 @@ def map3d(fit, system):
                          grbreak=cfg.threed.grbreak,
                          fgamma=cfg.threed.fgamma,
                          plots=cfg.threed.plots,
-                         resume=cfg.threed.resume)
+                         resume=resume)
 
         # MC3 doesn't clear its plots >:(
         plt.close('all')

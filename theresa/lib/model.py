@@ -373,20 +373,23 @@ def specvtime(params, fit):
     return fluxvtime, tgrid, taugrid, p, wn, pmaps
 
 def sysflux(params, fit):
+    '''
+    Calculate observed system flux, including the star and any systematics
+    models.
+    '''
     # Calculate Fp/Fs
     fpfs, tgrid, taugrid, p, wn, pmaps = specvtime(params, fit)
     nmaps = len(fpfs)                         
     systemflux = []
-    # Account for stellar correction
-    # Transform fp/fs -> fp/(fs + corr) -> (fp + fs + corr)/(fs + corr)
-    # TODO: this needs to be modifed to not use scorr and instead account
-    #       for all systematics models (normalization, detrend vectors, ramps)
-    #       In a perfect world, we also fit for those. Ugh.
+    # Account for systematics
+    # Transform fp/fs -> ((fp + fs) / fs) * systematics
+    # TODO: Ideally we would fit for the systematics models again here,
+    #       rather than assuming the best fit from the 2D fit.
     count = 0
     for d in fit.datasets:
         for m in d.maps:
-            fpfscorr = fpfs[count] * d.sflux / (d.sflux + 0)
-            systemflux.append(fpfscorr + 1)
+            fpfscorr = (fpfs[count] + d.sflux) * fit.systematics3d[count]
+            systemflux.append(fpfscorr)
             count += 1
     
     return systemflux, tgrid, taugrid, p, wn, pmaps
@@ -417,10 +420,11 @@ def mcmc_wrapper(params, fit):
         # If you, dear reader, can determine why sometimes the
         # calculation takes about 3x more time than usual during MCMC,
         # find me at a conference and I will buy you a drink.
-        #print("Model Evaluation: {} s".format(time.time() - tic))
+        print("Model Evaluation: {} s".format(time.time() - tic))
         return np.concatenate((systemflux, cfsd))
     
     else:
+        print("Model Evaluation: {} s".format(time.time() - tic))
         return systemflux
 
 def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
@@ -773,8 +777,8 @@ def get_par_3d(fit):
             npar   = 1
             par    = [ 0.0]
             pstep  = [ 0.1]
-            pmin   = [-1.0]
-            pmax   = [ 1.0]
+            pmin   = [fit.cfg.threed.zmin]
+            pmax   = [fit.cfg.threed.zmax]
             pnames = ['z']
             modeltype.append('z')
             nparams[im] = npar
