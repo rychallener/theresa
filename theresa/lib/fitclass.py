@@ -143,6 +143,12 @@ class Fit:
 
         self.cfg.threed.fitcf = self.cfg.cfg.getboolean('3D', 'fitcf')
 
+        if self.cfg.cfg.has_option('3D', 'nightavg'):
+            self.cfg.threed.nightavg = \
+                self.cfg.cfg.getboolean('3D', 'nightavg')
+        else:
+            self.cfg.threed.nightavg = False
+
         for item in ['params', 'pmin', 'pmax', 'pstep']:
             if self.cfg.cfg.has_option('3D', item):
                 value = np.array(

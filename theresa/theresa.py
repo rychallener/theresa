@@ -533,6 +533,38 @@ def map3d(fit, system):
             
             fit.tmaps3d[imap] = tmap
             fit.fmaps3d[imap] = fmap
+            
+            # Flatten out the nightside if asked for
+            # This calculates a latitudinal slice of the flux map at each
+            # longitude on the nightside, takes the vis-weighted average,
+            # then computes a temperature. Not terribly efficient due
+            # to the Mollweide grid, but oh well
+            if fit.cfg.threed.nightavg:
+                for il, l in enumerate(fit.lon3d):
+                    print(il, l)
+                    if l < -90. or l > 90.:
+                        templat = np.linspace(-90., 90., 100)
+                        templon = np.ones(100) * l
+                        fslice, tslice = eigen.mkmaps(
+                            planet, ln.eigeny, ln.bestp,
+                            ncurves3d, m.wlmid, cfg.star.r, cfg.planet.r,
+                            cfg.star.t, templat, templon,
+                            starspec=cfg.star.starspec,
+                            fwl=fwl, ftrans=ftrans, swl=swl, sspec=sspec)
+
+                        favg = np.mean(fslice * np.cos(np.deg2rad(templat))) \
+                                       / np.mean(np.cos(np.deg2rad(templat)))
+
+                        tavg = utils.fmap_to_tmap(
+                            favg, m.wlmid, fit.cfg.planet.r,
+                            fit.cfg.star.r, fit.cfg.star.t,
+                            m.bestln.bestp[m.bestln.ncurves],
+                            starspec=fit.cfg.star.starspec, fwl=fwl,
+                            ftrans=ftrans, swl=swl, sspec=sspec)
+
+                        fit.fmaps3d[imap][il] = favg
+                        fit.tmaps3d[imap][il] = tavg
+                        
             imap += 1
 
     # Make array of systematics models for correcting light curves in
