@@ -512,6 +512,8 @@ def map3d(fit, system):
     fit.fmaps3d = np.zeros((fit.nmaps, fit.ncolumn))
 
     print("Calculating 2D temperature maps at oversample resolution.")
+    if fit.cfg.threed.nightavg:
+        print("Averaging nightside temperatures (this may take a while).")
     ncurves3d = np.max([m.bestln.ncurves for m in d.maps for d in fit.datasets])
     imap = 0
     for d in fit.datasets:
@@ -541,7 +543,6 @@ def map3d(fit, system):
             # to the Mollweide grid, but oh well
             if fit.cfg.threed.nightavg:
                 for il, l in enumerate(fit.lon3d):
-                    print(il, l)
                     if l < -90. or l > 90.:
                         templat = np.linspace(-90., 90., 100)
                         templon = np.ones(100) * l
