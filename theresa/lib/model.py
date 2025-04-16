@@ -796,7 +796,7 @@ def get_par_3d(fit):
             logptop = np.log10(fit.cfg.threed.ptop)
             par     = [  0.1,   40.0, -10.0,         2.0,        -1.0]
             pstep   = [  0.1,    1.0,   1.0,         0.1,         0.1]
-            pmin    = [ -4.0,    0.0, -20.0, logptop - 1, logptop - 1]
+            pmin    = [ -4.0,    0.0, -30.0, logptop - 1, logptop - 1]
             pmax    = [  8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1]
             pnames  = ['log(a)', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)']
             modeltype.append('clouds')
@@ -815,7 +815,7 @@ def get_par_3d(fit):
             logptop = np.log10(fit.cfg.threed.ptop)
             par     = [-1.0,   40.0, -10.0,         2.0,        -1.0, -1.0,   40.0, -10.0,         2.0,        -1.0,    0.,  180.]
             pstep   = [ 0.1,    1.0,   1.0,         0.1,         0.1,  0.1,    1.0,   1.0,         0.1,         0.1,   10.,   10.]
-            pmin    = [-4.0,    0.0, -20.0, logptop - 1, logptop - 1, -4.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.,    0.]
+            pmin    = [-4.0,    0.0, -30.0, logptop - 1, logptop - 1, -4.0,    0.0, -30.0, logptop - 1, logptop - 1, -180.,    0.]
             pmax    = [ 8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.,  360.]
             pnames  = ['log(a1)', 'Q01', 'mix1', 'log(cloud bottom)1', 'log(cloud top)1', 'log(a2)', 'Q02', 'mix2', 'log(cloud bottom)2', 'log(cloud top)2', 'Cl.2 Center', 'Cl.2 Width']
             modeltype.append('clouds')
@@ -834,7 +834,7 @@ def get_par_3d(fit):
             logptop = np.log10(fit.cfg.threed.ptop)
             par     = [-1.0,   40.0, -10.0,         2.0,        -1.0,    0.0,  180.0]
             pstep   = [ 0.1,    1.0,   1.0,         0.1,         0.1,   10.0,   10.0]
-            pmin    = [-4.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.0,    0.0]
+            pmin    = [-4.0,    0.0, -30.0, logptop - 1, logptop - 1, -180.0,    0.0]
             pmax    = [ 8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.0,  360.0]
             pnames  = ['log(a)', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)', 'Spot Center', 'Spot Width']
             modeltype.append('clouds')
