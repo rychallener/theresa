@@ -449,25 +449,48 @@ def map3d(fit, system):
     outdir = os.path.join(cfg.threed.indir, cfg.threed.outdir)
     # Handle any atmosphere setup
     if cfg.threed.atmtype == 'ggchem':
-        print("Precomputing chemistry grid.")
         if cfg.cfg.has_option('GGchem', 'dispolfiles'):
             dispolfiles = cfg.cfg.get('GGchem', 'dispolfiles')
         else:
             dispolfiles = None
-        
-        # T, P, z, spec, abn
-        fit.cheminfo = atm.setup_GGchem(cfg.threed.tmin,
-                                        cfg.threed.tmax,
-                                        cfg.threed.numt,
-                                        cfg.threed.ptop,
-                                        cfg.threed.pbot,
-                                        cfg.threed.nlayers,
-                                        cfg.threed.zmin,
-                                        cfg.threed.zmax,
-                                        cfg.threed.numz,
-                                        condensates=cfg.threed.condensates,
-                                        elements=cfg.threed.elem,
-                                        dispolfiles=dispolfiles)
+
+        defaultgrid = ((cfg.threed.nlayers == 100) &
+                       (cfg.threed.ptop == 1e-6)   &
+                       (cfg.threed.pbot == 1e2)    &
+                       (cfg.threed.numt ==   77)   &
+                       (cfg.threed.tmin ==  150)   &
+                       (cfg.threed.tmax == 4000)   &
+                       (cfg.threed.numz == 41)     &
+                       (cfg.threed.zmin == -2.0)   &
+                       (cfg.threed.zmax ==  2.0)   &
+                       (dispolfiles is None)       &
+                       (cfg.threed.elem == ['H', 'He', 'C', 'N', 'O', 'S']) &
+                       (cfg.threed.condensates == False))
+
+        if defaultgrid:
+            print("Loading default chemistry grid.")
+            cheminfo = np.load('inputs/ggchem-default.npz')
+            fit.cheminfo = (cheminfo['T'],
+                            cheminfo['P'],
+                            cheminfo['z'],
+                            cheminfo['spec'],
+                            cheminfo['abn'])
+            del(cheminfo)
+        else:
+            print("Precomputing chemistry grid.")
+            # T, P, z, spec, abn
+            fit.cheminfo = atm.setup_GGchem(cfg.threed.tmin,
+                                            cfg.threed.tmax,
+                                            cfg.threed.numt,
+                                            cfg.threed.ptop,
+                                            cfg.threed.pbot,
+                                            cfg.threed.nlayers,
+                                            cfg.threed.zmin,
+                                            cfg.threed.zmax,
+                                            cfg.threed.numz,
+                                            condensates=cfg.threed.condensates,
+                                            elements=cfg.threed.elem,
+                                            dispolfiles=dispolfiles)
     else:
         fit.cheminfo = None
 
@@ -514,8 +537,11 @@ def map3d(fit, system):
     print("Calculating 2D temperature maps at oversample resolution.")
     if fit.cfg.threed.nightavg:
         print("Averaging nightside temperatures (this may take a while).")
+        pbar = progressbar.ProgressBar(max_value=fit.nmaps*fit.ncolumn)
+        
     ncurves3d = np.max([m.bestln.ncurves for m in d.maps for d in fit.datasets])
     imap = 0
+    
     for d in fit.datasets:
         for m in d.maps:
             star, planet, system = utils.initsystem(fit, m.bestln.lmax)
@@ -565,8 +591,11 @@ def map3d(fit, system):
 
                         fit.fmaps3d[imap][il] = favg
                         fit.tmaps3d[imap][il] = tavg
-                        
+
+                    pbar.update(imap*fit.ncolumn+il)
+
             imap += 1
+            
 
     # Make array of systematics models for correcting light curves in
     # 3d fitting
