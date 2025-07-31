@@ -770,7 +770,7 @@ def tgrid_unc(fit, outdir=''):
     for i in range(ncalc):
         ipost = i * niter // ncalc
         pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
-        tgridpost[i], p = atm.tgrid(nlev, fit.ncolumn, fit.tmaps3d,
+        tgridpost[i], p = atm.tgrid(fit, nlev, fit.ncolumn, fit.tmaps3d,
                                     pmaps, fit.cfg.threed.pbot,
                                     fit.cfg.threed.ptop,
                                     fit.posterior3d[ipost],

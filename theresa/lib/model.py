@@ -184,10 +184,11 @@ def specgrid(params, fit):
     taugrid  = np.empty(fit.ncolumn, dtype=list)
 
     pmaps = atm.pmaps(params, fit)
-    tgrid, p = atm.tgrid(cfg.threed.nlayers, fit.ncolumn, fit.tmaps3d,
-                         pmaps, cfg.threed.pbot, cfg.threed.ptop,
-                         params, fit.nparams3d, fit.modeltype3d,
-                         fit.imodel3d, interptype=cfg.threed.interp,
+    tgrid, p = atm.tgrid(fit, cfg.threed.nlayers, fit.ncolumn,
+                         fit.tmaps3d, pmaps, cfg.threed.pbot,
+                         cfg.threed.ptop, params, fit.nparams3d,
+                         fit.modeltype3d, fit.imodel3d,
+                         interptype=cfg.threed.interp,
                          smooth=cfg.threed.smooth, ivis=fit.ivis3d)
     
     if cfg.threed.z == 'fit':
@@ -751,6 +752,20 @@ def get_par_3d(fit):
             pmin   = [ 150.]
             pmax   = [2000.]
             pnames = ['Ttop']
+            modeltype.append('ttop')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        elif mname == 'ttop2':
+            npar   = 4
+            par    = [1000., 1000.,  -90.,   90.]
+            pstep  = [   1.,    1.,    1.,    1.]
+            pmin   = [ 150.,  150., -180., -180.]
+            pmax   = [2000., 2000.,  180.,  180.]
+            pnames = ['Ttop1', 'Ttop2', 'LTop1', 'LTop2']
             modeltype.append('ttop')
             nparams[im] = npar
             allparams.append(par)

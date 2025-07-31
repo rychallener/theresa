@@ -399,7 +399,7 @@ def calcrad(p, t, mu, r0, mp, p0):
     return r
         
 
-def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
+def tgrid(fit, nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
           nparams, modeltype, imodel, interptype='linear',
           smooth=None, ivis=None):
     """
@@ -413,25 +413,76 @@ def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
 
     logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
 
+    # Create temperature maps at the very top and bottom of the
+    # atmosphere based on the parameterization scheme
+    tbotmap = np.zeros(ncolumn)
+    ttopmap = np.zeros(ncolumn)
+
+    # Parse tbot model
     if 'tbot' in modeltype:
-        if 'ttop' in modeltype:
-            oob = 'both'
-            itop = np.where(modeltype == 'ttop')[0][0]
-            ibot = np.where(modeltype == 'tbot')[0][0]
-            oobparams = \
-                (params[imodel[itop]][0],
-                 params[imodel[ibot]][0])
+        ibot = np.where(modeltype == 'tbot')[0][0]
+        tbotmodel = fit.cfg.threed.modelnames[ibot]
+        tbotmodelpar = params[imodel[ibot]]
+        # Single temperature model
+        if tbotmodel == 'tbot':
+            tbotmap[:] = tbotmodelpar[0]
         else:
-            oob = 'bot'
-            ibot = np.where(modeltype == 'tbot')[0][0]
-            oobparams = (params[imodel[ibot]])
+            print("Tbot model {} not implemented in atm.tgrid().".format(
+                tbotmodel))
+            sys.exit()
+    # If none supplied, assume isothermal deep atmosphere
     else:
-        if 'ttop' in modeltype3d:
-            oob = 'top'
-            itop = np.where(modeltype == 'ttop')[0][0]
-            oobparams = (params[imodel[ibot]])
+        # Find indices of deepest pmap at each column
+        for i in range(ncolumn):
+            imax = np.argsort(pmaps[:,i])[-1]
+            tbotmap[i] = tmaps[:,i][imax]
+
+    # Parse ttop model
+    if 'ttop' in modeltype:
+        itop = np.where(modeltype == 'ttop')[0][0]
+        ttopmodel = fit.cfg.threed.modelnames[itop]
+        ttopmodelpar = params[imodel[itop]]
+        # Single temperature model
+        if ttopmodel == 'ttop':
+            ttopmap[:] = ttopmodelpar[0]
+        # Two temperature model with bounds
+        elif ttopmodel == 'ttop2':
+            for i in range(fit.ncolumn):
+                if ((fit.lon3d[i] < ttopmodelpar[2]) or
+                    (fit.lon3d[i] > ttopmodelpar[3])):
+                    ttopmap[i] = ttopmodelpar[1]
+                else:
+                    ttopmap[i] = ttopmodelpar[0]
         else:
-            oob = 'isothermal'
+            print("Ttop model {} not implemented in atm.tgrid().".format(
+                ttopmodel))
+            sys.exit()
+    # If none supplied, assume isothermal upper atmosphere
+    else:
+        # Find indices of deepest pmap at each column
+        for i in range(ncolumn):
+            imin = np.argsort(pmaps[:,i])[0]
+            ttopmap[i] = tmaps[:,i][imin]
+        
+    # if 'tbot' in modeltype:
+    #     if 'ttop' in modeltype:
+    #         oob = 'both'
+    #         itop = np.where(modeltype == 'ttop')[0][0]
+    #         ibot = np.where(modeltype == 'tbot')[0][0]
+    #         oobparams = \
+    #             (params[imodel[itop]][0],
+    #              params[imodel[ibot]][0])
+    #     else:
+    #         oob = 'bot'
+    #         ibot = np.where(modeltype == 'tbot')[0][0]
+    #         oobparams = (params[imodel[ibot]])
+    # else:
+    #     if 'ttop' in modeltype3d:
+    #         oob = 'top'
+    #         itop = np.where(modeltype == 'ttop')[0][0]
+    #         oobparams = (params[imodel[ibot]])
+    #     else:
+    #         oob = 'isothermal'
 
     for i in range(ncolumn):
         # Skip columns that aren't visible (avoid errors in case
@@ -445,43 +496,51 @@ def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
 
         if np.any(p_interp > pbot) or np.any(p_interp < ptop):
             print("WARNING: pmaps outside atmosphere pressure range.")
+
+        # Tack on ttopmap and tbotmap
+        p_interp = np.concatenate(([ptop],
+                                   p_interp,
+                                   [pbot]))
+        t_interp = np.concatenate(([ttopmap[i]],
+                                   t_interp,
+                                   [tbotmap[i]]))
         
-        if oob == 'isothermal':
-            imax = np.argsort(pmaps[:,i])[-1]
-            imin = np.argsort(pmaps[:,i])[0]
-            p_interp = np.concatenate(([ptop],
-                                       p_interp,
-                                       [pbot]))
-            t_interp = np.concatenate(((tmaps[:,i][imin],),
-                                       t_interp,
-                                       (tmaps[:,i][imax],)))
-        elif oob == 'top':
-            ttop = oobparams[0]
-            imax = np.argsort(pmaps[:,i])[-1]
-            p_interp = np.concatenate(([ptop],
-                                       p_interp,
-                                       [pbot]))
-            t_interp = np.concatenate(((ttop,),
-                                       t_interp,
-                                       (tmaps[:,i][imax],)))            
-        elif oob == 'bot':
-            tbot = oobparams[0]
-            imin = np.argsort(pmaps[:,i])[0]
-            p_interp = np.concatenate(([ptop],
-                                       p_interp,
-                                       [pbot]))
-            t_interp = np.concatenate(((tmaps[:,i][imin],),
-                                       t_interp,
-                                       (tbot,)))
-        elif oob == 'both':
-            ttop = oobparams[0]
-            tbot = oobparams[1]
-            p_interp = np.concatenate(([ptop],
-                                       p_interp,
-                                       [pbot]))
-            t_interp = np.concatenate(((ttop,),
-                                       t_interp,
-                                       (tbot,)))
+        # if oob == 'isothermal':
+        #     imax = np.argsort(pmaps[:,i])[-1]
+        #     imin = np.argsort(pmaps[:,i])[0]
+        #     p_interp = np.concatenate(([ptop],
+        #                                p_interp,
+        #                                [pbot]))
+        #     t_interp = np.concatenate(((tmaps[:,i][imin],),
+        #                                t_interp,
+        #                                (tmaps[:,i][imax],)))
+        # elif oob == 'top':
+        #     ttop = oobparams[0]
+        #     imax = np.argsort(pmaps[:,i])[-1]
+        #     p_interp = np.concatenate(([ptop],
+        #                                p_interp,
+        #                                [pbot]))
+        #     t_interp = np.concatenate(((ttop,),
+        #                                t_interp,
+        #                                (tmaps[:,i][imax],)))            
+        # elif oob == 'bot':
+        #     tbot = oobparams[0]
+        #     imin = np.argsort(pmaps[:,i])[0]
+        #     p_interp = np.concatenate(([ptop],
+        #                                p_interp,
+        #                                [pbot]))
+        #     t_interp = np.concatenate(((tmaps[:,i][imin],),
+        #                                t_interp,
+        #                                (tbot,)))
+        # elif oob == 'both':
+        #     ttop = oobparams[0]
+        #     tbot = oobparams[1]
+        #     p_interp = np.concatenate(([ptop],
+        #                                p_interp,
+        #                                [pbot]))
+        #     t_interp = np.concatenate(((ttop,),
+        #                                t_interp,
+        #                                (tbot,)))
 
         # One last check that p_interp is increasing. This only does
         # something if the pmaps get outside the normal pressure
@@ -490,6 +549,8 @@ def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
         psort = np.argsort(p_interp)
         p_interp = p_interp[psort]
         t_interp = t_interp[psort]
+        #print(p_interp)
+        #print(t_interp)
 
         # TODO: replace these with RegularGridInterpolator
         if interptype in ['linear', 'cubic']:
