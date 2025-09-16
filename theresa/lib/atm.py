@@ -8,7 +8,7 @@ import constants as c
 import utils
 import scipy.interpolate as spi
 import time
-import taurex_ggchem
+#import taurex_ggchem
 import progressbar
 import multiprocessing as mp
 
@@ -17,7 +17,7 @@ moddir = os.path.join(libdir, 'modules')
 ratedir = os.path.join(moddir, 'rate')
 
 sys.path.append(ratedir)
-import rate
+from lib.modules import rate
 
 def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
     """

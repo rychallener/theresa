@@ -13,21 +13,21 @@ import cf
 import atm
 import utils
 import constants as c
-import taurexclass as trc
+#import taurexclass as trc
 
 # Taurex imports
-import taurex
-from taurex import chemistry
-from taurex import planet
-from taurex import stellar
-from taurex import model
-from taurex import pressure
-from taurex import temperature
-from taurex import cache
-from taurex import contributions
-from taurex import optimizer
+#import taurex
+#from taurex import chemistry
+#from taurex import planet
+#from taurex import stellar
+#from taurex import model
+#from taurex import pressure
+#from taurex import temperature
+#from taurex import cache
+#from taurex import contributions
+#from taurex import optimizer
 # This import is explicit because it's not included in taurex.temperature. Bug?
-from taurex.data.profiles.temperature.temparray import TemperatureArray
+#from taurex.data.profiles.temperature.temparray import TemperatureArray
 
 @jit(nopython=True)
 def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, pindex,

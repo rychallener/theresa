@@ -13,22 +13,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Taurex imports
-import taurex
-from taurex import chemistry
-from taurex import planet
-from taurex import stellar
-from taurex import model
-from taurex import pressure
-from taurex import temperature
-from taurex import cache
-from taurex import contributions
-from taurex import optimizer
+#import taurex
+#from taurex import chemistry
+#from taurex import planet
+#from taurex import stellar
+#from taurex import model
+#from taurex import pressure
+#from taurex import temperature
+#from taurex import cache
+#from taurex import contributions
+#from taurex import optimizer
 # This import is explicit because it's not included in taurex.temperature. Bug?
-from taurex.data.profiles.temperature.temparray import TemperatureArray
+#from taurex.data.profiles.temperature.temparray import TemperatureArray
 
 # Taurex is a bit...talkative
-import taurex.log
-taurex.log.disableLogging()
+#import taurex.log
+#taurex.log.disableLogging()
 
 
 # Directory structure
@@ -40,17 +40,17 @@ transitdir = os.path.join(moddir, 'transit')
 
 # Lib imports
 sys.path.append(libdir)
-import cf
-import atm
-import pca
-import eigen
-import model
-import plots
-import mkcfg
-import utils
-import constants   as c
-import fitclass    as fc
-import taurexclass as trc
+from lib import cf
+from lib import atm
+from lib import pca
+from lib import eigen
+from lib import model
+from lib import plots
+from lib import mkcfg
+from lib import utils
+from lib import constants   as c
+from lib import fitclass    as fc
+#import taurexclass as trc
 
 starry.config.quiet = True
 
@@ -843,7 +843,7 @@ if __name__ == "__main__":
         # 3D mapping doesn't care about the degree of harmonics, so
         # just use 1
         star, planet, system = utils.initsystem(fit, 1)
-        map3d(fit, system)
+        # map3d(fit, system)
     else:
         print("ERROR: Unrecognized mode. Options are <2d, 3d>.")
         
