@@ -82,6 +82,7 @@ def map2d(cfile):
     print("Initializing star and planet objects.")
     star, planet, system = utils.initsystem(fit, 1)
 
+    #This is basically doing the angular size for each entry in the array (hence the dlat)
     print("Calculating latitude and longitude of planetary grid.")
     fit.dlat = 180. / cfg.twod.nlat
     fit.dlon = 360. / cfg.twod.nlon

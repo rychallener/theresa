@@ -17,6 +17,9 @@ eggs/
 lib/
 lib64/
 parts/
+
+# Exception: track theresa/lib/ source code
+!theresa/lib/
 sdist/
 var/
 wheels/

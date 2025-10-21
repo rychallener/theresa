@@ -1,3 +1,8 @@
+import jax.numpy as jnp
+from jaxoplanet.starry.orbit import SurfaceSystem, SurfaceBody
+from jaxoplanet.starry.surface import Surface
+from jaxoplanet.starry.ylm import Ylm
+
 import numpy as np
 import pickle
 import theano
@@ -13,35 +18,68 @@ import theano.tensor as tt
 import mc3.stats as ms
 from numba import njit
 
+
 def initsystem(fit, ydeg):
     '''
-    Uses a fit object to build the respective starry objects. Useful
+    Uses a fit object to build the respective jaxoplanet objects. Useful
     because starry objects cannot be pickled. Returns a tuple of
     (star, planet, system).
     '''
     
     cfg = fit.cfg
+    star_ylm = Ylm.from_dense(jnp.array([1.0]), normalize=True)
 
-    star = starry.Primary(starry.Map(ydeg=1, amp=1),
-                          m   =cfg.star.m,
-                          r   =cfg.star.r,
-                          prot=cfg.star.prot)
+    star_surface = Surface(
+          y=star_ylm,
+          inc=jnp.pi/2,              # Edge-on inclination
+          period=cfg.star.prot,       # Rotation period in days
+          radius=cfg.star.r,          # Radius in solar radii
+          amplitude=1.0               # Normalized amplitude
+      )
 
-    planet = starry.kepler.Secondary(starry.Map(ydeg=ydeg),
-                                     m    =cfg.planet.m,
-                                     r    =cfg.planet.r,
-                                     porb =cfg.planet.porb,
-                                     prot =cfg.planet.prot,
-                                     Omega=cfg.planet.Omega,
-                                     ecc  =cfg.planet.ecc,
-                                     w    =cfg.planet.w,
-                                     t0   =cfg.planet.t0,
-                                     inc  =cfg.planet.inc,
-                                     theta0=180)
+      # Create planet surface with spherical harmonics up to ydeg
+      # Initialize all coefficients to zero except Y_00 = 1.0 (uniform map)
+    n_coeffs = (ydeg + 1)**2
+    planet_ylm_coeffs = jnp.zeros(n_coeffs)
+    planet_ylm_coeffs = planet_ylm_coeffs.at[0].set(1.0)  # Y_00 = 1.0
+    planet_ylm = Ylm.from_dense(planet_ylm_coeffs, normalize=True)
 
-    system = starry.System(star, planet, light_delay=True)
+    planet_surface = Surface(
+        y=planet_ylm,
+        inc=jnp.deg2rad(cfg.planet.inc),     # Inclination in radians
+        period=cfg.planet.prot,               # Rotation period in days
+        radius=cfg.planet.r,                  # Radius in solar radii
+        amplitude=1.0,
+        phase=jnp.deg2rad(180)                # Initial rotation phase (theta0)
+      )
 
-    return star, planet, system
+      # Create the central star object
+    central = Central(
+        mass=cfg.star.m,      # Solar masses
+        radius=cfg.star.r     # Solar radii
+    )
+
+    # Create the system with star as central body
+    system = SurfaceSystem(
+        central=central,
+        central_surface=star_surface
+    )
+
+      # Add planet to the system
+    system = system.add_body(
+        period=cfg.planet.porb,               # Orbital period in days
+        radius=cfg.planet.r,                  # Planet radius in solar radii
+        mass=cfg.planet.m,                    # Planet mass in solar masses
+        inclination=jnp.deg2rad(cfg.planet.inc),  # Orbital inclination
+        eccentricity=cfg.planet.ecc,          # Eccentricity
+        omega_peri=jnp.deg2rad(cfg.planet.w), # Argument of periastron
+        asc_node=jnp.deg2rad(cfg.planet.Omega), # Longitude of ascending node
+        time_transit=cfg.planet.t0,           # Time of transit
+        surface=planet_surface                # Attach the planet surface
+      )
+
+    return star_surface, planet_surface, system
+
 
 def specint(wn, spec, filtwn_list, filttrans_list):
     """
