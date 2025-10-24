@@ -7,6 +7,7 @@ import sys
 import os
 import jax.numpy as jnp
 from jaxoplanet.starry.light_curves import light_curve
+import numpy as np
 
 # Add lib directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -134,6 +135,25 @@ def map2d(cfile):
         print(f"  ✓ Dataset {d.name}: computed {len(d.t)} flux points")
 
     print("\n" + "="*60)
+    print("Calculating latitude and longitude of planetary grid...")
+    cfg = fit.cfg
+    fit.dlat = 180. / cfg.twod.nlat
+    fit.dlon = 360. / cfg.twod.nlon
+    fit.lat, fit.lon = jnp.meshgrid(jnp.linspace(-90  + fit.dlat / 2.,
+                                                   90  - fit.dlat / 2.,
+                                                   cfg.twod.nlat, endpoint=True),
+                                     jnp.linspace(-180 + fit.dlon / 2.,
+                                                   180 - fit.dlon / 2.,
+                                                   cfg.twod.nlon, endpoint=True),
+                                     indexing='ij')
+    fit.dlatgrid, fit.dlongrid = jnp.meshgrid(jnp.ones(cfg.twod.nlat) * fit.dlat,
+                                               jnp.ones(cfg.twod.nlon) * fit.dlon,
+                                               indexing='ij')
+    print(f"  ✓ Grid created: {cfg.twod.nlat} × {cfg.twod.nlon} points")
+    print(f"  ✓ Lat range: [{jnp.min(fit.lat):.1f}, {jnp.max(fit.lat):.1f}] degrees")
+    print(f"  ✓ Lon range: [{jnp.min(fit.lon):.1f}, {jnp.max(fit.lon):.1f}] degrees")
+
+    print("\n" + "="*60)
     print("Optimizing 2D maps.")
     for d in fit.datasets:
         d.maps = []
@@ -199,9 +219,25 @@ def map2d(cfile):
                                           method=cfg.twod.pca,
                                           orbcheck=cfg.twod.orbcheck,
                                           sigorb=cfg.twod.sigorb)
-                    
-                    print(ln.eigeny)
+                
+                    print("Calculating intensities of visible grid cells of each eigenmap.")
+                    ln.intens, ln.vislat, ln.vislon = \
+                        utils_jax.intensities(fit, d, ln)
 
+                    # Save ln.intens to file for comparison
+                    intens_file = os.path.join(cfg.twod.outdir, m.subdir, f'intensities_l{l}n{n}.npy')
+                    np.save(intens_file, np.array(ln.intens))
+                    print(f"  ✓ Saved intensities to {intens_file}")
+                    print(f"    Shape: {ln.intens.shape}")
+                    if ln.intens.size > 0:
+                        print(f"    Min: {np.min(ln.intens):.6f}, Max: {np.max(ln.intens):.6f}")
+                    else:
+                        print(f"    Array is empty")
+
+                    # Also save eigeny for comparison
+                    eigeny_file = os.path.join(cfg.twod.outdir, m.subdir, f'eigeny_l{l}n{n}.npy')
+                    np.save(eigeny_file, np.array(ln.eigeny))
+                    print(f"  ✓ Saved eigeny to {eigeny_file}")
     return fit, system
 
 

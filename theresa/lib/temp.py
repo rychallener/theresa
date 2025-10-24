@@ -1,6 +1,6 @@
 import numpy as np
 import jax.numpy as jnp
-import equinox as eqx
+import jax
 from jaxoplanet.orbits.keplerian import Central
 from jaxoplanet.starry.orbit import SurfaceSystem, SurfaceBody
 from jaxoplanet.starry.surface import Surface
@@ -8,6 +8,7 @@ from jaxoplanet.starry.ylm import Ylm
 from jaxoplanet.starry.light_curves import light_curve
 from lib import pca
 from lib import dummyfit
+import matplotlib.pyplot as plt
 
 def initsystem(fit, ydeg):
     '''
@@ -17,7 +18,7 @@ def initsystem(fit, ydeg):
     '''
     
     cfg = fit.cfg
-    star_ylm = Ylm.from_dense(jnp.array([1.0]), normalize=True)
+    star_ylm = Ylm.from_dense(jnp.array([1.0]), normalize=False)
 
     star_surface = Surface(
           y=star_ylm,
@@ -138,40 +139,20 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
 
     nt = len(t)
 
-    # Helper function to create a new system with modified planet surface
-    def create_system_with_surface(new_planet_surface, time_transit_offset=0.0):
-        """Create a new system with updated planet surface."""
-        # Just modify the body_surfaces tuple
-        if time_transit_offset == 0.0:
-            # Simple case - just replace the surface
-            return system.__class__(
-                central=system.central,
-                central_surface=system.central_surface,
-                bodies=system.bodies,
-                body_surfaces=(new_planet_surface,)
-            )
-        else:
-            # Need to modify time_transit - recreate the body
-            # This requires knowing orbital parameters, handle separately
-            return None  # Will handle in orbcheck section
-
     # Jaxoplanet function to evaluate flux with modified Ylm coefficients
-    def evalflux(yval, base_system=None):
+    def evalflux(yval):
         """
         Compute light curve for given Ylm coefficients.
         yval is array of coefficients (excluding Y00).
         Returns star flux and planet flux separately.
         """
-        if base_system is None:
-            base_system = system
-
         # Create full Ylm coefficient array (including Y00 = 1)
         n_coeffs = (lmax + 1)**2
         ylm_coeffs = jnp.zeros(n_coeffs)
         ylm_coeffs = ylm_coeffs.at[0].set(1.0)  # Y00 = 1 (uniform)
         ylm_coeffs = ylm_coeffs.at[1:].set(yval)  # Higher order terms
 
-        # Create new Ylm with these coefficients
+        # Create new Ylm with these coefficients (no normalization to match starry behavior)
         new_ylm = Ylm.from_dense(ylm_coeffs, normalize=False)
 
         # Create new planet surface with updated Ylm
@@ -184,12 +165,22 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
             phase=planet_surface.phase
         )
 
-        # Create new system with updated planet surface using eqx.tree_at
-        # Replace the body_surfaces tuple with new surface
-        new_system = eqx.tree_at(
-            lambda sys: sys.body_surfaces,
-            base_system,
-            (new_planet_surface,)
+        # Create new system directly (like initsystem)
+        new_system = SurfaceSystem(
+            central=central,
+            central_surface=central_surface
+        )
+
+        # Add planet to the system with the new surface
+        new_system = new_system.add_body(
+            period=planet_body.period,
+            radius=planet_body.radius,
+            mass=planet_body.mass,
+            inclination=planet_body.inclination,
+            eccentricity=planet_body.eccentricity,
+            omega_peri=planet_body.omega_peri,
+            time_transit=planet_body.time_transit,
+            surface=new_planet_surface
         )
 
         # Compute light curve - returns array with shape (n_bodies, n_times)
@@ -219,7 +210,6 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
             # Set this specific harmonic to -1.0
             yval[ilc // 2] = -1.0
             sflux, lcs[ilc+1] = evalflux(yval)
-
             ilc += 2
 
     # If user wants to include additional eigencurves which explore
@@ -229,15 +219,24 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
         # For now, skip this feature
         print("Warning: orbcheck not yet implemented for jaxoplanet, skipping...")
 
+    # DEBUG: Check values before subtraction
+    print(f"\nDEBUG: lcs shape: {lcs.shape}")
+    print(f"DEBUG: y00 shape: {y00.shape}")
+    print(f"DEBUG: lcs[0] first 5 values: {lcs[0][:5]}")
+    print(f"DEBUG: y00 first 5 values: {y00[:5]}")
+    print(f"DEBUG: lcs min/max before subtraction: {np.min(lcs):.6f} / {np.max(lcs):.6f}")
+
     # Subtract uniform map contribution (jaxoplanet includes this in all light curves)
     lcs -= y00
-            
+
+    print(f"DEBUG: lcs min/max after subtraction: {np.min(lcs):.6f} / {np.max(lcs):.6f}\n")
+
     # Run PCA to determine orthogonal light curves
     if ncurves is None:
         ncurves = nharm
         if method == 'tsvd':
             ncurves -= 1
-        
+
     evalues, evectors, proj = pca.pca(lcs, method=method, ncomp=ncurves)
 
     # Discard imaginary part of eigencurves to appease numpy
@@ -257,8 +256,75 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
                 yi  += 1
                 shi += 2
 
+
+   # for i in range (proj.shape[0]):
+#        plt.plot(proj[i])
+ #       print(proj[i])
+  #  plt.xlabel("Jax")
+   # plt.show()
+
     return eigeny, evalues, evectors, proj, lcs
 
+
+def intensities(fit, data, ln):
+    # We reinitialize the planet object here because the yval
+    # assignments in the mkcurves theano function are tracked, so if
+    # we don't pass that yval into the theano function here (and why
+    # would we), theano gets confused as it runs through those
+    # assignments in the graph. Perhaps there's a more elegant
+    # solution.
+    star_surface, planet_surface, system = initsystem(fit, ln.lmax)
+    
+    wherevis = np.where((np.array(fit.lon) + fit.dlon >= data.minvislon) &
+                        (np.array(fit.lon) - fit.dlon <= data.maxvislon))
+
+    vislon = jnp.deg2rad(np.array(fit.lon[wherevis].flatten()))
+    vislat = jnp.deg2rad(np.array(fit.lat[wherevis].flatten()))
+
+    nloc = len(vislon)
+    
+    intens = np.zeros((ln.ncurves, nloc))
+
+    def evalintensity(yval):
+        # Create full Ylm coefficient array (including Y00 = 1)
+        n_coeffs = (ln.lmax + 1)**2
+        ylm_coeffs = jnp.zeros(n_coeffs)
+        ylm_coeffs = ylm_coeffs.at[0].set(1.0)  # Y00 = 1 (uniform)
+        ylm_coeffs = ylm_coeffs.at[1:].set(yval)  # Higher order terms
+
+        # Use normalize=True to match how eigenmaps were created in mkcurves
+        new_ylm = Ylm.from_dense(ylm_coeffs, normalize=True)
+        new_planet_surface = Surface(
+                    y=new_ylm,
+                    inc=planet_surface.inc,
+                    period=planet_surface.period,
+                    radius=planet_surface.radius,
+                    amplitude=planet_surface.amplitude,
+                    phase=planet_surface.phase
+                )
+        intensity  = new_planet_surface.intensity(vislat, vislon)
+        uniform_ylm = Ylm.from_dense(jnp.array([1.0]), normalize=False)
+        uniform_surface = Surface(
+              y=uniform_ylm,
+              inc=planet_surface.inc,
+              period=planet_surface.period,
+              radius=planet_surface.radius,
+              amplitude=planet_surface.amplitude,
+              phase=planet_surface.phase
+          )
+        intensity -= uniform_surface.intensity(vislat, vislon)
+
+        return intensity
+
+   
+    # JIT compile for speed (replaces Theano compilation)
+    evalintensity_jit = jax.jit(evalintensity)
+
+    # Compute intensity for each eigenmap
+    for k in range(ln.ncurves):
+        intens[k] = np.array(evalintensity_jit(jnp.array(ln.eigeny[k, 1:])))
+
+    return intens, vislat, vislon
 
 def main():
     fit = dummyfit.create_dummy_fit()

@@ -415,14 +415,25 @@ def t_dgrid():
                         dgrid(arg1, arg2, arg3, arg4, arg5))    
     return f
 
-def mapintensity(map, lat, lon, amp):
+def mapintensity(surface, lat, lon, amp):
     """
     Calculates a grid of intensities, multiplied by the amplitude given.
     """
-    grid = map.intensity(lat=lat.flatten(), lon=lon.flatten()).eval()
-    grid *= amp
+     # Convert to radians (jaxoplanet expects radians)
+    lat_rad = jnp.deg2rad(lat.flatten())
+    lon_rad = jnp.deg2rad(lon.flatten())
+
+      # Evaluate intensity at all positions
+      # The Surface.intensity() method accepts arrays due to JAX broadcasting
+    grid = surface.intensity(lat_rad, lon_rad)
+
+      # Scale by amplitude
+    grid = grid * amp
+
+      # Reshape back to original shape
     grid = grid.reshape(lat.shape)
-    return grid
+
+    return np.array(grid)
 
 
 def hotspotloc_driver(fit, ln):

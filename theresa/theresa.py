@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import progressbar
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 # Taurex imports
 #import taurex
