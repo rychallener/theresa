@@ -1,6 +1,5 @@
 import numpy as np
 import time
-import theano
 import scipy.interpolate as sci
 import matplotlib.pyplot as plt
 import mc3
@@ -9,10 +8,10 @@ import sys
 from numba import jit, literal_unroll
 
 # Lib imports
-import cf
-import atm
-import utils
-import constants as c
+from lib import cf
+from lib import atm
+from lib import utils
+from lib import constants as c
 #import taurexclass as trc
 
 # Taurex imports

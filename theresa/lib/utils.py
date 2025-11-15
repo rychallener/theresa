@@ -17,6 +17,7 @@ import theano
 import theano.tensor as tt
 import mc3.stats as ms
 from numba import njit
+from jaxoplanet_logger import get_logger
 
 
 def initsystem(fit, ydeg):
