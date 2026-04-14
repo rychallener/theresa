@@ -1,14 +1,15 @@
 import numpy as np
+import jax
 import pca
 import time
 import utils
-import starry
-import theano
-import theano.tensor as tt
+#import starry
+#import theano
+#import theano.tensor as tt
 import scipy.constants as sc
+import jaxoplanet.starry.light_curves as light_curves
 
-
-def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
+def mkcurves(fit, d, lmax, ncurves=None, method='pca',
              orbcheck=None, sigorb=None):
     """
     Generates light curves from a star+planet system at times t,
@@ -17,7 +18,7 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
     Arguments
     ---------
     system: object
-        A starry system object, initialized with a star and a planet
+        A jaxoplanet system object, initialized with a star and a planet
 
     t: 1D array
         Array of times at which to calculate eigencurves
@@ -46,21 +47,19 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
     proj: 2D array
         nharm x nt array of the data projected in the new space (the PCA
         "eigencurves"). The imaginary part is discarded, if nonzero.
-    """    
-    star   = system.bodies[0]
-    planet = system.bodies[1]
+    """
+    t = d.t
 
     nt = len(t)
 
-    # Set up a theano function for S P E E D
-    def evalflux(yval):
-        planet.map[1:,:] = yval
-        starflux, planetflux = system.flux(t, total=False)
-        return starflux, planetflux
+    def calcflux(y):
+        star, planet, system = utils.initsystem(fit, lmax, y=y)
+        lcfun = light_curves.light_curve(system, order=100)
+        sflux, pflux = lcfun(t).T
+        return sflux, pflux
 
-    arg1 = tt.dvector('yval')
-    t_evalflux = theano.function([arg1], evalflux(arg1))   
-    
+    j_calcflux = jax.jit(calcflux)
+
     # Create harmonic maps of the planet, excluding Y00
     # (lmax**2 maps, plus a negative version for all but Y00)
     nharm = 2 * ((lmax + 1)**2 - 1)
@@ -68,67 +67,51 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
     ilc = 0
     for i, l in enumerate(range(1, lmax + 1)):
         for j, m in enumerate(range(-l, l + 1)):
-            yval = np.zeros(nharm // 2)
-            yval[ilc // 2] =  1.0
-            sflux, lcs[ilc]   = t_evalflux(yval)
-            yval[ilc // 2] = -1.0
-            sflux, lcs[ilc+1] = t_evalflux(yval)
+            # Create array of Ylm coefficients. The +1 includes Y00.
+            y = np.zeros(nharm // 2 + 1)
+
+            # initsystem does this for us, but just for clarity
+            y[0] = 1.0
+            # Set this specific harmonic to +1.0
+            y[1 + ilc // 2] = 1.0
+            
+            sflux, lcs[ilc] = j_calcflux(y)
+            lcs[ilc] -= d.pflux_y00
+
+            # Set this specific harmonic to -1.0
+            # (Why do we bother with this? Just negate the previous one.)
+            #y[1 + ilc // 2] = -1.0
+            #star, planet, system = utils.initsystem(fit, lmax, y=y)
+            #lcfun = light_curves.light_curve(system, order=1000)
+            #sflux, lcs[ilc+1] = lcfun(d.t).T
+
+            # Insert negated version of the harmonic
+            lcs[ilc+1] = -1 * np.copy(lcs[ilc])
             ilc += 2
 
     # If user wants to include additional eigencurves which explore
     # different orbital parameters
     if orbcheck is not None:
-        if orbcheck == 't0':
-            planet.t0 += sigorb[0]
-            
-        mlcs = np.zeros((nharm, nt))
-        ilc = 0
-        for i, l in enumerate(range(1, lmax + 1)):
-            for j, m in enumerate(range(-l, l + 1)):
-                yval = np.zeros(nharm // 2)
-                yval[ilc // 2] =  1.0
-                sflux, mlcs[ilc]   = t_evalflux(yval)
-                yval[ilc // 2] = -1.0
-                sflux, mlcs[ilc+1] = t_evalflux(yval)
-                ilc += 2
+        # TODO: Implement orbcheck for jaxoplanet
+        # For now, skip this feature
+        print("Warning: orbcheck not yet implemented for jaxoplanet, skipping...")
 
-        if orbcheck == 't0':
-            planet.t0 -= sigorb[0]
-            planet.t0 += sigorb[1]
-        
-        plcs = np.zeros((nharm, nt))
-        ilc = 0
-        for i, l in enumerate(range(1, lmax + 1)):
-            for j, m in enumerate(range(-l, l + 1)):
-                yval = np.zeros(nharm // 2)
-                yval[ilc // 2] =  1.0
-                sflux, plcs[ilc]   = t_evalflux(yval)
-                yval[ilc // 2] = -1.0
-                sflux, plcs[ilc+1] = t_evalflux(yval)
-                ilc += 2
+    # Subtract uniform map contribution (jaxoplanet includes this in
+    # all light curves)
+    #lcs -= d.pflux_y00
 
-        if orbcheck == 't0':
-            planet.t0 -= sigorb[1]
-
-        lcs = np.concatenate((lcs, mlcs, plcs), axis=0)
-        
-    planet.map[1:,:] = 0.0
-    # Subtact uniform map contribution (starry includes this in all
-    # light curves)
-    lcs -= y00
-            
     # Run PCA to determine orthogonal light curves
     if ncurves is None:
         ncurves = nharm
         if method == 'tsvd':
             ncurves -= 1
-        
+
     evalues, evectors, proj = pca.pca(lcs, method=method, ncomp=ncurves)
 
     # Discard imaginary part of eigencurves to appease numpy
     proj = np.real(proj)
 
-    # Convert orthogonal light curves into maps        
+    # Convert orthogonal light curves into maps
     eigeny = np.zeros((ncurves, (lmax + 1)**2))
     eigeny[:,0] = 1.0 # Y00 = 1 for all maps
     for j in range(ncurves):
@@ -142,47 +125,31 @@ def mkcurves(system, t, lmax, y00, ncurves=None, method='pca',
                 yi  += 1
                 shi += 2
 
+
     return eigeny, evalues, evectors, proj, lcs
 
-def mkmaps(planet, eigeny, params, ncurves, wl, rs, rp, ts, lat, lon,
-           starspec='bb', fwl=None, ftrans=None, swl=None, sspec=None):
+def mkmaps(fit, m, ln, params):
     """
     Calculate flux map and brightness temperature map from
-    a single 2D map fit.
+    a single 2D map fit. Note that this function is simple and not
+    optimized for speed. If you want to calculate a lot of maps,
+    use utils.tmappost.
 
     Arguments
     ---------
-    planet: starry Planet object
+    planet: jaxoplanet Surface object
         Planet object. planet.map will be reset and modified within this
         function.
 
-    eigeny: 2D array
-        Eigenvalues for the eigenmaps that form the basis for the
-        2D fit.
+    m: ThERESA Map object 
+        (usually under fit.datasets[x].maps[x])
 
-    params: 1D array
-        Best-fitting parameters.
+    ln: ThERESA LN object
+        (usually under fit.datasets[x].maps[x].lxnx. For example, l1n2.)
 
-    ncurves: int
-        Number of eigencurves (or eigenmaps) included in the total map.
-
-    wl: 1D array
-        The wavelength of the 2D map, in microns.
-
-    rs: float
-        Radius of the star (same units as rp)
-
-    rp: float
-        radius of the planet (same units as rs)
-
-    ts: float
-        Temperature of the star in Kelvin
-
-    lat: 2d array
-        Latitudes of grid to calculate map
-
-    lon: 2d array
-        Longitudes of grid to calculate map
+    params: 1D Float array
+        A set of parameters appropriate for the given LN object. For
+        example, the parameters of the best-fitting model.
 
     Returns
     -------
@@ -193,30 +160,35 @@ def mkmaps(planet, eigeny, params, ncurves, wl, rs, rp, ts, lat, lon,
     tmap: 1D/2D array
         Same as fmap but for brightness temperature.
     """
-    fmap = np.zeros(lat.shape) # flux maps
-    tmap = np.zeros(lat.shape) # temp maps
+    fmap = np.zeros(fit.lat.shape) # flux maps
+    tmap = np.zeros(fit.lat.shape) # temp maps
 
-    planet.map[1:,:] = 0.0
+    yval = np.zeros((ln.lmax+1)**2)
+    yval[0] = 1.0
 
-    # Uniform map term
-    fmap = utils.mapintensity(planet.map, lat, lon, params[ncurves])
+    for j in range(ln.ncurves):
+        yval[1:] += params[j] * ln.eigeny[j,1:]
 
-    # Combine scaled eigenmap Ylm terms
-    for i in range(ncurves):
-        planet.map[1:,:] += eigeny[i,1:] * params[i]
+    star, planet, system = utils.initsystem(fit, ln.lmax, y=yval)
 
-    fmap += utils.mapintensity(planet.map, lat, lon, 1.0)
+    # Non-uniform components
+    fmap = planet.intensity(np.deg2rad(fit.lat),
+                            np.deg2rad(fit.lon))
 
-    # Subtract extra Y00 map that starry always includes
-    planet.map[1:,:] = 0.0
-    fmap -= utils.mapintensity(planet.map, lat, lon, 1.0)
+    # Fitted uniform component (-1 to remove default uniform
+    # component). We could calculate this with a jaxoplanet object,
+    # but it's faster to just use the knowledge that a uniform map has
+    # Y00 / pi intensity everywhere.
+    fmap += (params[ln.ncurves] - 1) / np.pi
 
     # Convert to brightness temperatures
     # see Rauscher et al., 2018, Eq. 8
-    tmap = utils.fmap_to_tmap(fmap, wl, rp, rs, ts,
-                              params[ncurves+1], starspec=starspec,
-                              fwl=fwl, ftrans=ftrans, swl=swl,
-                              sspec=sspec)
+    tmap = utils.fmap_to_tmap(fmap, m.wlmid, fit.cfg.planet.r,
+                              fit.cfg.star.r, fit.cfg.star.t,
+                              params[ln.ncurves+1],
+                              starspec=fit.cfg.star.starspec,
+                              fwl=m.filtwl, ftrans=m.filttrans,
+                              swl=fit.starwl, sspec=fit.starflux)
 
     return fmap, tmap
 
@@ -296,14 +268,6 @@ def emapminmax(planet, eigeny, ncurves):
     return lat, lon, intens
 
 def intensities(fit, data, ln):
-    # We reinitialize the planet object here because the yval
-    # assignments in the mkcurves theano function are tracked, so if
-    # we don't pass that yval into the theano function here (and why
-    # would we), theano gets confused as it runs through those
-    # assignments in the graph. Perhaps there's a more elegant
-    # solution.
-    star, planet, system = utils.initsystem(fit, ln.lmax)
-    
     wherevis = np.where((fit.lon + fit.dlon >= data.minvislon) &
                         (fit.lon - fit.dlon <= data.maxvislon))
 
@@ -314,23 +278,21 @@ def intensities(fit, data, ln):
     
     intens = np.zeros((ln.ncurves, nloc))
 
+    #Jit-ing this function could add speed, but this is pretty fast already.
     def evalintensity(yval):
-        planet.map[1:,:] = yval
-        intensity  = planet.map.intensity(lat=vislat,
-                                          lon=vislon)
-        planet.map[1:,:] = 0.0
-        intensity -= planet.map.intensity(lat=vislat,
-                                          lon=vislon)
+        star, planet, system = utils.initsystem(fit, ln.lmax, y=yval)
+        intensity = planet.intensity(np.deg2rad(vislat),
+                                     np.deg2rad(vislon))
+
+        # Couldn't we just subtract 1/pi here?
+        star, planet, system = utils.initsystem(fit, ln.lmax)
+        intensity -= planet.intensity(np.deg2rad(vislat),
+                                      np.deg2rad(vislon))
 
         return intensity
 
-    arg1 = tt.dvector()
-    t_evalintensity = theano.function([arg1], evalintensity(arg1))
-
     for k in range(ln.ncurves):
-        intens[k] = t_evalintensity(ln.eigeny[k,1:])
-            
-    planet.map[1:,:] = 0.0
+        intens[k] = evalintensity(ln.eigeny[k])
         
     return intens, vislat, vislon
 

@@ -4,13 +4,15 @@
 import os
 import sys
 import mc3
+import jax
 import pickle
-import starry
+#import starry
 import shutil
 import subprocess
 import progressbar
 import numpy as np
-
+import matplotlib.pyplot as plt
+import jaxoplanet.starry.light_curves as light_curves
 
 # Taurex imports
 #import taurex
@@ -29,7 +31,6 @@ import numpy as np
 # Taurex is a bit...talkative
 #import taurex.log
 #taurex.log.disableLogging()
-
 
 # Directory structure
 maindir    = os.path.dirname(os.path.realpath(__file__))
@@ -52,10 +53,13 @@ from lib import constants   as c
 from lib import fitclass    as fc
 #import taurexclass as trc
 
-starry.config.quiet = True
+#starry.config.quiet = True
 
 # Starry seems to have a lot of recursion
 sys.setrecursionlimit(10000)
+
+# Work in double precision with JAX
+jax.config.update("jax_enable_x64", True)
 
 def map2d(cfile):
     """
@@ -101,14 +105,21 @@ def map2d(cfile):
         print("Precomputing - {}".format(d.name))
 
         print("Computing planet and star positions at observation times.")
-        d.x, d.y, d.z = [a.eval() for a in system.position(d.t)]
+        px, py, pz = system.bodies[0].position(d.t)
+        sx, sy, sz = system.central_position(d.t)
+        d.x = np.vstack([sx, px])
+        d.y = np.vstack([sy, py])
+        d.z = np.vstack([sz, pz])
 
         print("Calculating uniform-map planet and star fluxes.")
-        d.sflux, d.pflux_y00 = [a.eval() for a in  \
-                                system.flux(d.t, total=False)]
+        lcfunc = light_curves.light_curve(system)
+        d.sflux, d.pflux_y00 = lcfunc(d.t).T
+        # Convert to numpy arrays for numba compatibility
+        d.sflux = np.array(d.sflux)
+        d.pflux_y00 = np.array(d.pflux_y00)
 
         print("Calculating minimum and maximum observed longitudes.")
-        d.minvislon, d.maxvislon = utils.vislon(planet, d)
+        d.minvislon, d.maxvislon = utils.vislon(system, d)
         print("Minimum Longitude: {:6.2f}".format(d.minvislon))
         print("Maximum Longitude: {:6.2f}".format(d.maxvislon))
 
@@ -179,8 +190,7 @@ def map2d(cfile):
                         ncomp = None
                         
                     ln.eigeny, ln.evalues, ln.evectors, ln.ecurves, ln.lcs = \
-                        eigen.mkcurves(system, d.t, ln.lmax,
-                                       d.pflux_y00, ncurves=ncomp,
+                        eigen.mkcurves(fit, d, ln.lmax, ncurves=ncomp,
                                        method=cfg.twod.pca,
                                        orbcheck=cfg.twod.orbcheck,
                                        sigorb=cfg.twod.sigorb)
@@ -374,20 +384,7 @@ def map2d(cfile):
     for d in fit.datasets:
         for m in d.maps:
             star, planet, system = utils.initsystem(fit, m.bestln.lmax)
-            # These are used or not used in mkmaps depending on the type
-            # of stellar spectrum set in the configuration.
-            fwl    = m.filtwl
-            ftrans = m.filttrans
-            swl    = fit.starwl
-            sspec  = fit.starflux
-            fmap, tmap = eigen.mkmaps(planet, m.bestln.eigeny,
-                                      m.bestln.bestp,
-                                      m.bestln.ncurves, m.wlmid,
-                                      cfg.star.r, cfg.planet.r,
-                                      cfg.star.t, fit.lat, fit.lon,
-                                      starspec=cfg.star.starspec,
-                                      fwl=fwl, ftrans=ftrans, swl=swl,
-                                      sspec=sspec)
+            fmap, tmap = eigen.mkmaps(fit, m, m.bestln, m.bestln.bestp)
             m.fmap = fmap
             m.tmap = tmap
 
@@ -423,9 +420,7 @@ def map2d(cfile):
                 outdir = os.path.join(cfg.twod.outdir, m.subdir)
                 # Make sure the planet has the right lmax
                 star, planet, system = utils.initsystem(fit, m.bestln.lmax)
-                plots.emaps(planet, m.bestln.eigeny, outdir, proj='ortho')
-                plots.emaps(planet, m.bestln.eigeny, outdir, proj='rect')
-                plots.emaps(planet, m.bestln.eigeny, outdir, proj='moll')
+                plots.emaps(fit, m.bestln.eigeny, outdir, proj='rect')
                 plots.lightcurves(d.t, m.bestln.lcs, outdir)
                 plots.eigencurves(d.t, m.bestln.ecurves, outdir,
                                   ncurves=m.bestln.ncurves)
