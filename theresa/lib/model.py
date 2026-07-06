@@ -198,9 +198,16 @@ def specgrid(params, fit):
     else:
         z = cfg.threed.z
 
+    if cfg.threed.co == 'fit':
+        icomodel = np.where(fit.modeltype3d == 'c/o')[0][0]
+        istart = np.sum(fit.nparams3d[:icomodel])
+        co = params[istart]
+    else:
+        co = cfg.threed.co
+
     mols = np.concatenate((cfg.threed.mols, cfg.threed.cmols))
     abn, spec = atm.atminit(cfg.threed.atmtype, mols, p, tgrid,
-                            z, ivis=ivis, cheminfo=fit.cheminfo)
+                            z, co, ivis=ivis, cheminfo=fit.cheminfo)
     
     negativeT = False
 
@@ -796,6 +803,20 @@ def get_par_3d(fit):
             pmax   = [fit.cfg.threed.zmax]
             pnames = ['z']
             modeltype.append('z')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        elif mname == 'co':
+            npar   = 1
+            par    = [np.log10(0.53)] # solar
+            pstep  = [0.1]
+            pmin   = [fit.cfg.threed.comin]
+            pmax   = [fit.cfg.threed.comax]
+            pnames = ['C/O']
+            modeltype.append('c/o')
             nparams[im] = npar
             allparams.append(par)
             allpmin.append(pmin)

@@ -19,7 +19,7 @@ ratedir = os.path.join(moddir, 'rate')
 sys.path.append(ratedir)
 import rate
 
-def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
+def atminit(atmtype, mols, p, t, z, co, ivis=None, cheminfo=None):
     """
     Initializes atmospheres of various types.
     
@@ -41,6 +41,9 @@ def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
 
     z: float
         Metallicity. E.g., z=0 is solar.
+
+    co: float
+        Carbon-to-oxygen ratio.
 
     ivis: 1d array
         Optional array of indices where atmosphere should 
@@ -79,9 +82,9 @@ def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
             abn[:,:,i] = robj.solve(t[:,i], p)
 
     elif atmtype == 'ggchem':
-        ggchemT, ggchemp, ggchemz, spec, ggchemabn = cheminfo
+        ggchemT, ggchemp, ggchemz, ggchemco, spec, ggchemabn = cheminfo
         tic = time.time()
-        nspec, nump, numt, numz = ggchemabn.shape
+        nspec, nump, numt, numco, numz = ggchemabn.shape
         abn = np.zeros((nspec, nlayer, ncolumn))
         
         if not np.all(np.isclose(p, ggchemp)):
@@ -104,13 +107,14 @@ def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
             if spec[s] in mols or spec[s] in exmols:
                 f = spi.RegularGridInterpolator((ggchemp[psort],
                                                  ggchemT,
-                                                 ggchemz),
-                                                ggchemabn[s,psort])
+                                                 ggchemz,
+                                                 ggchemco),
+                                                np.log10(ggchemabn[s,psort]))
 
                 for k in range(ncolumn):
                     pts = \
-                        np.array([(intp, intt, z) for (intp, intt) in zip(p, t[:,k])])
-                    abn[s,:,k] = f(pts)
+                        np.array([(intp, intt, z, co) for (intp, intt) in zip(p, t[:,k])])
+                    abn[s,:,k] = 10**f(pts)
                 # for k in range(nlayer):
                 #     if z in ggchemz:
                 #         iz = np.where(ggchemz == z)
@@ -643,7 +647,11 @@ def pmaps(params, fit):
 
     return pmaps
 
-def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
+def setup_GGchem(tmin, tmax, numt,
+                 pmin, pmax, nump,
+                 zmin, zmax, numz,
+                 comin, comax, numco,
+                 mols, cmols,
                  condensates=False, charges=True,
                  elements=['H', 'He', 'C', 'O', 'N'], dustfile=None,
                  dispolfiles=None):
@@ -653,6 +661,8 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
     pgrid = np.logspace(np.log10(pmax), np.log10(pmin), nump)
     # Metallicities
     zgrid = np.linspace(zmin, zmax, numz)
+    # C-to-O
+    cogrid = np.linspace(comin, comax, numco)
 
     # Stuff that should probably be up to the user
     abundance_profile = 'solar'
@@ -660,44 +670,55 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
     # Get molecules
     gg = taurex_ggchem.GGChem(metallicity=1.0,
                               selected_elements=elements,
+                              ratio_elements=['C'],
+                              ratios_to_O=[0.5],
                               abundance_profile=abundance_profile,
                               equilibrium_condensation=condensates,
                               include_charge=charges,
                               dustchem_file=dustfile,
                               dispol_files=dispolfiles)
-    ng = len(gg.gases)
+    
     if condensates:
-        nc = len(gg.condensates)
         spec = np.concatenate((gg.gases, gg.condensates))
     else:
-        nc = 0
         spec = gg.gases
 
+    imols  = [gg.gases.index(m) for m in mols]
+    icmols = [gg.condennsates.index(c) for c in cmols]
+
+    allmols = np.concatenate((mols, cmols))
+
+    ng = len(mols)
+    nc = len(cmols)
     ns = ng + nc
 
-    abn = np.zeros((ns, nump, numt, numz))
+    abn = np.zeros((ns, nump, numt, numz, numco))
 
-    pbar = progressbar.ProgressBar(max_value=nump*numt*numz)
+    pbar = progressbar.ProgressBar(max_value=nump*numt*numz*numco)
     for iz, z in enumerate(zgrid):
-        gg = taurex_ggchem.GGChem(metallicity=10**z,
-                                  selected_elements=elements,
-                                  abundance_profile=abundance_profile,
-                                  equilibrium_condensation=condensates,
-                                  include_charge=charges,
-                                  dustchem_file=dustfile,
-                                  dispol_files=dispolfiles)
-        for it, t in enumerate(tgrid):
-            for ip, p in enumerate(pgrid):
-                # Convert to pascals
-                gg.initialize_chemistry(nlayers=1,
-                    temperature_profile=[t],
-                    pressure_profile=[p * 1e5])
-                abn[:ng,ip,it,iz] = gg.mixProfile.squeeze()
-                if condensates:
-                    abn[ng:ns,ip,it,iz] = gg.condensateMixProfile.squeeze()
-                pbar.update(ip+it*nump+iz*numt*nump)
+        for ic, c in enumerate(cogrid):
+            gg = taurex_ggchem.GGChem(metallicity=10**z,
+                                      ratio_elements=['C'],
+                                      ratios_to_O=[10**c],
+                                      selected_elements=elements,
+                                      abundance_profile=abundance_profile,
+                                      equilibrium_condensation=condensates,
+                                      include_charge=charges,
+                                      dustchem_file=dustfile,
+                                      dispol_files=dispolfiles)
+            for it, t in enumerate(tgrid):
+                for ip, p in enumerate(pgrid):
+                    # Convert to pascals
+                    gg.initialize_chemistry(nlayers=1,
+                        temperature_profile=[t],
+                        pressure_profile=[p * 1e5])
+                    abn[:ng,ip,it,iz,ic] = gg.mixProfile.squeeze()[imols]
+                    if condensates:
+                        abn[ng:ns,ip,it,iz,ic] = \
+                            gg.condensateMixProfile.squeeze()[icmols]
+                    pbar.update(ip+it*nump+ic*numt*nump+iz*numt*nump*numco)
 
-    return tgrid, pgrid, zgrid, spec, abn
+    return tgrid, pgrid, zgrid, cogrid, allmols, abn
 
     
 def read_GGchem(fname):

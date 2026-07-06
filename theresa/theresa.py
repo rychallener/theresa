@@ -454,15 +454,21 @@ def map3d(fit, system):
         else:
             dispolfiles = None
 
+        # TODO: this is gross. Should just allow user to specify the
+        #       file in the configuration.
         defaultgrid = ((cfg.threed.nlayers == 100) &
-                       (cfg.threed.ptop == 1e-6)   &
-                       (cfg.threed.pbot == 1e2)    &
-                       (cfg.threed.numt ==   77)   &
-                       (cfg.threed.tmin ==  150)   &
-                       (cfg.threed.tmax == 4000)   &
-                       (cfg.threed.numz == 41)     &
-                       (cfg.threed.zmin == -2.0)   &
-                       (cfg.threed.zmax ==  2.0)   &
+                       (cfg.threed.ptop  == 1e-6)   &
+                       (cfg.threed.pbot  == 1e2)    &
+                       (cfg.threed.numt  ==   77)   &
+                       (cfg.threed.tmin  ==  150)   &
+                       (cfg.threed.tmax  == 4000)   &
+                       (cfg.threed.numz  == 41)     &
+                       (cfg.threed.zmin  == -2.0)   &
+                       (cfg.threed.zmax  ==  2.0)   &
+                       (cfg.threed.comin == -2.0)  &
+                       (cfg.threed.comax ==  0.0)   &
+                       (cfg.threed.numco == 10)    &
+                       (cfg.threed.mols == ['H2O', 'CH4', 'CO', 'CO2', 'NH3', 'C2H2', 'C2H4', 'HCN', 'H2S']) &
                        (dispolfiles is None)       &
                        (cfg.threed.elem == ['H', 'He', 'C', 'N', 'O', 'S']) &
                        (cfg.threed.condensates == False))
@@ -473,6 +479,7 @@ def map3d(fit, system):
             fit.cheminfo = (cheminfo['T'],
                             cheminfo['P'],
                             cheminfo['z'],
+                            cheminfo['co'],
                             cheminfo['spec'],
                             cheminfo['abn'])
             del(cheminfo)
@@ -488,6 +495,11 @@ def map3d(fit, system):
                                             cfg.threed.zmin,
                                             cfg.threed.zmax,
                                             cfg.threed.numz,
+                                            cfg.threed.comin,
+                                            cfg.threed.comax,
+                                            cfg.threed.numco,
+                                            cfg.threed.mols,
+                                            cfg.threed.cmols,
                                             condensates=cfg.threed.condensates,
                                             elements=cfg.threed.elem,
                                             dispolfiles=dispolfiles)
@@ -812,10 +824,19 @@ def map3d(fit, system):
         z = params[istart]
     else:
         print("Something has gone wrong.")
+
+    if type(fit.cfg.threed.co) is float:
+        co = fit.cfg.threed.co
+    elif fit.cfg.threed.z == 'fit':
+        icomodel = np.where(fit.modeltype3d == 'c/o')[0][0]
+        istart = np.sum(fit.nparams3d[:icomodel])
+        co = params[istart]
+    else:
+        print("Something has gone wrong.")
         
     fit.abnbest, fit.abnspec = atm.atminit(fit.cfg.threed.atmtype,
                                            allmols, fit.p,
-                                           fit.besttgrid, z,
+                                           fit.besttgrid, z, co,
                                            ivis=fit.ivis3d,
                                            cheminfo=fit.cheminfo)
                                            

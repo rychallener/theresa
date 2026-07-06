@@ -108,6 +108,15 @@ class Fit:
         else:
             self.cfg.threed.z = 'fit'
 
+        if 'co' not in self.cfg.threed.modelnames:
+            try:
+                self.cfg.threed.co = self.cfg.cfg.getfloat('3D', 'co')
+            except:
+                print("Must specify C/O if not fitting to it.")
+                sys.exit()
+        else:
+            self.cfg.threed.co = 'fit'
+
         self.cfg.threed.elem = self.cfg.cfg.get('3D', 'elem').split()
 
         self.cfg.threed.mols  = self.cfg.cfg.get('3D', 'mols').split()
@@ -167,12 +176,15 @@ class Fit:
             self.cfg.threed.fgamma = 1.0
 
         if self.cfg.threed.atmtype == 'ggchem':
-            self.cfg.threed.tmin = self.cfg.cfg.getfloat('3D', 'tmin')
-            self.cfg.threed.tmax = self.cfg.cfg.getfloat('3D', 'tmax')
-            self.cfg.threed.numt = self.cfg.cfg.getint(  '3D', 'numt')
-            self.cfg.threed.zmin = self.cfg.cfg.getfloat('3D', 'zmin')
-            self.cfg.threed.zmax = self.cfg.cfg.getfloat('3D', 'zmax')
-            self.cfg.threed.numz = self.cfg.cfg.getint(  '3D', 'numz')
+            self.cfg.threed.tmin  = self.cfg.cfg.getfloat('3D', 'tmin')
+            self.cfg.threed.tmax  = self.cfg.cfg.getfloat('3D', 'tmax')
+            self.cfg.threed.numt  = self.cfg.cfg.getint(  '3D', 'numt')
+            self.cfg.threed.zmin  = self.cfg.cfg.getfloat('3D', 'zmin')
+            self.cfg.threed.zmax  = self.cfg.cfg.getfloat('3D', 'zmax')
+            self.cfg.threed.numz  = self.cfg.cfg.getint(  '3D', 'numz')
+            self.cfg.threed.comin = self.cfg.cfg.getfloat('3D', 'comin')
+            self.cfg.threed.comax = self.cfg.cfg.getfloat('3D', 'comax')
+            self.cfg.threed.numco = self.cfg.cfg.getint(  '3D', 'numco')
             self.cfg.threed.condensates = \
                 self.cfg.cfg.getboolean('3D', 'condensates')
 

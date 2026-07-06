@@ -24,20 +24,31 @@ numz = 41
 zmin = -2.0
 zmax =  2.0
 
+# Every 0.1 dex
+numco = 21
+comin = -2.0
+comax = 0.0
+
 dispolfiles = None
 
 condensates = False
 
 elem = ['H', 'He', 'C', 'N', 'O', 'S']
 
+mols = ['H2O', 'CH4', 'CO', 'CO2', 'NH3', 'C2H2', 'C2H4', 'HCN', 'H2S']
+
+cmols = []
+
 cheminfo = atm.setup_GGchem(tmin, tmax, numt,
                             ptop, pbot, nlayers,
                             zmin, zmax, numz,
+                            comin, comax, numco,
+                            mols, cmols,
                             condensates=condensates,
                             elements=elem,
                             dispolfiles=dispolfiles)
 
 np.savez('ggchem-default.npz', T=cheminfo[0], P=cheminfo[1], z=cheminfo[2],
-         spec=cheminfo[3], abn=cheminfo[4])
+         co=cheminfo[3], spec=cheminfo[4], abn=cheminfo[5])
 
                             
