@@ -574,9 +574,10 @@ def bestfittgrid(fit, outdir=''):
             for k in range(nmaps):
                 alpha = np.sum(fit.cf[i,:,k]) / cfnorm_dots
                 alpha = np.round(alpha, 2)
-                ax.scatter(fit.tmaps3d[k,i], fit.pmaps[k,i],
-                           c=colors[k], marker='o', zorder=3, s=1,
-                           alpha=alpha)
+                if fit.pmaps is not None:
+                    ax.scatter(fit.tmaps3d[k,i], fit.pmaps[k,i],
+                               c=colors[k], marker='o', zorder=3, s=1,
+                               alpha=alpha)
 
     # Build custom legend
     legend_elements = []
@@ -594,6 +595,8 @@ def bestfittgrid(fit, outdir=''):
     ax.set_yscale('log')
     ax.invert_yaxis()
     ax.legend(handles=legend_elements, loc='best')
+    ax.set_xlim((0.9 * np.min(fit.besttgrid),
+                 1.1 * np.max(fit.besttgrid)))
     ax.set_xlabel("Temperature (K)")
     ax.set_ylabel("Pressure (bars)")
     plt.tight_layout()
@@ -769,16 +772,25 @@ def tgrid_unc(fit, outdir=''):
     tgridpost = np.zeros((ncalc, nlev, fit.ncolumn))
     for i in range(ncalc):
         ipost = i * niter // ncalc
-        pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
-        tgridpost[i], p = atm.tgrid(fit, nlev, fit.ncolumn, fit.tmaps3d,
-                                    pmaps, fit.cfg.threed.pbot,
-                                    fit.cfg.threed.ptop,
-                                    fit.posterior3d[ipost],
-                                    fit.nparams3d, fit.modeltype3d,
-                                    fit.imodel3d,
-                                    interptype=fit.cfg.threed.interp,
-                                    smooth=fit.cfg.threed.smooth,
-                                    ivis=fit.ivis3d)
+        if 'tgcm' in fit.cfg.threed.modelnames:
+            tgrid, p = atm.tgrid_gcm(fit, nlev, fit.ncolumn,
+                                     fit.cfg.threed.pbot, fit.cfg.threed.ptop,
+                                     fit.posterior3d[ipost],
+                                     fit.nparams3d, fit.modeltype3d,
+                                     fit.imodel3d)
+            pmaps = None
+        else:
+            pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
+            tgridpost[i], p = atm.tgrid(fit, nlev, fit.ncolumn,
+                                        fit.tmaps3d, pmaps,
+                                        fit.cfg.threed.pbot,
+                                        fit.cfg.threed.ptop,
+                                        fit.posterior3d[ipost],
+                                        fit.nparams3d, fit.modeltype3d,
+                                        fit.imodel3d,
+                                        interptype=fit.cfg.threed.interp,
+                                        smooth=fit.cfg.threed.smooth,
+                                        ivis=fit.ivis3d)
 
     lat = fit.lat3d
     lon = fit.lon3d
@@ -955,12 +967,13 @@ def cf_slice(fit, ivis=None, fname=None, outdir=''):
                        vmax=vmax, origin='lower', extent=extent,
                        aspect='auto')
 
-        if ilon is None:
-            ax.plot(fit.lon[latslice],
-                    np.log10(fit.pmaps[i,latslice,lonslice]), color='red')
-        else:
-            ax.plot(fit.lat[:,lonslice],
-                    np.log10(fit.pmaps[i,latslic,lonslice]), color='red')
+        if pmaps is not None:
+            if ilon is None:
+                ax.plot(fit.lon[latslice],
+                        np.log10(fit.pmaps[i,latslice,lonslice]), color='red')
+            else:
+                ax.plot(fit.lat[:,lonslice],
+                        np.log10(fit.pmaps[i,latslic,lonslice]), color='red')
             
         if i == 0:
             ax.set_ylabel('Log(p) (bars)')

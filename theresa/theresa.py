@@ -834,11 +834,11 @@ def map3d(fit, system):
     else:
         print("Something has gone wrong.")
         
-    fit.abnbest, fit.abnspec = atm.atminit(fit.cfg.threed.atmtype,
-                                           allmols, fit.p,
-                                           fit.besttgrid, z, co,
-                                           ivis=fit.ivis3d,
-                                           cheminfo=fit.cheminfo)
+    fit.abnbest, fit.abnspec, _ = atm.atminit(fit.cfg.threed.atmtype,
+                                              allmols, fit.p,
+                                              fit.besttgrid, z, co,
+                                              ivis=fit.ivis3d,
+                                              cheminfo=fit.cheminfo)
                                            
 
     print("Calculating contribution functions.")
@@ -871,7 +871,7 @@ if __name__ == "__main__":
     print("#########################################################")
     print("  ThERESA: Three-dimensional Exoplanet Retrieval from    ")
     print("           Eclipse Spectroscopy of Atmospheres           ")
-    print("  Copyright 2021-2025 Ryan C. Challener & collaborators  ")
+    print("  Copyright 2021-2026 Ryan C. Challener & collaborators  ")
     print("#########################################################")
     
     if len(sys.argv) < 3:

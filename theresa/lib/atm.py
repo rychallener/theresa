@@ -4,13 +4,14 @@ import numpy as np
 import scipy as sp
 import scipy.constants as sc
 import scipy.special as ss
-import constants as c
+import constants
 import utils
 import scipy.interpolate as spi
 import time
 import taurex_ggchem
 import progressbar
 import multiprocessing as mp
+import matplotlib.pyplot as plt
 
 libdir = os.path.dirname(os.path.realpath(__file__))
 moddir = os.path.join(libdir, 'modules')
@@ -63,7 +64,16 @@ def atminit(atmtype, mols, p, t, z, co, ivis=None, cheminfo=None):
 
     spec: list
         Species associated with the abundances in abn
+
+    is_physical: boolean
+        A flag that is used to reject models in MCMC. Generally,
+        this means that a parameter is out of bounds, or has led
+        to an out-of-bounds condition in the precomputed chemistry
+        grid. E.g., the model has produced very high or very low
+        temperatures.
     """
+    is_physical = True
+    
     nlayer, ncolumn = t.shape
 
     if ivis is None:
@@ -114,23 +124,16 @@ def atminit(atmtype, mols, p, t, z, co, ivis=None, cheminfo=None):
                 for k in range(ncolumn):
                     pts = \
                         np.array([(intp, intt, z, co) for (intp, intt) in zip(p, t[:,k])])
-                    abn[s,:,k] = 10**f(pts)
-                # for k in range(nlayer):
-                #     if z in ggchemz:
-                #         iz = np.where(ggchemz == z)
-                #         fcn = spi.interp1d(ggchemT,
-                #                            ggchemabn[s,k,:,iz])
-                #         abn[s,k,ivis] = fcn(t[k,ivis])
-                #     else:
-                #         fcn = spi.interp2d(ggchemz, ggchemT,
-                #                            ggchemabn[s,k])
-                #         abn[s,k,ivis] = fcn(z, t[k,ivis])
+                    try:
+                        abn[s,:,k] = 10**f(pts)
+                    except ValueError:
+                        is_physical = False
 
     else:
         print("Unrecognized atmosphere type.")
         sys.exit()
 
-    return abn, spec
+    return abn, spec, is_physical
 
 def atmsave(r, p, t, abn, spec, outdir, atmfile):
     """
@@ -374,8 +377,8 @@ def calcrad(p, t, mu, r0, mp, p0):
     t0  = interpt( np.log10(p0))
     mu0 = interpmu(np.log10(p0))
 
-    mp *= c.Mjup
-    r0 *= c.Rjup
+    mp *= constants.Mjup
+    r0 *= constants.Rjup
     
     g0 = sc.G * mp / r0**2
 
@@ -401,6 +404,119 @@ def calcrad(p, t, mu, r0, mp, p0):
         g[i] = g[i+1] * r[i+1]**2 / r[i]**2
 
     return r
+        
+def tgrid_gcm(fit, nlayers, ncolumn, pbot, ptop, params, nparams,
+              modeltype, imodel):
+    """
+    Make a 3d grip of temperatures based on Dobbs-Dixon & Blecic 2022,
+    a GCM-motivated temperature structure.
+    """  
+    # Parse out parameters
+    ip = imodel[np.where(modeltype == 'tgrid')[0][0]]
+    Tint, Tirr, loggamma, logkappa, logA1, logA2, logA3, \
+        logsigma1, logsigma2, logsigma3, logc, off2, off3 = \
+        params[ip]
+
+    # A1 is negated because DD&Blecic make it negative
+    gamma = 10**loggamma
+    kappa = 10**logkappa
+    A1, A2, A3 = -10**logA1, 10**logA2, 10**logA3
+    sigma1, sigma2, sigma3 = 10**logsigma1, 10**logsigma2, 10**logsigma3
+    c = 10**logc
+
+    # Preliminary calcs
+    logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
+    p = 10**logp1d
+
+    gravity = sc.G * (fit.cfg.planet.m * constants.Mjup) / \
+        (fit.cfg.planet.r * constants.Rjup)**2
+    gravity *= 100 # convert to cgs
+
+    t4adv = np.zeros((nlayers, ncolumn))
+    t4rad = np.zeros((nlayers, ncolumn))
+
+    # For clarity, let's operate in the coordinates in DD & Blecic 2022
+    lon3d = (np.deg2rad(fit.lon3d) + (2 * np.pi)) % (2 * np.pi)
+    lat3d =  np.deg2rad(fit.lat3d)
+
+    #######################
+    # Radiative Component #
+    #######################
+    fhth = 1. / 3.
+    fkth = 1. / 2.
+    u = np.maximum(np.cos(lon3d) * np.cos(lat3d), np.zeros(len(lon3d)))
+
+    tau = (p * 1e6) * kappa / gravity
+
+    for i in range(ncolumn):
+        t1 = 3 * Tint**4 / 4 * \
+            (1 / (3 * fhth) + tau / (3 * fkth))
+        # Nightside
+        if u[i] == 0.0:
+            t4rad[:,i] = t1
+        # Dayside
+        else:
+            t2 = 3 * Tirr**4 / 4 * \
+                u[i] * (1 / (3 * fhth) + u[i] / (3 * gamma * fkth))
+            t3 = 3 * Tirr**4 / 4 * \
+                u[i] * ((gamma / (3 * u[i]) - u[i] / (3 * gamma * fkth)) * \
+                        np.exp(-gamma * tau / u[i]))
+    
+            t4rad[:,i] = t1 + t2 + t3
+    
+    #######################
+    # Advective Component #
+    #######################
+    # Define segments
+    phi1 = 0.
+    phi2 =     np.pi / 2 + off2
+    phi3 = 3 * np.pi / 2 + off3
+
+    # Define functions
+    def fgamma(p, A, c, sigma):
+        return A * np.exp(-( (np.log10(p) - np.log10(c)) / np.log10(sigma))**2)
+
+    g1 = fgamma(p, A1, c, sigma1)
+    g2 = fgamma(p, A2, c, sigma2)
+    g3 = fgamma(p, A3, c, sigma3)
+
+    def eparab(p, lon):       
+        return (g2 - g1) / (phi2 - phi1)**2 * \
+            (lon - phi1)**2 + g1
+
+    def wparab(p, lon):
+        return (g3 - g1) / (phi3 - 2*np.pi - phi1)**2 * \
+            (lon - 2*np.pi - phi1)**2 + g1
+
+    def lin(p, lon):
+        return (g3 - g2) / (phi2 - phi3) * \
+            (lon - phi3) + g3
+
+    def eerf(p, lon):
+        x = 4 / (phi2 - phi1) * (lon - (phi2 + phi1) / 2)
+        return (g2 + g1) / 2 + (g2 - g1) / 2 * ss.erf(x)
+
+    def werf(p, lon):
+        x = 6 / (phi3 - phi1 - 2*np.pi) * (lon - (2*np.pi + phi3 + phi1) / 2)
+        return (g3 + g2) / 2 + (g3 - g1) / 2 * ss.erf(x)
+        
+    for i in range(ncolumn):
+        lon = lon3d[i]
+        # Segment 1 (east dayside)
+        if (lon >= phi1) and (lon <= phi2):      
+            t4adv[:,i] = (eparab(p, lon) + eerf(p, lon)) / 2
+        # Segment 2 (nightside)
+        elif (lon > phi2) or (lon < phi3):
+            t4adv[:,i] = lin(p, lon)
+        # Segment 3 (west dayside)
+        elif (lon >= phi3) and (lon <= phi1):
+            t4adv[:,i] = (wparab(p, lon) + werf(p, lon)) / 2
+        else:
+            print("Uh oh!")
+
+    temp3d = (t4rad + t4adv)**0.25
+
+    return temp3d, p
         
 
 def tgrid(fit, nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
@@ -467,26 +583,6 @@ def tgrid(fit, nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
         for i in range(ncolumn):
             imin = np.argsort(pmaps[:,i])[0]
             ttopmap[i] = tmaps[:,i][imin]
-        
-    # if 'tbot' in modeltype:
-    #     if 'ttop' in modeltype:
-    #         oob = 'both'
-    #         itop = np.where(modeltype == 'ttop')[0][0]
-    #         ibot = np.where(modeltype == 'tbot')[0][0]
-    #         oobparams = \
-    #             (params[imodel[itop]][0],
-    #              params[imodel[ibot]][0])
-    #     else:
-    #         oob = 'bot'
-    #         ibot = np.where(modeltype == 'tbot')[0][0]
-    #         oobparams = (params[imodel[ibot]])
-    # else:
-    #     if 'ttop' in modeltype3d:
-    #         oob = 'top'
-    #         itop = np.where(modeltype == 'ttop')[0][0]
-    #         oobparams = (params[imodel[ibot]])
-    #     else:
-    #         oob = 'isothermal'
 
     for i in range(ncolumn):
         # Skip columns that aren't visible (avoid errors in case
@@ -508,43 +604,6 @@ def tgrid(fit, nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
         t_interp = np.concatenate(([ttopmap[i]],
                                    t_interp,
                                    [tbotmap[i]]))
-        
-        # if oob == 'isothermal':
-        #     imax = np.argsort(pmaps[:,i])[-1]
-        #     imin = np.argsort(pmaps[:,i])[0]
-        #     p_interp = np.concatenate(([ptop],
-        #                                p_interp,
-        #                                [pbot]))
-        #     t_interp = np.concatenate(((tmaps[:,i][imin],),
-        #                                t_interp,
-        #                                (tmaps[:,i][imax],)))
-        # elif oob == 'top':
-        #     ttop = oobparams[0]
-        #     imax = np.argsort(pmaps[:,i])[-1]
-        #     p_interp = np.concatenate(([ptop],
-        #                                p_interp,
-        #                                [pbot]))
-        #     t_interp = np.concatenate(((ttop,),
-        #                                t_interp,
-        #                                (tmaps[:,i][imax],)))            
-        # elif oob == 'bot':
-        #     tbot = oobparams[0]
-        #     imin = np.argsort(pmaps[:,i])[0]
-        #     p_interp = np.concatenate(([ptop],
-        #                                p_interp,
-        #                                [pbot]))
-        #     t_interp = np.concatenate(((tmaps[:,i][imin],),
-        #                                t_interp,
-        #                                (tbot,)))
-        # elif oob == 'both':
-        #     ttop = oobparams[0]
-        #     tbot = oobparams[1]
-        #     p_interp = np.concatenate(([ptop],
-        #                                p_interp,
-        #                                [pbot]))
-        #     t_interp = np.concatenate(((ttop,),
-        #                                t_interp,
-        #                                (tbot,)))
 
         # One last check that p_interp is increasing. This only does
         # something if the pmaps get outside the normal pressure
@@ -553,8 +612,6 @@ def tgrid(fit, nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
         psort = np.argsort(p_interp)
         p_interp = p_interp[psort]
         t_interp = t_interp[psort]
-        #print(p_interp)
-        #print(t_interp)
 
         # TODO: replace these with RegularGridInterpolator
         if interptype in ['linear', 'cubic']:
