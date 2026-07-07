@@ -268,8 +268,6 @@ def specgrid(params, fit):
         for i in ivis:
             # Check for nonphysical atmosphere and return a bad fit
             # if so
-            # TODO: this should be removable, as it should never happen.
-            #       Same goes for the return below.
             if not np.all(tgrid[:,i] >= 0):
                 msg = "WARNING: Nonphysical TP profile at Lat: {}, Lon: {}"
                 print(msg.format(fit.lat3d[i], fit.lon3d[i]))

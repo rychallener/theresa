@@ -489,7 +489,7 @@ def tgrid_gcm(fit, nlayers, ncolumn, pbot, ptop, params, nparams,
             (lon - 2*np.pi - phi1)**2 + g1
 
     def lin(p, lon):
-        return (g3 - g2) / (phi2 - phi3) * \
+        return (g3 - g2) / (phi3 - phi2) * \
             (lon - phi3) + g3
 
     def eerf(p, lon):
@@ -498,7 +498,7 @@ def tgrid_gcm(fit, nlayers, ncolumn, pbot, ptop, params, nparams,
 
     def werf(p, lon):
         x = 6 / (phi3 - phi1 - 2*np.pi) * (lon - (2*np.pi + phi3 + phi1) / 2)
-        return (g3 + g2) / 2 + (g3 - g1) / 2 * ss.erf(x)
+        return (g3 + g1) / 2 + (g3 - g1) / 2 * ss.erf(x)
         
     for i in range(ncolumn):
         lon = lon3d[i]
