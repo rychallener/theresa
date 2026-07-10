@@ -773,11 +773,12 @@ def tgrid_unc(fit, outdir=''):
     for i in range(ncalc):
         ipost = i * niter // ncalc
         if 'tgcm' in fit.cfg.threed.modelnames:
-            tgrid, p = atm.tgrid_gcm(fit, nlev, fit.ncolumn,
-                                     fit.cfg.threed.pbot, fit.cfg.threed.ptop,
-                                     fit.posterior3d[ipost],
-                                     fit.nparams3d, fit.modeltype3d,
-                                     fit.imodel3d)
+            tgridpost[i], p = atm.tgrid_gcm(fit, nlev,
+                                            fit.cfg.threed.pbot,
+                                            fit.cfg.threed.ptop,
+                                            fit.posterior3d[ipost],
+                                            fit.nparams3d, fit.modeltype3d,
+                                            fit.imodel3d)
             pmaps = None
         else:
             pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
@@ -1178,6 +1179,48 @@ def abundances(fit, outdir=''):
         
     ax.legend()    
     plt.savefig(os.path.join(outdir, 'abundances.png'))
+    plt.close()
+
+def isobars(fit, npanels=5, outdir='.'):
+    lat, lon = np.meshgrid(np.linspace( -90., 90., 181, endpoint=True),
+                           np.linspace(-180, 180., 361, endpoint=True),
+                           indexing='ij')
+
+    lat = lat.flatten()
+    lon = lon.flatten()
+
+    tgrid, p = atm.tgrid_gcm(fit, fit.cfg.threed.nlayers,
+                             fit.cfg.threed.pbot, fit.cfg.threed.ptop,
+                             fit.specbestp, fit.nparams3d, fit.modeltype3d,
+                             fit.imodel3d, lat=lat, lon=lon)
+
+    tgrid = tgrid.reshape((fit.cfg.threed.nlayers, 181, 361))
+
+    fig, axes = plt.subplots(nrows=npanels, ncols=1,
+                             sharex=True, sharey=True)
+
+    fig.set_size_inches((5, 2.5 * npanels))
+
+    vmin = np.nanmin(tgrid)
+    vmax = np.nanmax(tgrid)
+    
+    for iax, ilayer in enumerate(range(0,
+                                       fit.cfg.threed.nlayers,
+                                       fit.cfg.threed.nlayers//npanels)):
+        im = axes[iax].imshow(tgrid[ilayer], extent=(-180, 180, -90, 90),
+                              aspect='equal', cmap='magma', vmin=vmin,
+                              vmax=vmax)
+        axes[iax].set_title(r'$p = {:.2E}$ bar'.format(p[ilayer]))
+
+        axes[iax].scatter(fit.lon3d, fit.lat3d, s=1, color='black')
+
+    for ax in axes:
+        ax.set_ylabel('Latitude (deg)')
+
+    axes[-1].set_xlabel('Longitude (deg)')
+
+    plt.colorbar(im, ax=axes, label='T (K)')
+    plt.savefig(os.path.join(outdir, 'isobars.png'))
     plt.close()
     
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72

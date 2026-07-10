@@ -404,17 +404,29 @@ def calcrad(p, t, mu, r0, mp, p0):
         g[i] = g[i+1] * r[i+1]**2 / r[i]**2
 
     return r
-        
-def tgrid_gcm(fit, nlayers, ncolumn, pbot, ptop, params, nparams,
-              modeltype, imodel):
+
+def fgamma(p, lat, A, c, sigma_p, sigma_lat):
     """
-    Make a 3d grip of temperatures based on Dobbs-Dixon & Blecic 2022,
+    Function used in the DD&B GCM-motivated temperature grid.
+
+    Assumes the jet is centered on the equator (hence the 0 in latG).
+    """   
+    pressG = np.exp(-( (np.log10(p) - np.log10(c)) / np.log10(sigma_p))**2)
+    latG   = np.exp(-( (lat         - 0.         ) /         sigma_lat)**2)
+            
+    return A * pressG * latG
+        
+def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
+              modeltype, imodel, lat=None, lon=None):
+    """
+    Make a 3d grid of temperatures based on Dobbs-Dixon & Blecic 2022,
     a GCM-motivated temperature structure.
     """  
     # Parse out parameters
     ip = imodel[np.where(modeltype == 'tgrid')[0][0]]
     Tint, Tirr, loggamma, logkappa, logA1, logA2, logA3, \
-        logsigma1, logsigma2, logsigma3, logc, off2, off3 = \
+        logsigma1, logsigma2, logsigma3, sigmalat, \
+        logc, off2, off3 = \
         params[ip]
 
     # A1 is negated because DD&Blecic make it negative
@@ -432,12 +444,21 @@ def tgrid_gcm(fit, nlayers, ncolumn, pbot, ptop, params, nparams,
         (fit.cfg.planet.r * constants.Rjup)**2
     gravity *= 100 # convert to cgs
 
+    # For clarity, let's operate in the coordinates in DD & Blecic 2022
+    if (lat is None) and (lon is None):
+        lon3d = (np.deg2rad(fit.lon3d) + (2 * np.pi)) % (2 * np.pi)
+        lat3d =  np.deg2rad(fit.lat3d)
+    else:
+        if len(lon) != len(lat):
+            print('Numbers of longitudes and latitudes must match!')
+            return
+        lon3d = (np.deg2rad(lon) + (2 * np.pi)) % (2 * np.pi)
+        lat3d =  np.deg2rad(lat)
+
+    ncolumn = len(lon3d)
+
     t4adv = np.zeros((nlayers, ncolumn))
     t4rad = np.zeros((nlayers, ncolumn))
-
-    # For clarity, let's operate in the coordinates in DD & Blecic 2022
-    lon3d = (np.deg2rad(fit.lon3d) + (2 * np.pi)) % (2 * np.pi)
-    lat3d =  np.deg2rad(fit.lat3d)
 
     #######################
     # Radiative Component #
@@ -473,44 +494,48 @@ def tgrid_gcm(fit, nlayers, ncolumn, pbot, ptop, params, nparams,
     phi3 = 3 * np.pi / 2 + off3
 
     # Define functions
-    def fgamma(p, A, c, sigma):
-        return A * np.exp(-( (np.log10(p) - np.log10(c)) / np.log10(sigma))**2)
-
-    g1 = fgamma(p, A1, c, sigma1)
-    g2 = fgamma(p, A2, c, sigma2)
-    g3 = fgamma(p, A3, c, sigma3)
-
-    def eparab(p, lon):       
+    def eparab(p, lat, lon):
+        g1 = fgamma(p, lat, A1, c, sigma1, sigmalat)
+        g2 = fgamma(p, lat, A2, c, sigma2, sigmalat)
         return (g2 - g1) / (phi2 - phi1)**2 * \
             (lon - phi1)**2 + g1
 
-    def wparab(p, lon):
+    def wparab(p, lat, lon):
+        g1 = fgamma(p, lat, A1, c, sigma1, sigmalat)
+        g3 = fgamma(p, lat, A3, c, sigma3, sigmalat)
         return (g3 - g1) / (phi3 - 2*np.pi - phi1)**2 * \
             (lon - 2*np.pi - phi1)**2 + g1
 
-    def lin(p, lon):
+    def lin(p, lat, lon):
+        g2 = fgamma(p, lat, A2, c, sigma2, sigmalat)
+        g3 = fgamma(p, lat, A3, c, sigma3, sigmalat)
         return (g3 - g2) / (phi3 - phi2) * \
             (lon - phi3) + g3
 
-    def eerf(p, lon):
+    def eerf(p, lat, lon):
+        g1 = fgamma(p, lat, A1, c, sigma1, sigmalat)
+        g2 = fgamma(p, lat, A2, c, sigma2, sigmalat)
         x = 4 / (phi2 - phi1) * (lon - (phi2 + phi1) / 2)
         return (g2 + g1) / 2 + (g2 - g1) / 2 * ss.erf(x)
 
-    def werf(p, lon):
+    def werf(p, lat, lon):
+        g1 = fgamma(p, lat, A1, c, sigma1, sigmalat)
+        g3 = fgamma(p, lat, A3, c, sigma3, sigmalat)
         x = 6 / (phi3 - phi1 - 2*np.pi) * (lon - (2*np.pi + phi3 + phi1) / 2)
         return (g3 + g1) / 2 + (g3 - g1) / 2 * ss.erf(x)
         
     for i in range(ncolumn):
         lon = lon3d[i]
+        lat = lat3d[i]
         # Segment 1 (east dayside)
         if (lon >= phi1) and (lon <= phi2):      
-            t4adv[:,i] = (eparab(p, lon) + eerf(p, lon)) / 2
+            t4adv[:,i] = (eparab(p, lat, lon) + eerf(p, lat, lon)) / 2
         # Segment 2 (nightside)
         elif (lon > phi2) or (lon < phi3):
-            t4adv[:,i] = lin(p, lon)
+            t4adv[:,i] = lin(p, lat, lon)
         # Segment 3 (west dayside)
         elif (lon >= phi3) and (lon <= phi1):
-            t4adv[:,i] = (wparab(p, lon) + werf(p, lon)) / 2
+            t4adv[:,i] = (wparab(p, lat, lon) + werf(p, lat, lon)) / 2
         else:
             print("Uh oh!")
 

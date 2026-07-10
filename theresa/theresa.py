@@ -861,6 +861,9 @@ def map3d(fit, system):
         plots.spectra(fit, outdir=outdir)
         plots.spatialsampling(fit, outdir=outdir)
         plots.abundances(fit, outdir=outdir)
+        # TODO: generalize this plot for all temperature structures
+        if 'tgcm' in fit.cfg.threed.modelnames:
+            plots.isobars(fit, outdir=outdir)
 
     # There actually aren't any of these at the moment
     if cfg.threed.animations:

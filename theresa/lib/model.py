@@ -187,7 +187,7 @@ def specgrid(params, fit):
     #       of identifying which type of temperature grid we're using.
     #       (i.e., not defaulting back to the OG parameterization)
     if 'tgcm' in fit.cfg.threed.modelnames:
-        tgrid, p = atm.tgrid_gcm(fit, cfg.threed.nlayers, fit.ncolumn,
+        tgrid, p = atm.tgrid_gcm(fit, cfg.threed.nlayers,
                                  cfg.threed.pbot, cfg.threed.ptop,
                                  params, fit.nparams3d, fit.modeltype3d,
                                  fit.imodel3d)
@@ -805,12 +805,15 @@ def get_par_3d(fit):
             allpstep.append(pstep)
             allpnames.append(pnames)
         elif mname == 'tgcm':
-            npar = 13
-            par    = [100.,    1500.,         -2.0,            -3.0,      12.0,      13.0,      13.0,        -5.0,        -5.0,        -5.0,      -2.0,      0.0,      0.0]
-            pstep  = [  1.,       1.,          0.1,             0.1,       1.0,       1.0,       1.0,         0.1,         0.1,         0.1,       0.1,      0.1,      0.1]
-            pmin   = [  0.,     200.,         -7.0,            -7.0,       5.0,       5.0,       5.0,       -10.0,       -10.0,       -10.0,     -10.0, -np.pi/4, -np.pi/4]
-            pmax   = [800.,    4000.,          1.0,             1.0,      15.0,      15.0,      15.0,        -0.1,        -0.1,        -0.1,       2.0,  np.pi/4,  np.pi/4]
-            pnames = ['Tint', 'Tirr', 'log(gamma)', 'log(kappa_IR)', '-log(A1)', 'log(A2)', 'log(A3)', 'log(sig1)', 'log(sig2)', 'log(sig3)', 'log(c)',   'phi2',   'phi3']
+            npar = 14
+            Rs = fit.cfg.star.r * c.Rsun
+            a  = fit.cfg.planet.a * 1.496e11
+            tirr = 2**0.5 * fit.cfg.star.t * (Rs / (2 * a))**0.5
+            par    = [100.,     tirr,         -2.0,            -3.0,      12.0,      13.0,      13.0,         5.0,         5.0,         5.0,    np.pi/4,     -2.0,      0.0,      0.0]
+            pstep  = [  1.,       1.,          0.1,             0.1,       1.0,       1.0,       1.0,         0.1,         0.1,         0.1,        0.1,      0.1,      0.1,      0.1]
+            pmin   = [  0.,     200.,         -7.0,            -7.0,       5.0,       5.0,       5.0,        0.01,        0.01,        0.01,        0.1,     -5.0, -np.pi/4, -np.pi/4]
+            pmax   = [800.,    4000.,          1.0,             1.0,      15.0,      15.0,      15.0,        10.0,        10.0,        10.0,    np.pi/2,      2.0,  np.pi/4,  np.pi/4]
+            pnames = ['Tint', 'Tirr', 'log(gamma)', 'log(kappa_IR)', '-log(A1)', 'log(A2)', 'log(A3)', 'log(sig1)', 'log(sig2)', 'log(sig3)', 'sig_lat', 'log(c)',   'phi2',   'phi3']
             modeltype.append('tgrid')
             nparams[im] = npar
             allparams.append(par)
@@ -825,7 +828,7 @@ def get_par_3d(fit):
             pstep  = [ 0.1]
             pmin   = [fit.cfg.threed.zmin]
             pmax   = [fit.cfg.threed.zmax]
-            pnames = ['z']
+            pnames = ['log z']
             modeltype.append('z')
             nparams[im] = npar
             allparams.append(par)
@@ -839,7 +842,7 @@ def get_par_3d(fit):
             pstep  = [0.1]
             pmin   = [fit.cfg.threed.comin]
             pmax   = [fit.cfg.threed.comax]
-            pnames = ['C/O']
+            pnames = ['log C/O']
             modeltype.append('c/o')
             nparams[im] = npar
             allparams.append(par)
