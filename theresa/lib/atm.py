@@ -41,10 +41,10 @@ def atminit(atmtype, mols, p, t, z, co, ivis=None, cheminfo=None):
         Temperature array, of size (nlayers, ncolumns)
 
     z: float
-        Metallicity. E.g., z=0 is solar.
+        log(Metallicity) relative to the Sun. E.g., z=0 is solar.
 
     co: float
-        Carbon-to-oxygen ratio.
+        log(carbon-to-oxygen ratio).
 
     ivis: 1d array
         Optional array of indices where atmosphere should 
@@ -531,10 +531,10 @@ def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
         if (lon >= phi1) and (lon <= phi2):      
             t4adv[:,i] = (eparab(p, lat, lon) + eerf(p, lat, lon)) / 2
         # Segment 2 (nightside)
-        elif (lon > phi2) or (lon < phi3):
+        elif (lon > phi2) and (lon < phi3):
             t4adv[:,i] = lin(p, lat, lon)
         # Segment 3 (west dayside)
-        elif (lon >= phi3) and (lon <= phi1):
+        elif (lon >= phi3) and (lon <= (phi1 + 2 * np.pi)):
             t4adv[:,i] = (wparab(p, lat, lon) + werf(p, lat, lon)) / 2
         else:
             print("Uh oh!")

@@ -1199,7 +1199,7 @@ def isobars(fit, npanels=5, outdir='.'):
     fig, axes = plt.subplots(nrows=npanels, ncols=1,
                              sharex=True, sharey=True)
 
-    fig.set_size_inches((5, 2.5 * npanels))
+    fig.set_size_inches((5, 2. * npanels))
 
     vmin = np.nanmin(tgrid)
     vmax = np.nanmax(tgrid)
