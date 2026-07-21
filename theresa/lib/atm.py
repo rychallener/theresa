@@ -426,7 +426,7 @@ def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
     ip = imodel[np.where(modeltype == 'tgrid')[0][0]]
     Tint, Tirr, loggamma, logkappa, logA1, logA2, logA3, \
         logsigma1, logsigma2, logsigma3, sigmalat, \
-        logc, off2, off3 = \
+        logc, off1, off2, off3 = \
         params[ip]
 
     # A1 is negated because DD&Blecic make it negative
@@ -489,7 +489,7 @@ def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
     # Advective Component #
     #######################
     # Define segments
-    phi1 = 0.
+    phi1 = 0.            + off1
     phi2 =     np.pi / 2 + off2
     phi3 = 3 * np.pi / 2 + off3
 
@@ -528,15 +528,27 @@ def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
         lon = lon3d[i]
         lat = lat3d[i]
         # Segment 1 (east dayside)
-        if (lon >= phi1) and (lon <= phi2):      
-            t4adv[:,i] = (eparab(p, lat, lon) + eerf(p, lat, lon)) / 2
+        # Second if handles cases where phi1 < 0
+        if (lon >= phi1 and lon <= phi2):
+            t4adv[:,i] = (eparab(p, lat, lon) \
+                          + eerf(p, lat, lon)) / 2
+        elif (lon >= phi1 + 2 * np.pi):
+            t4adv[:,i] = (eparab(p, lat, lon - 2*np.pi) \
+                          + eerf(p, lat, lon-2*np.pi)) / 2
         # Segment 2 (nightside)
         elif (lon > phi2) and (lon < phi3):
             t4adv[:,i] = lin(p, lat, lon)
         # Segment 3 (west dayside)
-        elif (lon >= phi3) and (lon <= (phi1 + 2 * np.pi)):
-            t4adv[:,i] = (wparab(p, lat, lon) + werf(p, lat, lon)) / 2
+        # Second if handles cases where phi1 > 0
+        elif (lon >= phi3 and lon < (phi1 + 2 * np.pi)): 
+            t4adv[:,i] = (wparab(p, lat, lon) \
+                          + werf(p, lat, lon)) / 2
+        elif (lon < phi1):
+            t4adv[:,i] = (wparab(p, lat, lon + 2*np.pi) \
+                          + werf(p, lat, lon + 2*np.pi)) / 2
         else:
+            print(lat, lon)
+            print(phi1, phi2, phi3)
             print("Uh oh!")
 
     temp3d = (t4rad + t4adv)**0.25

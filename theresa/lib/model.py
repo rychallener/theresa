@@ -805,15 +805,15 @@ def get_par_3d(fit):
             allpstep.append(pstep)
             allpnames.append(pnames)
         elif mname == 'tgcm':
-            npar = 14
+            npar = 15
             Rs = fit.cfg.star.r * c.Rsun
             a  = fit.cfg.planet.a * 1.496e11
             tirr = 2**0.5 * fit.cfg.star.t * (Rs / (2 * a))**0.5
-            par    = [100.,     tirr,         -2.0,            -3.0,      12.0,      13.0,      13.0,         5.0,         5.0,         5.0,    np.pi/4,     -2.0,      0.0,      0.0]
-            pstep  = [  1.,       1.,          0.1,             0.1,       1.0,       1.0,       1.0,         0.1,         0.1,         0.1,        0.1,      0.1,      0.1,      0.1]
-            pmin   = [  0.,     200.,         -7.0,            -7.0,       5.0,       5.0,       5.0,        0.01,        0.01,        0.01,        0.1,     -5.0, -np.pi/4, -np.pi/4]
-            pmax   = [800.,    4000.,          1.0,             1.0,      15.0,      15.0,      15.0,        10.0,        10.0,        10.0,    np.pi/2,      2.0,  np.pi/4,  np.pi/4]
-            pnames = ['Tint', 'Tirr', 'log(gamma)', 'log(kappa_IR)', '-log(A1)', 'log(A2)', 'log(A3)', 'log(sig1)', 'log(sig2)', 'log(sig3)', 'sig_lat', 'log(c)',   'phi2',   'phi3']
+            par    = [100.,     tirr,         -2.0,            -3.0,      12.0,      13.0,      13.0,         5.0,         5.0,         5.0,    np.pi/4,     -2.0,      0.0,      0.0,      0.0]
+            pstep  = [  1.,       1.,          0.1,             0.1,       1.0,       1.0,       1.0,         0.1,         0.1,         0.1,        0.1,      0.1,      0.1,      0.1,      0.1]
+            pmin   = [  0.,     200.,         -7.0,            -7.0,       5.0,       5.0,       5.0,        0.01,        0.01,        0.01,        0.1,     -5.0, -np.pi/4, -np.pi/4, -np.pi/4]
+            pmax   = [800.,    4000.,          1.0,             1.0,      15.0,      15.0,      15.0,        10.0,        10.0,        10.0,    np.pi/2,      2.0,  np.pi/4,  np.pi/4,  np.pi/4]
+            pnames = ['Tint', 'Tirr', 'log(gamma)', 'log(kappa_IR)', '-log(A1)', 'log(A2)', 'log(A3)', 'log(sig1)', 'log(sig2)', 'log(sig3)', 'sig_lat', 'log(c)',   'phi1',   'phi2',   'phi3']
             modeltype.append('tgrid')
             nparams[im] = npar
             allparams.append(par)
