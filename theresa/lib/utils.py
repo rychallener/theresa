@@ -9,19 +9,24 @@ import eigen
 import progressbar
 import mc3.stats as ms
 from numba import njit
+import matplotlib.pyplot as plt
 import jax
 from jaxoplanet_logger import get_logger
 
-import jaxoplanet.starry.orbit     as orbit
-import jaxoplanet.starry.surface   as surface
-import jaxoplanet.starry.ylm       as ylm
-import jaxoplanet.orbits.keplerian as keplerian
+import jaxoplanet.starry.core                as core
+import jaxoplanet.starry.orbit               as orbit
+import jaxoplanet.starry.surface             as surface
+import jaxoplanet.starry.ylm                 as ylm
+import jaxoplanet.orbits.keplerian           as keplerian
+import jaxoplanet.starry.light_curves        as light_curves
+import jaxoplanet.starry.core.s2fft_rotation as s2fft_rotation
+import jaxoplanet.starry.core.rotation       as rotation
 import jaxoplanet.starry.surface_is_physical as surface_is_physical
 
 def initsystem(fit, ydeg, y=None):
     '''
     Uses a fit object to build the respective jaxoplanet objects. Useful
-    because starry objects cannot be pickled. Returns a tuple of
+    because objects cannot be pickled. Returns a tuple of
     (star, planet, system).
     '''
     
@@ -214,7 +219,147 @@ def readfilters(filterfiles):
 
     return filtwl_list, filtwn_list, filttrans_list, wnmid, wlmid
 
-def visibility(fit, t, x, y, z, lmax):
+def visibility(fit, d, lmax, sampling='Mollweide'):
+    """
+    Calculate the visibility of a grid of cells on a planet for
+    a series of times using the design matrix and pixel transform.
+    """
+    t, x, y, z = d.t, d.x, d.y, d.z
+
+    Nt = len(t)
+
+    # Determine spatial sampling
+    # Might be better to have user supply lat/lon (e.g., through
+    # calling a different function) rather than compute them here.
+    # Mollweide adapted from starry
+    if sampling == 'Mollweide':
+        npix = fit.cfg.threed.oversample * (lmax + 1)**2
+
+        Ny = int(np.sqrt(npix * np.pi / 4.0))
+        Nx = 2 * Ny
+
+        y, x = np.meshgrid(
+            np.sqrt(2) * np.linspace(-1, 1, Ny),
+            2 * np.sqrt(2) * np.linspace(-1, 1, Nx),
+        )
+        x = x.flatten()
+        y = y.flatten()
+
+        # Remove off-grid points
+        a = np.sqrt(2)
+        b = 2 * np.sqrt(2)
+        idx = (y / a) ** 2 + (x / b) ** 2 <= 1
+        y = y[idx]
+        x = x[idx]
+
+        # https://en.wikipedia.org/wiki/Mollweide_projection
+        theta = np.arcsin(y / np.sqrt(2))
+        lat = np.arcsin((2 * theta + np.sin(2 * theta)) / np.pi)
+        lon0 = 3 * np.pi / 2
+        lon = lon0 + np.pi * x / (2 * np.sqrt(2) * np.cos(theta))
+
+        # Add points at the poles
+        lat = np.append(lat, [-np.pi / 2, np.pi / 2])
+        lon = np.append(
+            lon, [1.5 * np.pi, 1.5 * np.pi]
+        )
+        npix = len(lat)
+
+        # Back to Cartesian, this time on the *sky*
+        x = np.reshape(np.cos(lat) * np.sin(lon), [1, -1])
+        y = np.reshape(np.sin(lat), [1, -1])
+        z = np.reshape(np.cos(lat) * np.cos(lon), [1, -1])
+
+        x = x.reshape(-1)
+        y = y.reshape(-1)
+        z = z.reshape(-1)
+
+        # Flatten and fix the longitude offset, then sort by latitude
+        lat = lat.reshape(-1)
+        lon = (lon - 1.5 * np.pi).reshape(-1)
+        idx = np.lexsort([lon, lat])
+        lat = lat[idx]
+        lon = lon[idx]
+        x = x[idx]
+        y = y[idx]
+        z = z[idx]
+
+    else:
+        print("Unrecognized spatial sampling mode.")
+        sys.exit()
+
+    def calcflux(y):
+        star, planet, system = initsystem(fit, lmax, y=y)
+        lcfun = light_curves.light_curve(system, order=100)
+        sflux, pflux = lcfun(t).T
+        return sflux, pflux
+
+    j_calcflux = jax.jit(calcflux)
+    
+    # Design matrix
+    # Done manually. Would be nice if jaxoplanet had a function for this.
+    Ny = (lmax+1)**2
+    A = np.zeros((Nt, Ny))
+    for i in range(Ny):
+        yval = np.zeros(Ny + 1)
+        
+        yval[0] = 1.0
+        yval[i] = 1.0
+
+        sflux, A[:,i] = j_calcflux(yval)
+        if i > 0:
+            A[:,i] -= d.pflux_y00
+
+    # Pixel transforms
+    # Note: 'RV' is forced to False
+    star, planet, system = initsystem(fit, lmax)
+    pT = planet._poly_basis(False)(x, y, z)[:,:(lmax+1)**2]
+    A1 = core.basis.A1(lmax)
+
+    # Rotation - sky projection
+    axis_x, axis_y, axis_z, angle = rotation.sky_projection_axis_angle(
+        planet.inc, planet.obl)
+    rotation_matrices = s2fft_rotation.compute_rotation_matrices(
+        lmax, axis_x, axis_y, axis_z, angle)
+    R1 = np.zeros((Ny, Ny))
+    for l in range(lmax+1):
+        R1[l*l:l*l+2*l+1,l*l:l*l+2*l+1] = rotation_matrices[l]
+
+    # Rotation - undo inclination
+    rotation_matrices = s2fft_rotation.compute_rotation_matrices(
+        lmax, 1.0, 0.0, 0.0, -np.pi/2)
+    R2 = np.zeros((Ny, Ny))
+    for l in range(lmax+1):
+        R2[l*l:l*l+2*l+1,l*l:l*l+2*l+1] = rotation_matrices[l]
+
+    # Rotation - mystery 3rd rotation?? Jaxoplanet convention, maybe?
+    # If you, dear reader, know why this is necessary, I'll buy you
+    # a drink.
+    rotation_matrices = s2fft_rotation.compute_rotation_matrices(
+        lmax, 0.0, 1.0, 0.0, -np.pi/2)
+    R3 = np.zeros((Ny, Ny))
+    for l in range(lmax+1):
+        R3[l*l:l*l+2*l+1,l*l:l*l+2*l+1] = rotation_matrices[l]
+        
+    plt.imshow(R2, interpolation='none')
+    plt.show()
+    plt.imshow(R1, interpolation='none')
+    plt.show()
+
+    Y2P = pT @ A1 @ R3 @ R2 @ R1
+
+    lam = 1e-12
+    P2Y = np.linalg.solve(Y2P.T.dot(Y2P) + lam * np.eye(Ny), Y2P.T)
+
+    # Calculate visibility function
+    vis = A @ P2Y
+
+    # Get to the same units as the old visiblity function for simplicity
+    vis /= np.pi
+    
+    return vis, lat, lon
+
+def visibility_starry(fit, t, x, y, z, lmax):
     """
     Calculate the visibility of a grid of cells on a planet for
     a series of times using starry's design matrices to do this
