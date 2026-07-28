@@ -513,7 +513,7 @@ def map3d(fit, system):
     for d in fit.datasets:
         print(d.name)
         d.vis, d.lat3d, d.lon3d = utils.visibility(
-            fit, d.t, d.x, d.y, d.z, vis_lmax)
+            fit, d, vis_lmax)
 
     # These are the same for all datasets
     fit.lat3d = fit.datasets[0].lat3d
@@ -535,6 +535,7 @@ def map3d(fit, system):
         totvisbool = np.logical_or(totvisbool, visbool)
         
     fit.ivis3d = np.arange(0, fit.ncolumn)[totvisbool]
+    print(fit.ivis3d)
 
     # Make a single array of tmaps on the 3D grid
     fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
@@ -557,14 +558,9 @@ def map3d(fit, system):
             swl    = fit.starwl
             sspec  = fit.starflux
             ln = getattr(m, 'l{}n{}'.format(m.bestln.lmax, ncurves3d))
-            fmap, tmap = eigen.mkmaps(planet, ln.eigeny,
-                                      ln.bestp,
-                                      ncurves3d, m.wlmid,
-                                      cfg.star.r, cfg.planet.r,
-                                      cfg.star.t, fit.lat3d, fit.lon3d,
-                                      starspec=cfg.star.starspec,
-                                      fwl=fwl, ftrans=ftrans, swl=swl,
-                                      sspec=sspec)
+            fmap, tmap = eigen.mkmaps(fit, m, ln, ln.bestp,
+                                      lat=fit.lat3d,
+                                      lon=fit.lon3d)
             
             fit.tmaps3d[imap] = tmap
             fit.fmaps3d[imap] = fmap
@@ -892,7 +888,7 @@ if __name__ == "__main__":
         # 3D mapping doesn't care about the degree of harmonics, so
         # just use 1
         star, planet, system = utils.initsystem(fit, 1)
-        # map3d(fit, system)
+        map3d(fit, system)
     else:
         print("ERROR: Unrecognized mode. Options are <2d, 3d>.")
         

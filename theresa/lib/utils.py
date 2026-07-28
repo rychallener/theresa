@@ -325,7 +325,7 @@ def visibility(fit, d, lmax, sampling='Mollweide'):
     for l in range(lmax+1):
         R1[l*l:l*l+2*l+1,l*l:l*l+2*l+1] = rotation_matrices[l]
 
-    # Rotation - undo inclination
+    # Rotation - inclination convention
     rotation_matrices = s2fft_rotation.compute_rotation_matrices(
         lmax, 1.0, 0.0, 0.0, -np.pi/2)
     R2 = np.zeros((Ny, Ny))
@@ -336,15 +336,11 @@ def visibility(fit, d, lmax, sampling='Mollweide'):
     # If you, dear reader, know why this is necessary, I'll buy you
     # a drink.
     rotation_matrices = s2fft_rotation.compute_rotation_matrices(
-        lmax, 0.0, 1.0, 0.0, -np.pi/2)
+        lmax, 0.0, 1.0, 0.0, -np.pi)
     R3 = np.zeros((Ny, Ny))
     for l in range(lmax+1):
         R3[l*l:l*l+2*l+1,l*l:l*l+2*l+1] = rotation_matrices[l]
-        
-    plt.imshow(R2, interpolation='none')
-    plt.show()
-    plt.imshow(R1, interpolation='none')
-    plt.show()
+    #R3 = np.eye(Ny)
 
     Y2P = pT @ A1 @ R3 @ R2 @ R1
 
@@ -356,6 +352,9 @@ def visibility(fit, d, lmax, sampling='Mollweide'):
 
     # Get to the same units as the old visiblity function for simplicity
     vis /= np.pi
+
+    lat = np.rad2deg(lat)
+    lon = np.rad2deg(lon)
     
     return vis, lat, lon
 

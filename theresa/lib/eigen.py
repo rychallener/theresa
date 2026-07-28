@@ -118,7 +118,7 @@ def mkcurves(fit, d, lmax, ncurves=None, method='pca',
 
     return eigeny, evalues, evectors, proj, lcs
 
-def mkmaps(fit, m, ln, params):
+def mkmaps(fit, m, ln, params, lat=None, lon=None):
     """
     Calculate flux map and brightness temperature map from
     a single 2D map fit. Note that this function is simple and not
@@ -141,6 +141,14 @@ def mkmaps(fit, m, ln, params):
         A set of parameters appropriate for the given LN object. For
         example, the parameters of the best-fitting model.
 
+    lat: array
+        Latitudes at which to calculate the maps. Must also specify lon.
+        Defaults to fit.lat.
+
+    lon: array
+        Longitudes at which to calculate the maps. Must also specify lat.
+        Defaults to fit.lon.
+
     Returns
     -------
     fmap: 1D/2D array
@@ -150,8 +158,12 @@ def mkmaps(fit, m, ln, params):
     tmap: 1D/2D array
         Same as fmap but for brightness temperature.
     """
-    fmap = np.zeros(fit.lat.shape) # flux maps
-    tmap = np.zeros(fit.lat.shape) # temp maps
+    if lat is None and lon is None:
+        lat = fit.lat
+        lon = fit.lon
+        
+    fmap = np.zeros(lat.shape) # flux maps
+    tmap = np.zeros(lat.shape) # temp maps
 
     yval = np.zeros((ln.lmax+1)**2)
     yval[0] = 1.0
@@ -162,8 +174,8 @@ def mkmaps(fit, m, ln, params):
     star, planet, system = utils.initsystem(fit, ln.lmax, y=yval)
 
     # Non-uniform components
-    fmap = planet.intensity(np.deg2rad(fit.lat),
-                            np.deg2rad(fit.lon))
+    fmap = planet.intensity(np.deg2rad(lat),
+                            np.deg2rad(lon))
 
     # Fitted uniform component (-1 to remove default uniform
     # component). We could calculate this with a jaxoplanet object,
