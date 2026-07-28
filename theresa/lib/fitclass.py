@@ -5,8 +5,6 @@ import pickle
 import configparser as cp
 from lib import configclass as cc
 import scipy.constants as sc
-
-# Import constants from utils - avoid full utils import to prevent theano dependency
 from lib import constants as c
 
 class Fit:

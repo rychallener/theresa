@@ -8,7 +8,7 @@ import constants
 import utils
 import scipy.interpolate as spi
 import time
-#import taurex_ggchem
+import taurex_ggchem
 import progressbar
 import multiprocessing as mp
 import matplotlib.pyplot as plt

@@ -3,9 +3,6 @@ import jax
 import pca
 import time
 import utils
-#import starry
-#import theano
-#import theano.tensor as tt
 import scipy.constants as sc
 import jaxoplanet.starry.light_curves as light_curves
 

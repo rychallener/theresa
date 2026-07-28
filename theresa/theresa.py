@@ -15,22 +15,22 @@ import matplotlib.pyplot as plt
 import jaxoplanet.starry.light_curves as light_curves
 
 # Taurex imports
-#import taurex
-#from taurex import chemistry
-#from taurex import planet
-#from taurex import stellar
-#from taurex import model
-#from taurex import pressure
-#from taurex import temperature
-#from taurex import cache
-#from taurex import contributions
-#from taurex import optimizer
+import taurex
+from taurex import chemistry
+from taurex import planet
+from taurex import stellar
+from taurex import model
+from taurex import pressure
+from taurex import temperature
+from taurex import cache
+from taurex import contributions
+from taurex import optimizer
 # This import is explicit because it's not included in taurex.temperature. Bug?
-#from taurex.data.profiles.temperature.temparray import TemperatureArray
+from taurex.data.profiles.temperature.temparray import TemperatureArray
 
 # Taurex is a bit...talkative
-#import taurex.log
-#taurex.log.disableLogging()
+import taurex.log
+taurex.log.disableLogging()
 
 # Directory structure
 maindir    = os.path.dirname(os.path.realpath(__file__))
