@@ -78,13 +78,6 @@ def mkcurves(fit, d, lmax, ncurves=None, method='pca',
             sflux, lcs[ilc] = j_calcflux(y)
             lcs[ilc] -= d.pflux_y00
 
-            # Set this specific harmonic to -1.0
-            # (Why do we bother with this? Just negate the previous one.)
-            #y[1 + ilc // 2] = -1.0
-            #star, planet, system = utils.initsystem(fit, lmax, y=y)
-            #lcfun = light_curves.light_curve(system, order=1000)
-            #sflux, lcs[ilc+1] = lcfun(d.t).T
-
             # Insert negated version of the harmonic
             lcs[ilc+1] = -1 * np.copy(lcs[ilc])
             ilc += 2
