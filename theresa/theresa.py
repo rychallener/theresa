@@ -6,7 +6,6 @@ import sys
 import mc3
 import jax
 import pickle
-#import starry
 import shutil
 import subprocess
 import progressbar
