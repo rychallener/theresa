@@ -187,10 +187,13 @@ def specgrid(params, fit):
     #       of identifying which type of temperature grid we're using.
     #       (i.e., not defaulting back to the OG parameterization)
     if 'tgcm' in fit.cfg.threed.modelnames:
-        tgrid, p = atm.tgrid_gcm(fit, cfg.threed.nlayers,
-                                 cfg.threed.pbot, cfg.threed.ptop,
-                                 params, fit.nparams3d, fit.modeltype3d,
-                                 fit.imodel3d)
+        tgrid, p, t4rad, t4adv = atm.tgrid_gcm(fit,
+                                               cfg.threed.nlayers,
+                                               cfg.threed.pbot,
+                                               cfg.threed.ptop,
+                                               params, fit.nparams3d,
+                                               fit.modeltype3d,
+                                               fit.imodel3d)
         pmaps = None
     else:
         pmaps = atm.pmaps(params, fit)
@@ -199,7 +202,8 @@ def specgrid(params, fit):
                              cfg.threed.ptop, params, fit.nparams3d,
                              fit.modeltype3d, fit.imodel3d,
                              interptype=cfg.threed.interp,
-                             smooth=cfg.threed.smooth, ivis=fit.ivis3d)
+                             smooth=cfg.threed.smooth,
+                             ivis=fit.ivis3d)
     
     if cfg.threed.z == 'fit':
         izmodel = np.where(fit.modeltype3d == 'z')[0][0]
@@ -442,6 +446,7 @@ def mcmc_wrapper(params, fit):
     
     else:
         print("Model Evaluation: {} s".format(time.time() - tic))
+
         return systemflux
 
 def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):

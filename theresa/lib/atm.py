@@ -528,18 +528,20 @@ def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
         lon = lon3d[i]
         lat = lat3d[i]
         # Segment 1 (east dayside)
-        # Second if handles cases where phi1 < 0
+        # Second if handles cases where phi1 < 0 s.t. lon is large
+        # but still in this segment
         if (lon >= phi1 and lon <= phi2):
             t4adv[:,i] = (eparab(p, lat, lon) \
                           + eerf(p, lat, lon)) / 2
         elif (lon >= phi1 + 2 * np.pi):
             t4adv[:,i] = (eparab(p, lat, lon - 2*np.pi) \
-                          + eerf(p, lat, lon-2*np.pi)) / 2
+                          + eerf(p, lat, lon - 2*np.pi)) / 2
         # Segment 2 (nightside)
         elif (lon > phi2) and (lon < phi3):
             t4adv[:,i] = lin(p, lat, lon)
         # Segment 3 (west dayside)
-        # Second if handles cases where phi1 > 0
+        # Second if handles cases where phi1 > 0 s.t. lon is small
+        # but still in this segment
         elif (lon >= phi3 and lon < (phi1 + 2 * np.pi)): 
             t4adv[:,i] = (wparab(p, lat, lon) \
                           + werf(p, lat, lon)) / 2
@@ -553,7 +555,7 @@ def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
 
     temp3d = (t4rad + t4adv)**0.25
 
-    return temp3d, p
+    return temp3d, p, t4rad, t4adv
         
 
 def tgrid(fit, nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,

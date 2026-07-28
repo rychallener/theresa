@@ -717,7 +717,7 @@ def map3d(fit, system):
             resume = True
         else:
             resume = False
-
+            
         out = mc3.sample(data=mc3data, uncert=mc3uncert,
                          func=model.mcmc_wrapper,
                          nsamples=cfg.threed.nsamples,
@@ -864,6 +864,7 @@ def map3d(fit, system):
         # TODO: generalize this plot for all temperature structures
         if 'tgcm' in fit.cfg.threed.modelnames:
             plots.isobars(fit, outdir=outdir)
+            plots.radadv(fit, outdir=outdir)
 
     # There actually aren't any of these at the moment
     if cfg.threed.animations:

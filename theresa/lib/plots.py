@@ -773,12 +773,13 @@ def tgrid_unc(fit, outdir=''):
     for i in range(ncalc):
         ipost = i * niter // ncalc
         if 'tgcm' in fit.cfg.threed.modelnames:
-            tgridpost[i], p = atm.tgrid_gcm(fit, nlev,
-                                            fit.cfg.threed.pbot,
-                                            fit.cfg.threed.ptop,
-                                            fit.posterior3d[ipost],
-                                            fit.nparams3d, fit.modeltype3d,
-                                            fit.imodel3d)
+            tgridpost[i], p, _, _ = atm.tgrid_gcm(fit, nlev,
+                                                  fit.cfg.threed.pbot,
+                                                  fit.cfg.threed.ptop,
+                                                  fit.posterior3d[ipost],
+                                                  fit.nparams3d,
+                                                  fit.modeltype3d,
+                                                  fit.imodel3d)
             pmaps = None
         else:
             pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
@@ -1189,10 +1190,15 @@ def isobars(fit, npanels=5, outdir='.'):
     lat = lat.flatten()
     lon = lon.flatten()
 
-    tgrid, p = atm.tgrid_gcm(fit, fit.cfg.threed.nlayers,
-                             fit.cfg.threed.pbot, fit.cfg.threed.ptop,
-                             fit.specbestp, fit.nparams3d, fit.modeltype3d,
-                             fit.imodel3d, lat=lat, lon=lon)
+    tgrid, p, t4rad, t4adv = atm.tgrid_gcm(fit,
+                                           fit.cfg.threed.nlayers,
+                                           fit.cfg.threed.pbot,
+                                           fit.cfg.threed.ptop,
+                                           fit.specbestp,
+                                           fit.nparams3d,
+                                           fit.modeltype3d,
+                                           fit.imodel3d, lat=lat,
+                                           lon=lon)
 
     tgrid = tgrid.reshape((fit.cfg.threed.nlayers, 181, 361))
 
@@ -1221,6 +1227,76 @@ def isobars(fit, npanels=5, outdir='.'):
 
     plt.colorbar(im, ax=axes, label='T (K)')
     plt.savefig(os.path.join(outdir, 'isobars.png'))
+    plt.close()
+
+def radadv(fit, outdir='.'):
+    lat, lon = np.meshgrid(np.linspace( -90., 90., 181, endpoint=True),
+                           np.linspace(-180, 180., 361, endpoint=True),
+                           indexing='ij')
+
+    lat = lat.flatten()
+    lon = lon.flatten()
+
+    tgrid, p, t4rad, t4adv = atm.tgrid_gcm(fit,
+                                           fit.cfg.threed.nlayers,
+                                           fit.cfg.threed.pbot,
+                                           fit.cfg.threed.ptop,
+                                           fit.specbestp,
+                                           fit.nparams3d,
+                                           fit.modeltype3d,
+                                           fit.imodel3d, lat=lat,
+                                           lon=lon)
+
+    t4rad = t4rad.reshape((fit.cfg.threed.nlayers, 181, 361))
+    t4adv = t4adv.reshape((fit.cfg.threed.nlayers, 181, 361))
+
+    vmax = np.max([np.max(a) for a in [t4rad, t4adv]])
+    vmin = np.min([np.min(a) for a in [t4rad, t4adv]])
+
+    norm = mplc.SymLogNorm(linthresh=1e10, linscale=0.5, vmin=vmin, vmax=vmax)
+
+    ieq = 90
+
+    fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True)
+
+    origin = 'lower'
+    extent = (-180, 180, 2, -6)
+    cmap = 'seismic'
+
+    im = axes[0].imshow(t4rad[:,ieq,:], norm=norm, origin=origin,
+                        extent=extent, aspect='auto', cmap=cmap)
+    im = axes[1].imshow(t4adv[:,ieq,:], norm=norm, origin=origin,
+                        extent=extent, aspect='auto', cmap=cmap)
+    plt.colorbar(im, ax=axes, label=r'$T^4$ (K$^4$)')
+
+    ip = fit.imodel3d[np.where(fit.modeltype3d == 'tgrid')[0][0]]
+    Tint, Tirr, loggamma, logkappa, logA1, logA2, logA3, \
+        logsigma1, logsigma2, logsigma3, sigmalat, \
+        logc, off1, off2, off3 = \
+        fit.specbestp[ip]
+
+    phi1 = off1
+    phi2 = np.pi/2 + off2
+    phi3 = 3*np.pi/2 + off3
+
+    for ax in axes:
+        ax.axvline(-90, color='black', ls=':')
+        ax.axvline(  0, color='black', ls=':')
+        ax.axvline( 90, color='black', ls=':')
+
+        for phi in [phi1, phi2, phi3]:
+            if phi > np.pi:
+                phi -= (2 * np.pi)
+            ax.axvline(np.rad2deg(phi), color='black', ls='--')
+
+        ax.set_xlabel('Longitude (deg)')
+
+    axes[0].set_ylabel('log(pressure) (bar)')
+
+    axes[0].set_title('Radiative')
+    axes[1].set_title('Advective')
+
+    plt.savefig(os.path.join(outdir, 'radadv.png'))
     plt.close()
     
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
