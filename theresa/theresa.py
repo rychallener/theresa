@@ -445,25 +445,60 @@ def map3d(fit, system):
     outdir = os.path.join(cfg.threed.indir, cfg.threed.outdir)
     # Handle any atmosphere setup
     if cfg.threed.atmtype == 'ggchem':
-        print("Precomputing chemistry grid.")
         if cfg.cfg.has_option('GGchem', 'dispolfiles'):
             dispolfiles = cfg.cfg.get('GGchem', 'dispolfiles')
         else:
             dispolfiles = None
-        
-        # T, P, z, spec, abn
-        fit.cheminfo = atm.setup_GGchem(cfg.threed.tmin,
-                                        cfg.threed.tmax,
-                                        cfg.threed.numt,
-                                        cfg.threed.ptop,
-                                        cfg.threed.pbot,
-                                        cfg.threed.nlayers,
-                                        cfg.threed.zmin,
-                                        cfg.threed.zmax,
-                                        cfg.threed.numz,
-                                        condensates=cfg.threed.condensates,
-                                        elements=cfg.threed.elem,
-                                        dispolfiles=dispolfiles)
+
+        # TODO: this is gross. Should just allow user to specify the
+        #       file in the configuration.
+        defaultgrid = ((cfg.threed.nlayers == 100) &
+                       (cfg.threed.ptop  == 1e-6)   &
+                       (cfg.threed.pbot  == 1e2)    &
+                       (cfg.threed.numt  ==   77)   &
+                       (cfg.threed.tmin  ==  150)   &
+                       (cfg.threed.tmax  == 4000)   &
+                       (cfg.threed.numz  == 41)     &
+                       (cfg.threed.zmin  == -2.0)   &
+                       (cfg.threed.zmax  ==  2.0)   &
+                       (cfg.threed.comin == -2.0)  &
+                       (cfg.threed.comax ==  0.0)   &
+                       (cfg.threed.numco == 10)    &
+                       (cfg.threed.mols == ['H2O', 'CH4', 'CO', 'CO2', 'NH3', 'C2H2', 'C2H4', 'HCN', 'H2S']) &
+                       (dispolfiles is None)       &
+                       (cfg.threed.elem == ['H', 'He', 'C', 'N', 'O', 'S']) &
+                       (cfg.threed.condensates == False))
+
+        if defaultgrid:
+            print("Loading default chemistry grid.")
+            cheminfo = np.load('inputs/ggchem-default.npz')
+            fit.cheminfo = (cheminfo['T'],
+                            cheminfo['P'],
+                            cheminfo['z'],
+                            cheminfo['co'],
+                            cheminfo['spec'],
+                            cheminfo['abn'])
+            del(cheminfo)
+        else:
+            print("Precomputing chemistry grid.")
+            # T, P, z, spec, abn
+            fit.cheminfo = atm.setup_GGchem(cfg.threed.tmin,
+                                            cfg.threed.tmax,
+                                            cfg.threed.numt,
+                                            cfg.threed.ptop,
+                                            cfg.threed.pbot,
+                                            cfg.threed.nlayers,
+                                            cfg.threed.zmin,
+                                            cfg.threed.zmax,
+                                            cfg.threed.numz,
+                                            cfg.threed.comin,
+                                            cfg.threed.comax,
+                                            cfg.threed.numco,
+                                            cfg.threed.mols,
+                                            cfg.threed.cmols,
+                                            condensates=cfg.threed.condensates,
+                                            elements=cfg.threed.elem,
+                                            dispolfiles=dispolfiles)
     else:
         fit.cheminfo = None
 
@@ -510,8 +545,11 @@ def map3d(fit, system):
     print("Calculating 2D temperature maps at oversample resolution.")
     if fit.cfg.threed.nightavg:
         print("Averaging nightside temperatures (this may take a while).")
+        pbar = progressbar.ProgressBar(max_value=fit.nmaps*fit.ncolumn)
+        
     ncurves3d = np.max([m.bestln.ncurves for m in d.maps for d in fit.datasets])
     imap = 0
+    
     for d in fit.datasets:
         for m in d.maps:
             star, planet, system = utils.initsystem(fit, m.bestln.lmax)
@@ -561,8 +599,11 @@ def map3d(fit, system):
 
                         fit.fmaps3d[imap][il] = favg
                         fit.tmaps3d[imap][il] = tavg
-                        
+
+                    pbar.update(imap*fit.ncolumn+il)
+
             imap += 1
+            
 
     # Make array of systematics models for correcting light curves in
     # 3d fitting
@@ -672,7 +713,7 @@ def map3d(fit, system):
             resume = True
         else:
             resume = False
-
+            
         out = mc3.sample(data=mc3data, uncert=mc3uncert,
                          func=model.mcmc_wrapper,
                          nsamples=cfg.threed.nsamples,
@@ -779,12 +820,21 @@ def map3d(fit, system):
         z = params[istart]
     else:
         print("Something has gone wrong.")
+
+    if type(fit.cfg.threed.co) is float:
+        co = fit.cfg.threed.co
+    elif fit.cfg.threed.z == 'fit':
+        icomodel = np.where(fit.modeltype3d == 'c/o')[0][0]
+        istart = np.sum(fit.nparams3d[:icomodel])
+        co = params[istart]
+    else:
+        print("Something has gone wrong.")
         
-    fit.abnbest, fit.abnspec = atm.atminit(fit.cfg.threed.atmtype,
-                                           allmols, fit.p,
-                                           fit.besttgrid, z,
-                                           ivis=fit.ivis3d,
-                                           cheminfo=fit.cheminfo)
+    fit.abnbest, fit.abnspec, _ = atm.atminit(fit.cfg.threed.atmtype,
+                                              allmols, fit.p,
+                                              fit.besttgrid, z, co,
+                                              ivis=fit.ivis3d,
+                                              cheminfo=fit.cheminfo)
                                            
 
     print("Calculating contribution functions.")
@@ -807,6 +857,10 @@ def map3d(fit, system):
         plots.spectra(fit, outdir=outdir)
         plots.spatialsampling(fit, outdir=outdir)
         plots.abundances(fit, outdir=outdir)
+        # TODO: generalize this plot for all temperature structures
+        if 'tgcm' in fit.cfg.threed.modelnames:
+            plots.isobars(fit, outdir=outdir)
+            plots.radadv(fit, outdir=outdir)
 
     # There actually aren't any of these at the moment
     if cfg.threed.animations:
@@ -817,7 +871,7 @@ if __name__ == "__main__":
     print("#########################################################")
     print("  ThERESA: Three-dimensional Exoplanet Retrieval from    ")
     print("           Eclipse Spectroscopy of Atmospheres           ")
-    print("  Copyright 2021-2025 Ryan C. Challener & collaborators  ")
+    print("  Copyright 2021-2026 Ryan C. Challener & collaborators  ")
     print("#########################################################")
     
     if len(sys.argv) < 3:

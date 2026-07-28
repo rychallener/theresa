@@ -182,12 +182,27 @@ def specgrid(params, fit):
     fluxgrid = np.empty(fit.ncolumn, dtype=list)
     taugrid  = np.empty(fit.ncolumn, dtype=list)
 
-    pmaps = atm.pmaps(params, fit)
-    tgrid, p = atm.tgrid(cfg.threed.nlayers, fit.ncolumn, fit.tmaps3d,
-                         pmaps, cfg.threed.pbot, cfg.threed.ptop,
-                         params, fit.nparams3d, fit.modeltype3d,
-                         fit.imodel3d, interptype=cfg.threed.interp,
-                         smooth=cfg.threed.smooth, ivis=fit.ivis3d)
+    # TODO: this is not very extensible. Should have a better way
+    #       of identifying which type of temperature grid we're using.
+    #       (i.e., not defaulting back to the OG parameterization)
+    if 'tgcm' in fit.cfg.threed.modelnames:
+        tgrid, p, t4rad, t4adv = atm.tgrid_gcm(fit,
+                                               cfg.threed.nlayers,
+                                               cfg.threed.pbot,
+                                               cfg.threed.ptop,
+                                               params, fit.nparams3d,
+                                               fit.modeltype3d,
+                                               fit.imodel3d)
+        pmaps = None
+    else:
+        pmaps = atm.pmaps(params, fit)
+        tgrid, p = atm.tgrid(fit, cfg.threed.nlayers, fit.ncolumn,
+                             fit.tmaps3d, pmaps, cfg.threed.pbot,
+                             cfg.threed.ptop, params, fit.nparams3d,
+                             fit.modeltype3d, fit.imodel3d,
+                             interptype=cfg.threed.interp,
+                             smooth=cfg.threed.smooth,
+                             ivis=fit.ivis3d)
     
     if cfg.threed.z == 'fit':
         izmodel = np.where(fit.modeltype3d == 'z')[0][0]
@@ -196,11 +211,17 @@ def specgrid(params, fit):
     else:
         z = cfg.threed.z
 
+    if cfg.threed.co == 'fit':
+        icomodel = np.where(fit.modeltype3d == 'c/o')[0][0]
+        istart = np.sum(fit.nparams3d[:icomodel])
+        co = params[istart]
+    else:
+        co = cfg.threed.co
+
     mols = np.concatenate((cfg.threed.mols, cfg.threed.cmols))
-    abn, spec = atm.atminit(cfg.threed.atmtype, mols, p, tgrid,
-                            z, ivis=ivis, cheminfo=fit.cheminfo)
-    
-    negativeT = False
+    abn, spec, is_physical = atm.atminit(cfg.threed.atmtype, mols, p,
+                                         tgrid, z, co, ivis=ivis,
+                                         cheminfo=fit.cheminfo)
 
     # Set up cloud grid(s)
     if 'clouds' in fit.modeltype3d:
@@ -250,12 +271,10 @@ def specgrid(params, fit):
         for i in ivis:
             # Check for nonphysical atmosphere and return a bad fit
             # if so
-            # TODO: this should be removable, as it should never happen.
-            #       Same goes for the return below.
             if not np.all(tgrid[:,i] >= 0):
                 msg = "WARNING: Nonphysical TP profile at Lat: {}, Lon: {}"
                 print(msg.format(fit.lat3d[i], fit.lon3d[i]))
-                negativeT = True
+                is_physical = False
             rtt = TemperatureArray(
                 tp_array=tgrid[:,i])
             rtchem = taurex.chemistry.TaurexChemistry()
@@ -296,12 +315,14 @@ def specgrid(params, fit):
 
             rt.build()
 
-            # If we have negative temperatures, don't run the model
-            # (it will fail). Return a bad fit instead. 
-            if negativeT:
-                fluxgrid = -1 * np.ones((ncolumn,
+            # If we have a non-physical model, don't run the RT
+            # (it will fail). Return a bad fit instead.
+            # TODO: some time can be saved if this could be moved to
+            #       before the RT model is built.
+            if not is_physical:
+                fluxgrid = -1 * np.ones((fit.ncolumn,
                                          len(rt.nativeWavenumberGrid)))
-                return fluxgrid, rt.nativeWavenumberGrid
+                return fluxgrid, tgrid, taugrid, p, rt.nativeWavenumberGrid, pmaps
 
             wn, flux, tau, ex = rt.model(wngrid=fit.wngrid)
 
@@ -424,6 +445,7 @@ def mcmc_wrapper(params, fit):
     
     else:
         print("Model Evaluation: {} s".format(time.time() - tic))
+
         return systemflux
 
 def cfsigdiff(fit, tgrid, wn, taugrid, p, pmaps):
@@ -651,7 +673,8 @@ def get_par_3d(fit):
     # Loops through all the given models, setting their number of
     # parameters, as well as sensible initial guesses, parameter
     # boundaries, and step sizes.
-    for im, mname in enumerate(fit.cfg.threed.modelnames):   
+    for im, mname in enumerate(fit.cfg.threed.modelnames):
+        # SH-based maps that use 2D results
         if mname == 'sh0':
             npar  = nmaps
             # Guess that higher temps are deeper
@@ -757,6 +780,20 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)
+        elif mname == 'ttop2':
+            npar   = 4
+            par    = [1000., 1000.,  -90.,   90.]
+            pstep  = [   1.,    1.,    1.,    1.]
+            pmin   = [ 150.,  150., -180., -180.]
+            pmax   = [2000., 2000.,  180.,  180.]
+            pnames = ['Ttop1', 'Ttop2', 'LTop1', 'LTop2']
+            modeltype.append('ttop')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
         elif mname == 'tbot':
             npar   = 1
             par    = [2000.]
@@ -771,6 +808,23 @@ def get_par_3d(fit):
             allpmax.append(pmax)
             allpstep.append(pstep)
             allpnames.append(pnames)
+        elif mname == 'tgcm':
+            npar = 15
+            Rs = fit.cfg.star.r * c.Rsun
+            a  = fit.cfg.planet.a * 1.496e11
+            tirr = 2**0.5 * fit.cfg.star.t * (Rs / (2 * a))**0.5
+            par    = [100.,     tirr,         -2.0,            -3.0,      12.0,      13.0,      13.0,         5.0,         5.0,         5.0,    np.pi/4,     -2.0,      0.0,      0.0,      0.0]
+            pstep  = [  1.,       1.,          0.1,             0.1,       1.0,       1.0,       1.0,         0.1,         0.1,         0.1,        0.1,      0.1,      0.1,      0.1,      0.1]
+            pmin   = [  0.,     200.,         -7.0,            -7.0,       5.0,       5.0,       5.0,        0.01,        0.01,        0.01,        0.1,     -5.0, -np.pi/4, -np.pi/4, -np.pi/4]
+            pmax   = [800.,    4000.,          1.0,             1.0,      15.0,      15.0,      15.0,        10.0,        10.0,        10.0,    np.pi/2,      2.0,  np.pi/4,  np.pi/4,  np.pi/4]
+            pnames = ['Tint', 'Tirr', 'log(gamma)', 'log(kappa_IR)', '-log(A1)', 'log(A2)', 'log(A3)', 'log(sig1)', 'log(sig2)', 'log(sig3)', 'sig_lat', 'log(c)',   'phi1',   'phi2',   'phi3']
+            modeltype.append('tgrid')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
         # Chemistry models
         elif mname == 'z':
             npar   = 1
@@ -778,8 +832,22 @@ def get_par_3d(fit):
             pstep  = [ 0.1]
             pmin   = [fit.cfg.threed.zmin]
             pmax   = [fit.cfg.threed.zmax]
-            pnames = ['z']
+            pnames = ['log z']
             modeltype.append('z')
+            nparams[im] = npar
+            allparams.append(par)
+            allpmin.append(pmin)
+            allpmax.append(pmax)
+            allpstep.append(pstep)
+            allpnames.append(pnames)
+        elif mname == 'co':
+            npar   = 1
+            par    = [np.log10(0.53)] # solar
+            pstep  = [0.1]
+            pmin   = [fit.cfg.threed.comin]
+            pmax   = [fit.cfg.threed.comax]
+            pnames = ['log C/O']
+            modeltype.append('c/o')
             nparams[im] = npar
             allparams.append(par)
             allpmin.append(pmin)
@@ -795,7 +863,7 @@ def get_par_3d(fit):
             logptop = np.log10(fit.cfg.threed.ptop)
             par     = [  0.1,   40.0, -10.0,         2.0,        -1.0]
             pstep   = [  0.1,    1.0,   1.0,         0.1,         0.1]
-            pmin    = [ -4.0,    0.0, -20.0, logptop - 1, logptop - 1]
+            pmin    = [ -4.0,    0.0, -30.0, logptop - 1, logptop - 1]
             pmax    = [  8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1]
             pnames  = ['log(a)', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)']
             modeltype.append('clouds')
@@ -814,7 +882,7 @@ def get_par_3d(fit):
             logptop = np.log10(fit.cfg.threed.ptop)
             par     = [-1.0,   40.0, -10.0,         2.0,        -1.0, -1.0,   40.0, -10.0,         2.0,        -1.0,    0.,  180.]
             pstep   = [ 0.1,    1.0,   1.0,         0.1,         0.1,  0.1,    1.0,   1.0,         0.1,         0.1,   10.,   10.]
-            pmin    = [-4.0,    0.0, -20.0, logptop - 1, logptop - 1, -4.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.,    0.]
+            pmin    = [-4.0,    0.0, -30.0, logptop - 1, logptop - 1, -4.0,    0.0, -30.0, logptop - 1, logptop - 1, -180.,    0.]
             pmax    = [ 8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.,  360.]
             pnames  = ['log(a1)', 'Q01', 'mix1', 'log(cloud bottom)1', 'log(cloud top)1', 'log(a2)', 'Q02', 'mix2', 'log(cloud bottom)2', 'log(cloud top)2', 'Cl.2 Center', 'Cl.2 Width']
             modeltype.append('clouds')
@@ -833,7 +901,7 @@ def get_par_3d(fit):
             logptop = np.log10(fit.cfg.threed.ptop)
             par     = [-1.0,   40.0, -10.0,         2.0,        -1.0,    0.0,  180.0]
             pstep   = [ 0.1,    1.0,   1.0,         0.1,         0.1,   10.0,   10.0]
-            pmin    = [-4.0,    0.0, -20.0, logptop - 1, logptop - 1, -180.0,    0.0]
+            pmin    = [-4.0,    0.0, -30.0, logptop - 1, logptop - 1, -180.0,    0.0]
             pmax    = [ 8.0, 1000.0,   0.0, logpbot + 1, logpbot + 1,  180.0,  360.0]
             pnames  = ['log(a)', 'Q0', 'mix', 'log(cloud bottom)', 'log(cloud top)', 'Spot Center', 'Spot Width']
             modeltype.append('clouds')

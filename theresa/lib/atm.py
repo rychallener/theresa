@@ -4,13 +4,14 @@ import numpy as np
 import scipy as sp
 import scipy.constants as sc
 import scipy.special as ss
-import constants as c
+import constants
 import utils
 import scipy.interpolate as spi
 import time
 #import taurex_ggchem
 import progressbar
 import multiprocessing as mp
+import matplotlib.pyplot as plt
 
 libdir = os.path.dirname(os.path.realpath(__file__))
 moddir = os.path.join(libdir, 'modules')
@@ -19,7 +20,7 @@ ratedir = os.path.join(moddir, 'rate')
 sys.path.append(ratedir)
 from lib.modules import rate
 
-def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
+def atminit(atmtype, mols, p, t, z, co, ivis=None, cheminfo=None):
     """
     Initializes atmospheres of various types.
     
@@ -40,7 +41,10 @@ def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
         Temperature array, of size (nlayers, ncolumns)
 
     z: float
-        Metallicity. E.g., z=0 is solar.
+        log(Metallicity) relative to the Sun. E.g., z=0 is solar.
+
+    co: float
+        log(carbon-to-oxygen ratio).
 
     ivis: 1d array
         Optional array of indices where atmosphere should 
@@ -60,7 +64,16 @@ def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
 
     spec: list
         Species associated with the abundances in abn
+
+    is_physical: boolean
+        A flag that is used to reject models in MCMC. Generally,
+        this means that a parameter is out of bounds, or has led
+        to an out-of-bounds condition in the precomputed chemistry
+        grid. E.g., the model has produced very high or very low
+        temperatures.
     """
+    is_physical = True
+    
     nlayer, ncolumn = t.shape
 
     if ivis is None:
@@ -79,9 +92,9 @@ def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
             abn[:,:,i] = robj.solve(t[:,i], p)
 
     elif atmtype == 'ggchem':
-        ggchemT, ggchemp, ggchemz, spec, ggchemabn = cheminfo
+        ggchemT, ggchemp, ggchemz, ggchemco, spec, ggchemabn = cheminfo
         tic = time.time()
-        nspec, nump, numt, numz = ggchemabn.shape
+        nspec, nump, numt, numco, numz = ggchemabn.shape
         abn = np.zeros((nspec, nlayer, ncolumn))
         
         if not np.all(np.isclose(p, ggchemp)):
@@ -104,29 +117,23 @@ def atminit(atmtype, mols, p, t, z, ivis=None, cheminfo=None):
             if spec[s] in mols or spec[s] in exmols:
                 f = spi.RegularGridInterpolator((ggchemp[psort],
                                                  ggchemT,
-                                                 ggchemz),
-                                                ggchemabn[s,psort])
+                                                 ggchemz,
+                                                 ggchemco),
+                                                np.log10(ggchemabn[s,psort]))
 
                 for k in range(ncolumn):
                     pts = \
-                        np.array([(intp, intt, z) for (intp, intt) in zip(p, t[:,k])])
-                    abn[s,:,k] = f(pts)
-                # for k in range(nlayer):
-                #     if z in ggchemz:
-                #         iz = np.where(ggchemz == z)
-                #         fcn = spi.interp1d(ggchemT,
-                #                            ggchemabn[s,k,:,iz])
-                #         abn[s,k,ivis] = fcn(t[k,ivis])
-                #     else:
-                #         fcn = spi.interp2d(ggchemz, ggchemT,
-                #                            ggchemabn[s,k])
-                #         abn[s,k,ivis] = fcn(z, t[k,ivis])
+                        np.array([(intp, intt, z, co) for (intp, intt) in zip(p, t[:,k])])
+                    try:
+                        abn[s,:,k] = 10**f(pts)
+                    except ValueError:
+                        is_physical = False
 
     else:
         print("Unrecognized atmosphere type.")
         sys.exit()
 
-    return abn, spec
+    return abn, spec, is_physical
 
 def atmsave(r, p, t, abn, spec, outdir, atmfile):
     """
@@ -370,8 +377,8 @@ def calcrad(p, t, mu, r0, mp, p0):
     t0  = interpt( np.log10(p0))
     mu0 = interpmu(np.log10(p0))
 
-    mp *= c.Mjup
-    r0 *= c.Rjup
+    mp *= constants.Mjup
+    r0 *= constants.Rjup
     
     g0 = sc.G * mp / r0**2
 
@@ -397,9 +404,161 @@ def calcrad(p, t, mu, r0, mp, p0):
         g[i] = g[i+1] * r[i+1]**2 / r[i]**2
 
     return r
+
+def fgamma(p, lat, A, c, sigma_p, sigma_lat):
+    """
+    Function used in the DD&B GCM-motivated temperature grid.
+
+    Assumes the jet is centered on the equator (hence the 0 in latG).
+    """   
+    pressG = np.exp(-( (np.log10(p) - np.log10(c)) / np.log10(sigma_p))**2)
+    latG   = np.exp(-( (lat         - 0.         ) /         sigma_lat)**2)
+            
+    return A * pressG * latG
+        
+def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
+              modeltype, imodel, lat=None, lon=None):
+    """
+    Make a 3d grid of temperatures based on Dobbs-Dixon & Blecic 2022,
+    a GCM-motivated temperature structure.
+    """  
+    # Parse out parameters
+    ip = imodel[np.where(modeltype == 'tgrid')[0][0]]
+    Tint, Tirr, loggamma, logkappa, logA1, logA2, logA3, \
+        logsigma1, logsigma2, logsigma3, sigmalat, \
+        logc, off1, off2, off3 = \
+        params[ip]
+
+    # A1 is negated because DD&Blecic make it negative
+    gamma = 10**loggamma
+    kappa = 10**logkappa
+    A1, A2, A3 = -10**logA1, 10**logA2, 10**logA3
+    sigma1, sigma2, sigma3 = 10**logsigma1, 10**logsigma2, 10**logsigma3
+    c = 10**logc
+
+    # Preliminary calcs
+    logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
+    p = 10**logp1d
+
+    gravity = sc.G * (fit.cfg.planet.m * constants.Mjup) / \
+        (fit.cfg.planet.r * constants.Rjup)**2
+    gravity *= 100 # convert to cgs
+
+    # For clarity, let's operate in the coordinates in DD & Blecic 2022
+    if (lat is None) and (lon is None):
+        lon3d = (np.deg2rad(fit.lon3d) + (2 * np.pi)) % (2 * np.pi)
+        lat3d =  np.deg2rad(fit.lat3d)
+    else:
+        if len(lon) != len(lat):
+            print('Numbers of longitudes and latitudes must match!')
+            return
+        lon3d = (np.deg2rad(lon) + (2 * np.pi)) % (2 * np.pi)
+        lat3d =  np.deg2rad(lat)
+
+    ncolumn = len(lon3d)
+
+    t4adv = np.zeros((nlayers, ncolumn))
+    t4rad = np.zeros((nlayers, ncolumn))
+
+    #######################
+    # Radiative Component #
+    #######################
+    fhth = 1. / 3.
+    fkth = 1. / 2.
+    u = np.maximum(np.cos(lon3d) * np.cos(lat3d), np.zeros(len(lon3d)))
+
+    tau = (p * 1e6) * kappa / gravity
+
+    for i in range(ncolumn):
+        t1 = 3 * Tint**4 / 4 * \
+            (1 / (3 * fhth) + tau / (3 * fkth))
+        # Nightside
+        if u[i] == 0.0:
+            t4rad[:,i] = t1
+        # Dayside
+        else:
+            t2 = 3 * Tirr**4 / 4 * \
+                u[i] * (1 / (3 * fhth) + u[i] / (3 * gamma * fkth))
+            t3 = 3 * Tirr**4 / 4 * \
+                u[i] * ((gamma / (3 * u[i]) - u[i] / (3 * gamma * fkth)) * \
+                        np.exp(-gamma * tau / u[i]))
+    
+            t4rad[:,i] = t1 + t2 + t3
+    
+    #######################
+    # Advective Component #
+    #######################
+    # Define segments
+    phi1 = 0.            + off1
+    phi2 =     np.pi / 2 + off2
+    phi3 = 3 * np.pi / 2 + off3
+
+    # Define functions
+    def eparab(p, lat, lon):
+        g1 = fgamma(p, lat, A1, c, sigma1, sigmalat)
+        g2 = fgamma(p, lat, A2, c, sigma2, sigmalat)
+        return (g2 - g1) / (phi2 - phi1)**2 * \
+            (lon - phi1)**2 + g1
+
+    def wparab(p, lat, lon):
+        g1 = fgamma(p, lat, A1, c, sigma1, sigmalat)
+        g3 = fgamma(p, lat, A3, c, sigma3, sigmalat)
+        return (g3 - g1) / (phi3 - 2*np.pi - phi1)**2 * \
+            (lon - 2*np.pi - phi1)**2 + g1
+
+    def lin(p, lat, lon):
+        g2 = fgamma(p, lat, A2, c, sigma2, sigmalat)
+        g3 = fgamma(p, lat, A3, c, sigma3, sigmalat)
+        return (g3 - g2) / (phi3 - phi2) * \
+            (lon - phi3) + g3
+
+    def eerf(p, lat, lon):
+        g1 = fgamma(p, lat, A1, c, sigma1, sigmalat)
+        g2 = fgamma(p, lat, A2, c, sigma2, sigmalat)
+        x = 4 / (phi2 - phi1) * (lon - (phi2 + phi1) / 2)
+        return (g2 + g1) / 2 + (g2 - g1) / 2 * ss.erf(x)
+
+    def werf(p, lat, lon):
+        g1 = fgamma(p, lat, A1, c, sigma1, sigmalat)
+        g3 = fgamma(p, lat, A3, c, sigma3, sigmalat)
+        x = 6 / (phi3 - phi1 - 2*np.pi) * (lon - (2*np.pi + phi3 + phi1) / 2)
+        return (g3 + g1) / 2 + (g3 - g1) / 2 * ss.erf(x)
+        
+    for i in range(ncolumn):
+        lon = lon3d[i]
+        lat = lat3d[i]
+        # Segment 1 (east dayside)
+        # Second if handles cases where phi1 < 0 s.t. lon is large
+        # but still in this segment
+        if (lon >= phi1 and lon <= phi2):
+            t4adv[:,i] = (eparab(p, lat, lon) \
+                          + eerf(p, lat, lon)) / 2
+        elif (lon >= phi1 + 2 * np.pi):
+            t4adv[:,i] = (eparab(p, lat, lon - 2*np.pi) \
+                          + eerf(p, lat, lon - 2*np.pi)) / 2
+        # Segment 2 (nightside)
+        elif (lon > phi2) and (lon < phi3):
+            t4adv[:,i] = lin(p, lat, lon)
+        # Segment 3 (west dayside)
+        # Second if handles cases where phi1 > 0 s.t. lon is small
+        # but still in this segment
+        elif (lon >= phi3 and lon < (phi1 + 2 * np.pi)): 
+            t4adv[:,i] = (wparab(p, lat, lon) \
+                          + werf(p, lat, lon)) / 2
+        elif (lon < phi1):
+            t4adv[:,i] = (wparab(p, lat, lon + 2*np.pi) \
+                          + werf(p, lat, lon + 2*np.pi)) / 2
+        else:
+            print(lat, lon)
+            print(phi1, phi2, phi3)
+            print("Uh oh!")
+
+    temp3d = (t4rad + t4adv)**0.25
+
+    return temp3d, p, t4rad, t4adv
         
 
-def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
+def tgrid(fit, nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
           nparams, modeltype, imodel, interptype='linear',
           smooth=None, ivis=None):
     """
@@ -413,25 +572,56 @@ def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
 
     logp1d = np.linspace(np.log10(pbot), np.log10(ptop), nlayers)
 
+    # Create temperature maps at the very top and bottom of the
+    # atmosphere based on the parameterization scheme
+    tbotmap = np.zeros(ncolumn)
+    ttopmap = np.zeros(ncolumn)
+
+    # Parse tbot model
     if 'tbot' in modeltype:
-        if 'ttop' in modeltype:
-            oob = 'both'
-            itop = np.where(modeltype == 'ttop')[0][0]
-            ibot = np.where(modeltype == 'tbot')[0][0]
-            oobparams = \
-                (params[imodel[itop]][0],
-                 params[imodel[ibot]][0])
+        ibot = np.where(modeltype == 'tbot')[0][0]
+        tbotmodel = fit.cfg.threed.modelnames[ibot]
+        tbotmodelpar = params[imodel[ibot]]
+        # Single temperature model
+        if tbotmodel == 'tbot':
+            tbotmap[:] = tbotmodelpar[0]
         else:
-            oob = 'bot'
-            ibot = np.where(modeltype == 'tbot')[0][0]
-            oobparams = (params[imodel[ibot]])
+            print("Tbot model {} not implemented in atm.tgrid().".format(
+                tbotmodel))
+            sys.exit()
+    # If none supplied, assume isothermal deep atmosphere
     else:
-        if 'ttop' in modeltype3d:
-            oob = 'top'
-            itop = np.where(modeltype == 'ttop')[0][0]
-            oobparams = (params[imodel[ibot]])
+        # Find indices of deepest pmap at each column
+        for i in range(ncolumn):
+            imax = np.argsort(pmaps[:,i])[-1]
+            tbotmap[i] = tmaps[:,i][imax]
+
+    # Parse ttop model
+    if 'ttop' in modeltype:
+        itop = np.where(modeltype == 'ttop')[0][0]
+        ttopmodel = fit.cfg.threed.modelnames[itop]
+        ttopmodelpar = params[imodel[itop]]
+        # Single temperature model
+        if ttopmodel == 'ttop':
+            ttopmap[:] = ttopmodelpar[0]
+        # Two temperature model with bounds
+        elif ttopmodel == 'ttop2':
+            for i in range(fit.ncolumn):
+                if ((fit.lon3d[i] < ttopmodelpar[2]) or
+                    (fit.lon3d[i] > ttopmodelpar[3])):
+                    ttopmap[i] = ttopmodelpar[1]
+                else:
+                    ttopmap[i] = ttopmodelpar[0]
         else:
-            oob = 'isothermal'
+            print("Ttop model {} not implemented in atm.tgrid().".format(
+                ttopmodel))
+            sys.exit()
+    # If none supplied, assume isothermal upper atmosphere
+    else:
+        # Find indices of deepest pmap at each column
+        for i in range(ncolumn):
+            imin = np.argsort(pmaps[:,i])[0]
+            ttopmap[i] = tmaps[:,i][imin]
 
     for i in range(ncolumn):
         # Skip columns that aren't visible (avoid errors in case
@@ -445,43 +635,14 @@ def tgrid(nlayers, ncolumn, tmaps, pmaps, pbot, ptop, params,
 
         if np.any(p_interp > pbot) or np.any(p_interp < ptop):
             print("WARNING: pmaps outside atmosphere pressure range.")
-        
-        if oob == 'isothermal':
-            imax = np.argsort(pmaps[:,i])[-1]
-            imin = np.argsort(pmaps[:,i])[0]
-            p_interp = np.concatenate(([ptop],
-                                       p_interp,
-                                       [pbot]))
-            t_interp = np.concatenate(((tmaps[:,i][imin],),
-                                       t_interp,
-                                       (tmaps[:,i][imax],)))
-        elif oob == 'top':
-            ttop = oobparams[0]
-            imax = np.argsort(pmaps[:,i])[-1]
-            p_interp = np.concatenate(([ptop],
-                                       p_interp,
-                                       [pbot]))
-            t_interp = np.concatenate(((ttop,),
-                                       t_interp,
-                                       (tmaps[:,i][imax],)))            
-        elif oob == 'bot':
-            tbot = oobparams[0]
-            imin = np.argsort(pmaps[:,i])[0]
-            p_interp = np.concatenate(([ptop],
-                                       p_interp,
-                                       [pbot]))
-            t_interp = np.concatenate(((tmaps[:,i][imin],),
-                                       t_interp,
-                                       (tbot,)))
-        elif oob == 'both':
-            ttop = oobparams[0]
-            tbot = oobparams[1]
-            p_interp = np.concatenate(([ptop],
-                                       p_interp,
-                                       [pbot]))
-            t_interp = np.concatenate(((ttop,),
-                                       t_interp,
-                                       (tbot,)))
+
+        # Tack on ttopmap and tbotmap
+        p_interp = np.concatenate(([ptop],
+                                   p_interp,
+                                   [pbot]))
+        t_interp = np.concatenate(([ttopmap[i]],
+                                   t_interp,
+                                   [tbotmap[i]]))
 
         # One last check that p_interp is increasing. This only does
         # something if the pmaps get outside the normal pressure
@@ -582,7 +743,11 @@ def pmaps(params, fit):
 
     return pmaps
 
-def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
+def setup_GGchem(tmin, tmax, numt,
+                 pmin, pmax, nump,
+                 zmin, zmax, numz,
+                 comin, comax, numco,
+                 mols, cmols,
                  condensates=False, charges=True,
                  elements=['H', 'He', 'C', 'O', 'N'], dustfile=None,
                  dispolfiles=None):
@@ -592,6 +757,8 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
     pgrid = np.logspace(np.log10(pmax), np.log10(pmin), nump)
     # Metallicities
     zgrid = np.linspace(zmin, zmax, numz)
+    # C-to-O
+    cogrid = np.linspace(comin, comax, numco)
 
     # Stuff that should probably be up to the user
     abundance_profile = 'solar'
@@ -599,44 +766,55 @@ def setup_GGchem(tmin, tmax, numt, pmin, pmax, nump, zmin, zmax, numz,
     # Get molecules
     gg = taurex_ggchem.GGChem(metallicity=1.0,
                               selected_elements=elements,
+                              ratio_elements=['C'],
+                              ratios_to_O=[0.5],
                               abundance_profile=abundance_profile,
                               equilibrium_condensation=condensates,
                               include_charge=charges,
                               dustchem_file=dustfile,
                               dispol_files=dispolfiles)
-    ng = len(gg.gases)
+    
     if condensates:
-        nc = len(gg.condensates)
         spec = np.concatenate((gg.gases, gg.condensates))
     else:
-        nc = 0
         spec = gg.gases
 
+    imols  = [gg.gases.index(m) for m in mols]
+    icmols = [gg.condennsates.index(c) for c in cmols]
+
+    allmols = np.concatenate((mols, cmols))
+
+    ng = len(mols)
+    nc = len(cmols)
     ns = ng + nc
 
-    abn = np.zeros((ns, nump, numt, numz))
+    abn = np.zeros((ns, nump, numt, numz, numco))
 
-    pbar = progressbar.ProgressBar(max_value=nump*numt*numz)
+    pbar = progressbar.ProgressBar(max_value=nump*numt*numz*numco)
     for iz, z in enumerate(zgrid):
-        gg = taurex_ggchem.GGChem(metallicity=10**z,
-                                  selected_elements=elements,
-                                  abundance_profile=abundance_profile,
-                                  equilibrium_condensation=condensates,
-                                  include_charge=charges,
-                                  dustchem_file=dustfile,
-                                  dispol_files=dispolfiles)
-        for it, t in enumerate(tgrid):
-            for ip, p in enumerate(pgrid):
-                # Convert to pascals
-                gg.initialize_chemistry(nlayers=1,
-                    temperature_profile=[t],
-                    pressure_profile=[p * 1e5])
-                abn[:ng,ip,it,iz] = gg.mixProfile.squeeze()
-                if condensates:
-                    abn[ng:ns,ip,it,iz] = gg.condensateMixProfile.squeeze()
-                pbar.update(ip+it*nump+iz*numt*nump)
+        for ic, c in enumerate(cogrid):
+            gg = taurex_ggchem.GGChem(metallicity=10**z,
+                                      ratio_elements=['C'],
+                                      ratios_to_O=[10**c],
+                                      selected_elements=elements,
+                                      abundance_profile=abundance_profile,
+                                      equilibrium_condensation=condensates,
+                                      include_charge=charges,
+                                      dustchem_file=dustfile,
+                                      dispol_files=dispolfiles)
+            for it, t in enumerate(tgrid):
+                for ip, p in enumerate(pgrid):
+                    # Convert to pascals
+                    gg.initialize_chemistry(nlayers=1,
+                        temperature_profile=[t],
+                        pressure_profile=[p * 1e5])
+                    abn[:ng,ip,it,iz,ic] = gg.mixProfile.squeeze()[imols]
+                    if condensates:
+                        abn[ng:ns,ip,it,iz,ic] = \
+                            gg.condensateMixProfile.squeeze()[icmols]
+                    pbar.update(ip+it*nump+ic*numt*nump+iz*numt*nump*numco)
 
-    return tgrid, pgrid, zgrid, spec, abn
+    return tgrid, pgrid, zgrid, cogrid, allmols, abn
 
     
 def read_GGchem(fname):

@@ -576,9 +576,10 @@ def bestfittgrid(fit, outdir=''):
             for k in range(nmaps):
                 alpha = np.sum(fit.cf[i,:,k]) / cfnorm_dots
                 alpha = np.round(alpha, 2)
-                ax.scatter(fit.tmaps3d[k,i], fit.pmaps[k,i],
-                           c=colors[k], marker='o', zorder=3, s=1,
-                           alpha=alpha)
+                if fit.pmaps is not None:
+                    ax.scatter(fit.tmaps3d[k,i], fit.pmaps[k,i],
+                               c=colors[k], marker='o', zorder=3, s=1,
+                               alpha=alpha)
 
     # Build custom legend
     legend_elements = []
@@ -596,6 +597,8 @@ def bestfittgrid(fit, outdir=''):
     ax.set_yscale('log')
     ax.invert_yaxis()
     ax.legend(handles=legend_elements, loc='best')
+    ax.set_xlim((0.9 * np.min(fit.besttgrid),
+                 1.1 * np.max(fit.besttgrid)))
     ax.set_xlabel("Temperature (K)")
     ax.set_ylabel("Pressure (bars)")
     plt.tight_layout()
@@ -771,16 +774,27 @@ def tgrid_unc(fit, outdir=''):
     tgridpost = np.zeros((ncalc, nlev, fit.ncolumn))
     for i in range(ncalc):
         ipost = i * niter // ncalc
-        pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
-        tgridpost[i], p = atm.tgrid(nlev, fit.ncolumn, fit.tmaps3d,
-                                    pmaps, fit.cfg.threed.pbot,
-                                    fit.cfg.threed.ptop,
-                                    fit.posterior3d[ipost],
-                                    fit.nparams3d, fit.modeltype3d,
-                                    fit.imodel3d,
-                                    interptype=fit.cfg.threed.interp,
-                                    smooth=fit.cfg.threed.smooth,
-                                    ivis=fit.ivis3d)
+        if 'tgcm' in fit.cfg.threed.modelnames:
+            tgridpost[i], p, _, _ = atm.tgrid_gcm(fit, nlev,
+                                                  fit.cfg.threed.pbot,
+                                                  fit.cfg.threed.ptop,
+                                                  fit.posterior3d[ipost],
+                                                  fit.nparams3d,
+                                                  fit.modeltype3d,
+                                                  fit.imodel3d)
+            pmaps = None
+        else:
+            pmaps = atm.pmaps(fit.posterior3d[ipost], fit)
+            tgridpost[i], p = atm.tgrid(fit, nlev, fit.ncolumn,
+                                        fit.tmaps3d, pmaps,
+                                        fit.cfg.threed.pbot,
+                                        fit.cfg.threed.ptop,
+                                        fit.posterior3d[ipost],
+                                        fit.nparams3d, fit.modeltype3d,
+                                        fit.imodel3d,
+                                        interptype=fit.cfg.threed.interp,
+                                        smooth=fit.cfg.threed.smooth,
+                                        ivis=fit.ivis3d)
 
     lat = fit.lat3d
     lon = fit.lon3d
@@ -957,12 +971,13 @@ def cf_slice(fit, ivis=None, fname=None, outdir=''):
                        vmax=vmax, origin='lower', extent=extent,
                        aspect='auto')
 
-        if ilon is None:
-            ax.plot(fit.lon[latslice],
-                    np.log10(fit.pmaps[i,latslice,lonslice]), color='red')
-        else:
-            ax.plot(fit.lat[:,lonslice],
-                    np.log10(fit.pmaps[i,latslic,lonslice]), color='red')
+        if pmaps is not None:
+            if ilon is None:
+                ax.plot(fit.lon[latslice],
+                        np.log10(fit.pmaps[i,latslice,lonslice]), color='red')
+            else:
+                ax.plot(fit.lat[:,lonslice],
+                        np.log10(fit.pmaps[i,latslic,lonslice]), color='red')
             
         if i == 0:
             ax.set_ylabel('Log(p) (bars)')
@@ -1167,6 +1182,123 @@ def abundances(fit, outdir=''):
         
     ax.legend()    
     plt.savefig(os.path.join(outdir, 'abundances.png'))
+    plt.close()
+
+def isobars(fit, npanels=5, outdir='.'):
+    lat, lon = np.meshgrid(np.linspace( -90., 90., 181, endpoint=True),
+                           np.linspace(-180, 180., 361, endpoint=True),
+                           indexing='ij')
+
+    lat = lat.flatten()
+    lon = lon.flatten()
+
+    tgrid, p, t4rad, t4adv = atm.tgrid_gcm(fit,
+                                           fit.cfg.threed.nlayers,
+                                           fit.cfg.threed.pbot,
+                                           fit.cfg.threed.ptop,
+                                           fit.specbestp,
+                                           fit.nparams3d,
+                                           fit.modeltype3d,
+                                           fit.imodel3d, lat=lat,
+                                           lon=lon)
+
+    tgrid = tgrid.reshape((fit.cfg.threed.nlayers, 181, 361))
+
+    fig, axes = plt.subplots(nrows=npanels, ncols=1,
+                             sharex=True, sharey=True)
+
+    fig.set_size_inches((5, 2. * npanels))
+
+    vmin = np.nanmin(tgrid)
+    vmax = np.nanmax(tgrid)
+    
+    for iax, ilayer in enumerate(range(0,
+                                       fit.cfg.threed.nlayers,
+                                       fit.cfg.threed.nlayers//npanels)):
+        im = axes[iax].imshow(tgrid[ilayer], extent=(-180, 180, -90, 90),
+                              aspect='equal', cmap='magma', vmin=vmin,
+                              vmax=vmax)
+        axes[iax].set_title(r'$p = {:.2E}$ bar'.format(p[ilayer]))
+
+        axes[iax].scatter(fit.lon3d, fit.lat3d, s=1, color='black')
+
+    for ax in axes:
+        ax.set_ylabel('Latitude (deg)')
+
+    axes[-1].set_xlabel('Longitude (deg)')
+
+    plt.colorbar(im, ax=axes, label='T (K)')
+    plt.savefig(os.path.join(outdir, 'isobars.png'))
+    plt.close()
+
+def radadv(fit, outdir='.'):
+    lat, lon = np.meshgrid(np.linspace( -90., 90., 181, endpoint=True),
+                           np.linspace(-180, 180., 361, endpoint=True),
+                           indexing='ij')
+
+    lat = lat.flatten()
+    lon = lon.flatten()
+
+    tgrid, p, t4rad, t4adv = atm.tgrid_gcm(fit,
+                                           fit.cfg.threed.nlayers,
+                                           fit.cfg.threed.pbot,
+                                           fit.cfg.threed.ptop,
+                                           fit.specbestp,
+                                           fit.nparams3d,
+                                           fit.modeltype3d,
+                                           fit.imodel3d, lat=lat,
+                                           lon=lon)
+
+    t4rad = t4rad.reshape((fit.cfg.threed.nlayers, 181, 361))
+    t4adv = t4adv.reshape((fit.cfg.threed.nlayers, 181, 361))
+
+    vmax = np.max([np.max(a) for a in [t4rad, t4adv]])
+    vmin = np.min([np.min(a) for a in [t4rad, t4adv]])
+
+    norm = mplc.SymLogNorm(linthresh=1e10, linscale=0.5, vmin=vmin, vmax=vmax)
+
+    ieq = 90
+
+    fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True)
+
+    origin = 'lower'
+    extent = (-180, 180, 2, -6)
+    cmap = 'seismic'
+
+    im = axes[0].imshow(t4rad[:,ieq,:], norm=norm, origin=origin,
+                        extent=extent, aspect='auto', cmap=cmap)
+    im = axes[1].imshow(t4adv[:,ieq,:], norm=norm, origin=origin,
+                        extent=extent, aspect='auto', cmap=cmap)
+    plt.colorbar(im, ax=axes, label=r'$T^4$ (K$^4$)')
+
+    ip = fit.imodel3d[np.where(fit.modeltype3d == 'tgrid')[0][0]]
+    Tint, Tirr, loggamma, logkappa, logA1, logA2, logA3, \
+        logsigma1, logsigma2, logsigma3, sigmalat, \
+        logc, off1, off2, off3 = \
+        fit.specbestp[ip]
+
+    phi1 = off1
+    phi2 = np.pi/2 + off2
+    phi3 = 3*np.pi/2 + off3
+
+    for ax in axes:
+        ax.axvline(-90, color='black', ls=':')
+        ax.axvline(  0, color='black', ls=':')
+        ax.axvline( 90, color='black', ls=':')
+
+        for phi in [phi1, phi2, phi3]:
+            if phi > np.pi:
+                phi -= (2 * np.pi)
+            ax.axvline(np.rad2deg(phi), color='black', ls='--')
+
+        ax.set_xlabel('Longitude (deg)')
+
+    axes[0].set_ylabel('log(pressure) (bar)')
+
+    axes[0].set_title('Radiative')
+    axes[1].set_title('Advective')
+
+    plt.savefig(os.path.join(outdir, 'radadv.png'))
     plt.close()
     
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
