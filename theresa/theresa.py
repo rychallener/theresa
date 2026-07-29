@@ -535,7 +535,6 @@ def map3d(fit, system):
         totvisbool = np.logical_or(totvisbool, visbool)
         
     fit.ivis3d = np.arange(0, fit.ncolumn)[totvisbool]
-    print(fit.ivis3d)
 
     # Make a single array of tmaps on the 3D grid
     fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
