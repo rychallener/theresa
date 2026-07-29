@@ -336,7 +336,7 @@ def visibility(fit, d, lmax, sampling='Mollweide'):
     # If you, dear reader, know why this is necessary, I'll buy you
     # a drink.
     rotation_matrices = s2fft_rotation.compute_rotation_matrices(
-        lmax, 0.0, 1.0, 0.0, -np.pi)
+        lmax, 0.0, 1.0, 0.0, -np.pi/2)
     R3 = np.zeros((Ny, Ny))
     for l in range(lmax+1):
         R3[l*l:l*l+2*l+1,l*l:l*l+2*l+1] = rotation_matrices[l]
@@ -356,7 +356,7 @@ def visibility(fit, d, lmax, sampling='Mollweide'):
     lat = np.rad2deg(lat)
     lon = np.rad2deg(lon)
     
-    return vis, lat, lon
+    return vis, lat, lon#, A, P2Y, R3, R2, R1
 
 def visibility_starry(fit, t, x, y, z, lmax):
     """
