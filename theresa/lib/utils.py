@@ -35,7 +35,7 @@ def initsystem(fit, ydeg, y=None):
 
     star_surface = surface.Surface(
           y=star_ylm,
-          inc=jnp.pi/2,               # Edge-on inclination
+          inc=jnp.pi/2,               # Inclination of surface
           period=cfg.star.prot,       # Rotation period in days
           radius=cfg.star.r,          # Radius in solar radii
           amplitude=1.0               # Normalized amplitude
