@@ -225,6 +225,8 @@ class Fit:
         self.cfg.planet.t0    = self.cfg.cfg.getfloat('Planet', 't0')
         self.cfg.planet.a     = self.cfg.cfg.getfloat('Planet', 'a')
         self.cfg.planet.b     = self.cfg.cfg.getfloat('Planet', 'b')
+        self.cfg.planet.light_travel = self.cfg.cfg.getboolean('Planet',
+                                                               'light_travel')
 
         # Instruments
         for i, inst in enumerate(self.cfg.instruments):
