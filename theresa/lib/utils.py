@@ -77,15 +77,15 @@ def initsystem(fit, ydeg, y=None):
 
     # Add planet to the system
     system = system.add_body(
-        period=cfg.planet.porb,               # Orbital period in days
-        radius=cfg.planet.r,                  # Planet radius in solar radii
-        mass=cfg.planet.m,                    # Planet mass in solar masses
-        inclination=jnp.deg2rad(cfg.planet.inc),  # Orbital inclination
-        eccentricity=cfg.planet.ecc,          # Eccentricity
-        omega_peri=jnp.deg2rad(cfg.planet.w), # Argument of periastron
-        asc_node=jnp.deg2rad(cfg.planet.Omega), # Longitude of ascending node
-        time_transit=cfg.planet.t0,           # Time of transit
-        surface=planet_surface                # Attach the planet surface
+        period=cfg.planet.porb,                  # Orbital period in days
+        radius=cfg.planet.r,                     # Planet radius in solar radii
+        mass=cfg.planet.m,                       # Planet mass in solar masses
+        inclination=jnp.deg2rad(cfg.planet.inc), # Orbital inclination
+        eccentricity=cfg.planet.ecc,             # Eccentricity
+        omega_peri=jnp.deg2rad(cfg.planet.w),    # Argument of periastron
+        asc_node=jnp.deg2rad(cfg.planet.Omega),  # Longitude of ascending node
+        time_transit=0.0,                        # Time of transit
+        surface=planet_surface                   # Attach the planet surface
       )
 
     return star_surface, planet_surface, system

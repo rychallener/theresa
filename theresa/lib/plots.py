@@ -95,7 +95,7 @@ def lightcurves(t, lcs, outdir):
                 m += 1
             
     plt.ylabel('Normalized Flux')
-    plt.xlabel('Time (days)')
+    plt.xlabel('Time from transit (days)')
     plt.legend(ncol=l, fontsize=6)
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'lightcurves.png'))
@@ -111,7 +111,7 @@ def eigencurves(t, lcs, outdir, ncurves=None):
         plt.plot(t, lcs[i], label="E-curve {}".format(i+1))
 
     plt.ylabel('Normalized Flux')
-    plt.xlabel('Time (days)')
+    plt.xlabel('Time from transit (days)')
 
     plt.legend(fontsize=6)
     fig.tight_layout()
@@ -291,7 +291,7 @@ def bestfit(fit, outdir=''):
                                      gridspec_kw=gridspec_kw,
                                      figsize=(8,10))
             
-            t = v.t - fit.cfg.planet.t0
+            t = v.t
             
             imap = 0
             for m in d.maps:
@@ -512,7 +512,7 @@ def bestfitlcsspec(fit, outdir=''):
             axes[i+1].set_ylabel('Residuals')
             axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
             if i == nmaps-1:
-                axes[i+1].set_xlabel('Time (days)')
+                axes[i+1].set_xlabel('Time from transit (days)')
             i += 1
 
     plt.tight_layout()

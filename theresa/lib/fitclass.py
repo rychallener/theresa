@@ -351,7 +351,11 @@ class Fit:
                             visit.dvec[i]   -= np.median(visit.dvec[i])
                             visit.dvecuc[i] -= np.median(visit.dvec[i])
 
-                    visit.tloc = visit.t - np.min(visit.t)
+                    # Time since visit began
+                    visit.tloc  = visit.t - np.min(visit.t)
+
+                    # Adjust s.t. transit occurs at t=0 for jaxoplanet
+                    visit.t    -= fit.cfg.planet.t0
 
                     if len(visit.t) != visit.flux.shape[1]:
                         print("WARNING: Number of times does not match" +
