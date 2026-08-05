@@ -334,11 +334,11 @@ def map2d(cfile):
                 # Interpolated stellar spectrum
                 sspec_int = np.interp(m.filtwl, fit.starwl, fit.starflux)
                 # Band-integrated stellar spectrum
-                sspec_fint = np.trapz(m.filttrans * sspec_int,
-                                      m.filtwl * 1e-6)
+                sspec_fint = np.trapezoid(m.filttrans * sspec_int,
+                                          m.filtwl * 1e-6)
                 rprs2 = (fit.cfg.planet.r / fit.cfg.star.r)**2
                 fpfs_for_bbs = rprs2 * bbs / sspec_int
-                m.fpfs_for_interp = np.trapz(
+                m.fpfs_for_interp = np.trapezoid(
                     fpfs_for_bbs * m.filttrans * sspec_int,
                     m.filtwl * 1e-6, axis=1) / sspec_fint
                 
