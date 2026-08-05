@@ -224,6 +224,8 @@ class Fit:
         self.cfg.planet.t0    = self.cfg.cfg.getfloat('Planet', 't0')
         self.cfg.planet.a     = self.cfg.cfg.getfloat('Planet', 'a')
         self.cfg.planet.b     = self.cfg.cfg.getfloat('Planet', 'b')
+        self.cfg.planet.light_delay = \
+            self.cfg.cfg.getboolean('Planet', 'light_delay') 
 
         # Instruments
         for i, inst in enumerate(self.cfg.instruments):
@@ -355,7 +357,7 @@ class Fit:
                     visit.tloc  = visit.t - np.min(visit.t)
 
                     # Adjust s.t. transit occurs at t=0 for jaxoplanet
-                    visit.t    -= fit.cfg.planet.t0
+                    visit.t    -= self.cfg.planet.t0
 
                     if len(visit.t) != visit.flux.shape[1]:
                         print("WARNING: Number of times does not match" +

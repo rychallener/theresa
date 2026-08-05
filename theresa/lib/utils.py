@@ -76,6 +76,11 @@ def initsystem(fit, ydeg, y=None):
     )
 
     # Add planet to the system
+    if fit.cfg.planet.light_delay:
+        light_delay = 1
+    else:
+        light_delay = None
+        
     system = system.add_body(
         period=cfg.planet.porb,                  # Orbital period in days
         radius=cfg.planet.r,                     # Planet radius in solar radii
@@ -85,7 +90,8 @@ def initsystem(fit, ydeg, y=None):
         omega_peri=jnp.deg2rad(cfg.planet.w),    # Argument of periastron
         asc_node=jnp.deg2rad(cfg.planet.Omega),  # Longitude of ascending node
         time_transit=0.0,                        # Time of transit
-        surface=planet_surface                   # Attach the planet surface
+        surface=planet_surface,                  # Attach the planet surface
+        light_delay=light_delay,                 # Account for light delay?
       )
 
     return star_surface, planet_surface, system
