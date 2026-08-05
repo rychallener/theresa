@@ -137,10 +137,10 @@ def specint(wn, spec, filtwn_list, filttrans_list):
         inttrans = intfunc(wn)
 
         # Normalize to one
-        norminttrans = inttrans / np.trapz(inttrans, wn)
+        norminttrans = inttrans / np.trapezoid(inttrans, wn)
 
         # Integrate filtered spectrum
-        intspec[i] = np.trapz(spec * norminttrans, wn)
+        intspec[i] = np.trapezoid(spec * norminttrans, wn)
 
     return intspec
 
