@@ -12,6 +12,10 @@
 
 	- You can now fit for a separate normalization factor for each observation, which allows fitting for long-term stellar variability.
 
+	- There is now an option to use the [Dobbs-Dixon & Blecic (2022)](https://ui.adsabs.harvard.edu/abs/2022ApJ...929...46D/abstract) GCM-motivated 3D temperature model in 3D fitting. While this model does not strictly rely on the 2D maps, for now ThERESA still requires the user to perform 2D mapping before running 3D mapping.
+
+	- 3D fits can include parameters for metallicity (log Z/Z_sun) and carbon-to-oxygen ratio (log C/O).
+
 ## Major Updates
 
 	- 3D fits can now be resumed from where they ended.
@@ -25,6 +29,8 @@
 	- 2D mapping includes a uniform-planet fit (ncurves = 0).
 
 	- Account for light travel-time delay in fitting.
+
+	- starry replaced with jaxoplanet, simplifying installation.
 
 ## Minor Updates
 
