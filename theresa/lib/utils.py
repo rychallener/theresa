@@ -362,7 +362,7 @@ def visibility(fit, d, lmax, sampling='Mollweide'):
     lat = np.rad2deg(lat)
     lon = np.rad2deg(lon)
     
-    return vis, lat, lon, A, P2Y#, R3, R2, R1
+    return vis, lat, lon, #A, P2Y#, R3, R2, R1
 
 def visibility_starry(fit, t, x, y, z, lmax):
     """

@@ -1,5 +1,5 @@
 import numpy as np
-from lib import utils
+import utils
 import scipy.interpolate as sci
 import time
 from numba import njit

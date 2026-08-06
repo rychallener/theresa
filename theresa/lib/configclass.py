@@ -43,6 +43,6 @@ class Observation:
 
 class Instrument:
     """
-    A class to hold instrument configuration optionsl
+    A class to hold instrument configuration options.
     """
     pass

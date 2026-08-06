@@ -8,10 +8,10 @@ import sys
 from numba import jit, literal_unroll
 
 # Lib imports
-from lib import cf
-from lib import atm
-from lib import utils
-from lib import constants as c
+import cf
+import atm
+import utils
+import constants as c
 import taurexclass as trc
 
 # Taurex imports

@@ -3,9 +3,9 @@ import sys
 import numpy as np
 import pickle
 import configparser as cp
-from lib import configclass as cc
+import configclass as cc
 import scipy.constants as sc
-from lib import constants as c
+import constants as c
 
 class Fit:
     """
