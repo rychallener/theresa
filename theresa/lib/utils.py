@@ -11,7 +11,6 @@ import mc3.stats as ms
 from numba import njit
 import matplotlib.pyplot as plt
 import jax
-from jaxoplanet_logger import get_logger
 
 import jaxoplanet.starry.core                as core
 import jaxoplanet.starry.orbit               as orbit
