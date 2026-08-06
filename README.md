@@ -11,7 +11,7 @@ against the input light curves behind MCMC to explore parameter space.
 
 ## Developers
 
-Ryan C. Challener (rchallen@umich.edu)
+Ryan C. Challener (rcc276@cornell.edu)
 
 Emily Rauscher
 

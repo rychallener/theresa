@@ -16,7 +16,7 @@ using radiative transfer, and integrates over the planet to calculate
 light curves for comparison with observations.
 
 :Author: Ryan Challener and Emily Rauscher
-:Contact: rchallen@umich.edu
+:Contact: rcc276@cornell.edu
 
 Documentation
 =============
