@@ -5,8 +5,7 @@ import pickle
 import configparser as cp
 import configclass as cc
 import scipy.constants as sc
-
-import utils
+import constants as c
 
 class Fit:
     """
@@ -225,8 +224,8 @@ class Fit:
         self.cfg.planet.t0    = self.cfg.cfg.getfloat('Planet', 't0')
         self.cfg.planet.a     = self.cfg.cfg.getfloat('Planet', 'a')
         self.cfg.planet.b     = self.cfg.cfg.getfloat('Planet', 'b')
-        self.cfg.planet.light_travel = self.cfg.cfg.getboolean('Planet',
-                                                               'light_travel')
+        self.cfg.planet.light_delay = \
+            self.cfg.cfg.getboolean('Planet', 'light_delay') 
 
         # Instruments
         for i, inst in enumerate(self.cfg.instruments):
@@ -354,7 +353,11 @@ class Fit:
                             visit.dvec[i]   -= np.median(visit.dvec[i])
                             visit.dvecuc[i] -= np.median(visit.dvec[i])
 
-                    visit.tloc = visit.t - np.min(visit.t)
+                    # Time since visit began
+                    visit.tloc  = visit.t - np.min(visit.t)
+
+                    # Adjust s.t. transit occurs at t=0 for jaxoplanet
+                    visit.t    -= self.cfg.planet.t0
 
                     if len(visit.t) != visit.flux.shape[1]:
                         print("WARNING: Number of times does not match" +
@@ -392,13 +395,47 @@ class Fit:
         '''
         for data in self.datasets:
             filtwl, filtwn, filttrans, wnmid, wlmid = \
-                utils.readfilters(data.filtfiles)
+                self.readfilters(data.filtfiles)
             data.filtwl    = filtwl
             data.filtwn    = filtwn
             data.filttrans = filttrans
             data.wnmid     = wnmid
-            data.wlmid     = wlmid           
+            data.wlmid     = wlmid   
+                    
+    def readfilters(self,filterfiles):
+        """
+        Reads filter files and determines the mean wavelength.
+        
+        Arguments
+        ---------
+        filterfiles: list
+            list of paths to filter files
+
+        Returns
+        -------
+        filtmid: 1D array
+            Array of mean wavelengths
+        """
+        filtwl_list    = []
+        filtwn_list    = []
+        filttrans_list = []
+        
+        wnmid = np.zeros(len(filterfiles))
+        for i, filterfile in enumerate(filterfiles):
+            filtwl, trans = np.loadtxt(filterfile, unpack=True)
             
+            filtwn = 1.0 / (filtwl * c.um2cm)
+
+            wnmid[i] = np.sum(filtwn * trans) / np.sum(trans)
+
+            filtwl_list.append(filtwl)
+            filtwn_list.append(filtwn)
+            filttrans_list.append(trans)
+
+        wlmid = 1 / (c.um2cm * wnmid)
+
+        return filtwl_list, filtwn_list, filttrans_list, wnmid, wlmid
+
     def save(self, outdir, fname=None):
         '''
         Save a Fit object to a pickle file.

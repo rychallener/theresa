@@ -1,6 +1,5 @@
 import numpy as np
 import time
-import theano
 import scipy.interpolate as sci
 import matplotlib.pyplot as plt
 import mc3

@@ -46,7 +46,6 @@ class EmissionModel3D(taurex.model.EmissionModel):
                  atm_min_pressure=1e-4,
                  atm_max_pressure=1e6,
                  taulimit=5,
-                 ngauss=4,
                  ):
         super().__init__(planet,
                          star,
@@ -55,8 +54,7 @@ class EmissionModel3D(taurex.model.EmissionModel):
                          chemistry,
                          nlayers,
                          atm_min_pressure,
-                         atm_max_pressure,
-                         ngauss)
+                         atm_max_pressure)
         
         self.taulimit = taulimit
 

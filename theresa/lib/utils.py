@@ -1,48 +1,101 @@
 import numpy as np
+import jax.numpy as jnp
 import pickle
-import theano
 import time
 import constants as c
 import scipy.constants as sc
 import scipy.interpolate as spi
 import eigen
-import starry
 import progressbar
-import theano
-import theano.tensor as tt
 import mc3.stats as ms
 from numba import njit
+import matplotlib.pyplot as plt
+import jax
+from jaxoplanet_logger import get_logger
 
-def initsystem(fit, ydeg):
+import jaxoplanet.starry.core                as core
+import jaxoplanet.starry.orbit               as orbit
+import jaxoplanet.starry.surface             as surface
+import jaxoplanet.starry.ylm                 as ylm
+import jaxoplanet.orbits.keplerian           as keplerian
+import jaxoplanet.starry.light_curves        as light_curves
+import jaxoplanet.starry.core.s2fft_rotation as s2fft_rotation
+import jaxoplanet.starry.core.rotation       as rotation
+import jaxoplanet.starry.surface_is_physical as surface_is_physical
+
+def initsystem(fit, ydeg, y=None):
     '''
-    Uses a fit object to build the respective starry objects. Useful
-    because starry objects cannot be pickled. Returns a tuple of
+    Uses a fit object to build the respective jaxoplanet objects. Useful
+    because objects cannot be pickled. Returns a tuple of
     (star, planet, system).
     '''
     
     cfg = fit.cfg
+    star_ylm = ylm.Ylm.from_dense(jnp.array([1.0]), normalize=True)
 
-    star = starry.Primary(starry.Map(ydeg=1, amp=1),
-                          m   =cfg.star.m,
-                          r   =cfg.star.r,
-                          prot=cfg.star.prot)
+    star_surface = surface.Surface(
+          y=star_ylm,
+          inc=jnp.pi/2,               # Inclination of surface
+          period=cfg.star.prot,       # Rotation period in days
+          radius=cfg.star.r,          # Radius in solar radii
+          amplitude=1.0               # Normalized amplitude
+      )
 
-    planet = starry.kepler.Secondary(starry.Map(ydeg=ydeg),
-                                     m    =cfg.planet.m,
-                                     r    =cfg.planet.r,
-                                     porb =cfg.planet.porb,
-                                     prot =cfg.planet.prot,
-                                     Omega=cfg.planet.Omega,
-                                     ecc  =cfg.planet.ecc,
-                                     w    =cfg.planet.w,
-                                     t0   =cfg.planet.t0,
-                                     inc  =cfg.planet.inc,
-                                     theta0=180)
+    # Create planet surface with spherical harmonics up to ydeg
+    # Initialize all coefficients to zero except Y_00 = 1.0 (uniform map)
+    # unless given a specific array
+    if y is None:
+        n_coeffs = (ydeg + 1)**2
+        planet_ylm_coeffs = jnp.zeros(n_coeffs)
+        planet_ylm_coeffs = planet_ylm_coeffs.at[0].set(1.0)  # Y_00 = 1.0
+    else:
+        planet_ylm_coeffs = jnp.array(y)
+        planet_ylm_coeffs = planet_ylm_coeffs.at[0].set(1.0)
 
-    system = starry.System(star, planet,
-                           light_delay=fit.cfg.planet.light_travel)
+    planet_ylm = ylm.Ylm.from_dense(planet_ylm_coeffs, normalize=True)
 
-    return star, planet, system
+    planet_surface = surface.Surface(
+        y=planet_ylm,
+        inc=np.pi/2,            # Inclination in radians
+        period=cfg.planet.prot, # Rotation period in days
+        radius=cfg.planet.r,    # Radius in solar radii
+        amplitude=1.0,
+        phase=jnp.deg2rad(180)  # Initial rotation phase (theta0)
+      )
+
+    # Create the central star object
+    central = keplerian.Central(
+        mass=cfg.star.m,      # Solar masses
+        radius=cfg.star.r     # Solar radii
+    )
+
+    # Create the system with star as central body
+    system = orbit.SurfaceSystem(
+        central=central,
+        central_surface=star_surface
+    )
+
+    # Add planet to the system
+    if fit.cfg.planet.light_delay:
+        light_delay = 1
+    else:
+        light_delay = None
+        
+    system = system.add_body(
+        period=cfg.planet.porb,                  # Orbital period in days
+        radius=cfg.planet.r,                     # Planet radius in solar radii
+        mass=cfg.planet.m,                       # Planet mass in solar masses
+        inclination=jnp.deg2rad(cfg.planet.inc), # Orbital inclination
+        eccentricity=cfg.planet.ecc,             # Eccentricity
+        omega_peri=jnp.deg2rad(cfg.planet.w),    # Argument of periastron
+        asc_node=jnp.deg2rad(cfg.planet.Omega),  # Longitude of ascending node
+        time_transit=0.0,                        # Time of transit
+        surface=planet_surface,                  # Attach the planet surface
+        light_delay=light_delay,                 # Account for light delay?
+      )
+
+    return star_surface, planet_surface, system
+
 
 def specint(wn, spec, filtwn_list, filttrans_list):
     """
@@ -84,26 +137,26 @@ def specint(wn, spec, filtwn_list, filttrans_list):
         inttrans = intfunc(wn)
 
         # Normalize to one
-        norminttrans = inttrans / np.trapz(inttrans, wn)
+        norminttrans = inttrans / np.trapezoid(inttrans, wn)
 
         # Integrate filtered spectrum
-        intspec[i] = np.trapz(spec * norminttrans, wn)
+        intspec[i] = np.trapezoid(spec * norminttrans, wn)
 
     return intspec
 
     
-def vislon(planet, data):
+def vislon(system, data):
     """
     Determines the range of visible longitudes based on times of
     observation.
 
     Arguments
     ---------
-    planet: starry Planet object
-        Planet object
+    system: jaxoplanet System object
+        System object
 
-    fit: Fit object
-        Fit object. Must contain observation information.
+    data: Dataset object
+        Dataset object. Must contain observation information.
 
     Returns
     -------
@@ -115,10 +168,13 @@ def vislon(planet, data):
     """
     t = data.t
 
-    porb   = planet.porb   # days / orbit
-    prot   = planet.prot   # days / rotation
-    t0     = planet.t0     # days
-    theta0 = planet.theta0 # degrees
+    psurf = system.body_surfaces[0]
+    pbody = system.bodies[0]
+
+    porb   = pbody.period               # days / orbit
+    prot   = psurf.period               # days / rotation
+    t0     = pbody.time_transit         # days
+    theta0 = psurf.phase * 180. / np.pi # degrees
 
     # Central longitude at each time ("sub-observer" point)
     centlon = theta0 - (t - t0) / prot * 360
@@ -132,8 +188,8 @@ def vislon(planet, data):
     limb1 = (limb1 + 180) % 360 - 180
     limb2 = (limb2 + 180) % 360 - 180
 
-    return np.min(limb1.eval()), np.max(limb2.eval())
-    
+    return np.min(limb1), np.max(limb2)
+  
     
 def readfilters(filterfiles):
     """
@@ -169,7 +225,146 @@ def readfilters(filterfiles):
 
     return filtwl_list, filtwn_list, filttrans_list, wnmid, wlmid
 
-def visibility(fit, t, x, y, z, lmax):
+def visibility(fit, d, lmax, sampling='Mollweide'):
+    """
+    Calculate the visibility of a grid of cells on a planet for
+    a series of times using the design matrix and pixel transform.
+    """
+    t, x, y, z = d.t, d.x, d.y, d.z
+
+    Nt = len(t)
+
+    # Determine spatial sampling
+    # Might be better to have user supply lat/lon (e.g., through
+    # calling a different function) rather than compute them here.
+    # Mollweide adapted from starry
+    if sampling == 'Mollweide':
+        npix = fit.cfg.threed.oversample * (lmax + 1)**2
+
+        Ny = int(np.sqrt(npix * np.pi / 4.0))
+        Nx = 2 * Ny
+
+        y, x = np.meshgrid(
+            np.sqrt(2) * np.linspace(-1, 1, Ny),
+            2 * np.sqrt(2) * np.linspace(-1, 1, Nx),
+        )
+        x = x.flatten()
+        y = y.flatten()
+
+        # Remove off-grid points
+        a = np.sqrt(2)
+        b = 2 * np.sqrt(2)
+        idx = (y / a) ** 2 + (x / b) ** 2 <= 1
+        y = y[idx]
+        x = x[idx]
+
+        # https://en.wikipedia.org/wiki/Mollweide_projection
+        theta = np.arcsin(y / np.sqrt(2))
+        lat = np.arcsin((2 * theta + np.sin(2 * theta)) / np.pi)
+        lon0 = 3 * np.pi / 2
+        lon = lon0 + np.pi * x / (2 * np.sqrt(2) * np.cos(theta))
+
+        # Add points at the poles
+        lat = np.append(lat, [-np.pi / 2, np.pi / 2])
+        lon = np.append(
+            lon, [1.5 * np.pi, 1.5 * np.pi]
+        )
+        npix = len(lat)
+
+        # Back to Cartesian, this time on the *sky*
+        x = np.reshape(np.cos(lat) * np.sin(lon), [1, -1])
+        y = np.reshape(np.sin(lat), [1, -1])
+        z = np.reshape(np.cos(lat) * np.cos(lon), [1, -1])
+
+        x = x.reshape(-1)
+        y = y.reshape(-1)
+        z = z.reshape(-1)
+
+        # Flatten and fix the longitude offset, then sort by latitude
+        lat = lat.reshape(-1)
+        lon = (lon - 1.5 * np.pi).reshape(-1)
+        idx = np.lexsort([lon, lat])
+        lat = lat[idx]
+        lon = lon[idx]
+        x = x[idx]
+        y = y[idx]
+        z = z[idx]
+
+    else:
+        print("Unrecognized spatial sampling mode.")
+        sys.exit()
+
+    def calcflux(y):
+        star, planet, system = initsystem(fit, lmax, y=y)
+        lcfun = light_curves.light_curve(system, order=100)
+        sflux, pflux = lcfun(t).T
+        return sflux, pflux
+
+    j_calcflux = jax.jit(calcflux)
+    
+    # Design matrix
+    # Done manually. Would be nice if jaxoplanet had a function for this.
+    Ny = (lmax+1)**2
+    A = np.zeros((Nt, Ny))
+    for i in range(Ny):
+        yval = np.zeros(Ny + 1)
+        
+        yval[0] = 1.0
+        yval[i] = 1.0
+
+        sflux, A[:,i] = j_calcflux(yval)
+        if i > 0:
+            A[:,i] -= d.pflux_y00
+
+    # Pixel transforms
+    # Note: 'RV' is forced to False
+    star, planet, system = initsystem(fit, lmax)
+    pT = planet._poly_basis(False)(x, y, z)[:,:(lmax+1)**2]
+    A1 = core.basis.A1(lmax)
+
+    # Rotation - sky projection
+    axis_x, axis_y, axis_z, angle = rotation.sky_projection_axis_angle(
+        planet.inc, planet.obl)
+    rotation_matrices = s2fft_rotation.compute_rotation_matrices(
+        lmax, axis_x, axis_y, axis_z, angle)
+    R1 = np.zeros((Ny, Ny))
+    for l in range(lmax+1):
+        R1[l*l:l*l+2*l+1,l*l:l*l+2*l+1] = rotation_matrices[l]
+
+    # Rotation - inclination convention
+    rotation_matrices = s2fft_rotation.compute_rotation_matrices(
+        lmax, 1.0, 0.0, 0.0, -np.pi/2)
+    R2 = np.zeros((Ny, Ny))
+    for l in range(lmax+1):
+        R2[l*l:l*l+2*l+1,l*l:l*l+2*l+1] = rotation_matrices[l]
+
+    # Rotation - mystery 3rd rotation?? Jaxoplanet convention, maybe?
+    # If you, dear reader, know why this is necessary, I'll buy you
+    # a drink.
+    rotation_matrices = s2fft_rotation.compute_rotation_matrices(
+        lmax, 0.0, 1.0, 0.0, -np.pi/2)
+    R3 = np.zeros((Ny, Ny))
+    for l in range(lmax+1):
+        R3[l*l:l*l+2*l+1,l*l:l*l+2*l+1] = rotation_matrices[l]
+    #R3 = np.eye(Ny)
+
+    Y2P = pT @ A1 @ R3 @ R2 @ R1
+
+    lam = 1e-12
+    P2Y = np.linalg.solve(Y2P.T.dot(Y2P) + lam * np.eye(Ny), Y2P.T)
+
+    # Calculate visibility function
+    vis = A @ P2Y
+
+    # Get to the same units as the old visiblity function for simplicity
+    vis /= np.pi
+
+    lat = np.rad2deg(lat)
+    lon = np.rad2deg(lon)
+    
+    return vis, lat, lon, #A, P2Y#, R3, R2, R1
+
+def visibility_starry(fit, t, x, y, z, lmax):
     """
     Calculate the visibility of a grid of cells on a planet for
     a series of times using starry's design matrices to do this
@@ -378,14 +573,25 @@ def t_dgrid():
                         dgrid(arg1, arg2, arg3, arg4, arg5))    
     return f
 
-def mapintensity(map, lat, lon, amp):
+def mapintensity(surface, lat, lon, amp):
     """
     Calculates a grid of intensities, multiplied by the amplitude given.
     """
-    grid = map.intensity(lat=lat.flatten(), lon=lon.flatten()).eval()
-    grid *= amp
+     # Convert to radians (jaxoplanet expects radians)
+    lat_rad = jnp.deg2rad(lat.flatten())
+    lon_rad = jnp.deg2rad(lon.flatten())
+
+      # Evaluate intensity at all positions
+      # The Surface.intensity() method accepts arrays due to JAX broadcasting
+    grid = surface.intensity(lat_rad, lon_rad)
+
+      # Scale by amplitude
+    grid = grid * amp
+
+      # Reshape back to original shape
     grid = grid.reshape(lat.shape)
-    return grid
+
+    return np.array(grid)
 
 
 def hotspotloc_driver(fit, ln):
@@ -421,8 +627,7 @@ def hotspotloc_driver(fit, ln):
 
     nsamp, nfree = post.shape
 
-    ntries     =  5
-    oversample =  1
+    oversample =  5
 
     if fit.cfg.twod.ncalc > nsamp:
         print("Warning: ncalc reduced to match burned-in sample.")
@@ -434,43 +639,44 @@ def hotspotloc_driver(fit, ln):
     hslat = np.zeros(ncalc)
     thinning = nsamp // ncalc
 
-    bounds = None
-    bounds = (-90, 90),(-360, 360)
-    smap = starry.Map(ydeg=ln.lmax)
-    # Function defined in this way to avoid passing non-numeric arguments
-    def hotspotloc(yval):       
-        smap[1:,:] = yval
-        lat, lon, val = smap.minimize(oversample=oversample,
-                                      ntries=ntries, bounds=bounds)
+    def hotspotloc(y):
+        star, planet, system = initsystem(fit, ln.lmax, y=y)
+        (lat, lon), val = surface_is_physical.surface_min_intensity(
+            planet, oversample, ln.lmax)
+
         return lat, lon, val
 
-    arg1 = tt.dvector()
-    t_hotspotloc = theano.function([arg1], hotspotloc(arg1))
+    j_hotspotloc = jax.jit(hotspotloc)
 
     # Note the maps created here do not include the correct uniform
     # component because that does not affect the location of the
     # hotspot. Also note that the eigenvalues are negated because
-    # we want to maximize, not minize, but starry only includes
+    # we want to maximize, not minimize, but jaxoplanet only includes
     # a minimize method.
     pbar = progressbar.ProgressBar(max_value=ncalc)
     for i in range(0, ncalc):
         ipost = i * thinning
-        yval = np.zeros((ln.lmax+1)**2-1)
+        y = np.zeros((ln.lmax+1)**2)
         for j in range(ln.ncurves):
-            yval += -1 * post[ipost,j] * ln.eigeny[j,1:]
+            y[1:] += -1 * post[ipost,j] * ln.eigeny[j,1:]
+            y[0] = 1.0
 
-        hslat[i], hslon[i], _ = t_hotspotloc(yval)
+        hslat[i], hslon[i], _ = j_hotspotloc(y)
         pbar.update(i+1)
-
-    star, planet, system = initsystem(fit, ln.lmax)
-    planet.map[1:,:] = 0.0
+        
+    # Get the best-fit hotspot offset
+    yb = np.zeros((ln.lmax+1)**2)
+    yb[0] = 1.0
     for j in range(ln.ncurves):
-        planet.map[1:,:] += -1 * ln.bestp[j] * ln.eigeny[j,1:]
-    hslatbest, hslonbest, _ = planet.map.minimize(oversample=oversample,
-                                                  bounds=bounds,
-                                                  ntries=ntries)
-    hslonbest = hslonbest.eval()
-    hslatbest = hslatbest.eval()
+        yb[1:] += -1 * ln.bestp[j] * ln.eigeny[j,1:]
+
+    hslatbest, hslonbest, _ = hotspotloc(yb)
+
+    # Convert to degrees
+    hslat = np.rad2deg(hslat)
+    hslon = np.rad2deg(hslon)
+    hslatbest = np.rad2deg(hslatbest)
+    hslonbest = np.rad2deg(hslonbest)
 
     # Constrain longitudes to [-180, 180]
     hslonbest = (hslonbest + 180.) % 360. - 180.
@@ -528,30 +734,44 @@ def tmappost(fit, m, ln):
     
     star, planet, system = initsystem(fit, ln.lmax)
 
-    def calcfmap(yval, unifamp):
-        planet.map[1:,:] = 0.0
-        amp = unifamp - 1
-        fmap = planet.map.intensity(lat=fit.lat.flatten(),
-                                    lon=fit.lon.flatten()) * amp
+    nloc = len(fit.lat.flatten())
 
-        planet.map[1:,:] = yval
-        fmap += planet.map.intensity(lat=fit.lat.flatten(),
-                                     lon=fit.lon.flatten())
+    lat = fit.lat.flatten()
+    lon = fit.lon.flatten()
+
+    # Lil function to calculate a single flux map. Returns a flattened
+    # array that needs to be reshaped into 2D
+    # (Possibly could be replaced with eigen.mkmaps()? Or move this
+    #  function to be accessible elsewhere?)
+    def calcfmap(yval: jnp.array,
+                 unifamp: float):
+        star, planet, system = initsystem(fit, ln.lmax, yval)
+        
+        fmap = planet.intensity(np.deg2rad(lat),
+                                np.deg2rad(lon))
+
+        # Fitted uniform component (-1 to remove default uniform
+        # component). We could calculate this with a jaxoplanet object,
+        # but it's faster to just use the knowledge that a uniform
+        # map has Y00 / pi intensity everywhere.
+        fmap += (unifamp - 1) / np.pi
 
         return fmap
 
-    arg1 = tt.dvector()
-    arg2 = tt.dscalar()
-    t_calcfmap = theano.function([arg1, arg2], calcfmap(arg1, arg2))
+    j_calcfmap = jax.jit(calcfmap)
     
     pbar = progressbar.ProgressBar(max_value=ncalc)
     for i in range(ncalc):
         ipost = i * thinning
-        yval = np.zeros((ln.lmax+1)**2-1)
+        
+        yval = np.zeros((ln.lmax+1)**2)
+        yval[0] = 1.0
+        
         for j in range(ln.ncurves):
-            yval += post[ipost,j] * ln.eigeny[j,1:]
-            
-        fmaps[i] = t_calcfmap(yval, post[ipost, ncurves]).reshape(fit.lat.shape)
+            yval[1:] += post[ipost,j] * ln.eigeny[j,1:]
+
+        yval = jnp.array(yval)
+        fmaps[i] = j_calcfmap(yval, post[ipost, ncurves]).reshape(fit.lat.shape)
         tmaps[i] = fmap_to_tmap(fmaps[i], m.wlmid, fit.cfg.planet.r,
                                 fit.cfg.star.r, fit.cfg.star.t,
                                 post[ipost,ncurves+1],

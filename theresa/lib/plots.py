@@ -14,8 +14,12 @@ import utils
 import copy
 
 
-def emaps(planet, eigeny, outdir, proj='ortho'):
+def emaps(fit, eigeny, outdir, proj='ortho'):
     ncurves, ny = eigeny.shape
+
+    if proj != 'rect':
+        print('WARNING: non-rectangular projections not yet supported!')
+        return
 
     if proj == 'ortho':
         extent = (-90, 90, -90, 90)
@@ -27,29 +31,27 @@ def emaps(planet, eigeny, outdir, proj='ortho'):
         extent = (-180, 180, -90, 90)
         fname = 'emaps-moll.png'
 
-    lmax = np.int(ny**0.5 - 1)
+    lmax = int(ny**0.5 - 1)
 
-    ncols = np.int(np.sqrt(ncurves) // 1)
-    nrows = np.int(ncurves // ncols + (ncurves % ncols != 0))
+    ncols = int(np.sqrt(ncurves) // 1)
+    nrows = int(ncurves // ncols + (ncurves % ncols != 0))
     npane = ncols * nrows
 
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False,
                              sharex=True, sharey=True)
     
     for j in range(ncurves):
-        planet.map[1:,:] = 0
-
         xloc = j %  ncols
         yloc = j // ncols
         ax = axes[yloc, xloc]
         
-        yi = 1
-        for l in range(1, lmax + 1):
-            for m in range(-l, l + 1):
-                planet.map[l, m] = eigeny[j, yi]
-                yi += 1
+        y = eigeny[j]
+        star, planet, system = utils.initsystem(fit, lmax, y=y)
+
+        emap = planet.intensity(np.deg2rad(fit.lat),
+                                np.deg2rad(fit.lon))
         
-        ax.imshow(planet.map.render(theta=0, projection=proj).eval(),
+        ax.imshow(emap,
                   origin="lower",
                   cmap="plasma",
                   extent=extent)
@@ -93,7 +95,7 @@ def lightcurves(t, lcs, outdir):
                 m += 1
             
     plt.ylabel('Normalized Flux')
-    plt.xlabel('Time (days)')
+    plt.xlabel('Time from transit (days)')
     plt.legend(ncol=l, fontsize=6)
     fig.tight_layout()
     plt.savefig(os.path.join(outdir, 'lightcurves.png'))
@@ -109,7 +111,7 @@ def eigencurves(t, lcs, outdir, ncurves=None):
         plt.plot(t, lcs[i], label="E-curve {}".format(i+1))
 
     plt.ylabel('Normalized Flux')
-    plt.xlabel('Time (days)')
+    plt.xlabel('Time from transit (days)')
 
     plt.legend(fontsize=6)
     fig.tight_layout()
@@ -137,7 +139,7 @@ def ecurvepower(evalues, outdir):
 def pltmaps(fit, proj='rect'):
     nmaps = fit.nmaps
 
-    ncols = np.int(np.sqrt(nmaps) // 1)
+    ncols = int(np.sqrt(nmaps) // 1)
     nrows = nmaps // ncols + (nmaps % ncols != 0)
 
     xsize = 7. / 3. * ncols
@@ -204,7 +206,7 @@ def pltmaps(fit, proj='rect'):
 def tmap_unc(fit, proj='rect'):
     nmaps = fit.nmaps
 
-    ncols = np.int(np.sqrt(nmaps) // 1)
+    ncols = int(np.sqrt(nmaps) // 1)
     nrows = nmaps // ncols + (nmaps % ncols != 0)
 
     xsize = 7. / 3. * ncols
@@ -289,7 +291,7 @@ def bestfit(fit, outdir=''):
                                      gridspec_kw=gridspec_kw,
                                      figsize=(8,10))
             
-            t = v.t - fit.cfg.planet.t0
+            t = v.t
             
             imap = 0
             for m in d.maps:
@@ -510,7 +512,7 @@ def bestfitlcsspec(fit, outdir=''):
             axes[i+1].set_ylabel('Residuals')
             axes[i+1].axhline(0, 0, 1, color='black', linestyle='--')
             if i == nmaps-1:
-                axes[i+1].set_xlabel('Time (days)')
+                axes[i+1].set_xlabel('Time from transit (days)')
             i += 1
 
     plt.tight_layout()
@@ -857,8 +859,8 @@ def tgrid_unc(fit, outdir=''):
 def cf_by_filter(fit, outdir=''):
     ncolumn, nlev, nfilt = fit.cf.shape
     
-    ncols = np.int(np.sqrt(nfilt) // 1)
-    nrows = np.int((nfilt // ncols) + (nfilt % ncols != 0))
+    ncols = int(np.sqrt(nfilt) // 1)
+    nrows = int((nfilt // ncols) + (nfilt % ncols != 0))
     naxes = nrows * ncols
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=True,
                              sharey=True)

@@ -18,7 +18,7 @@ moddir = os.path.join(libdir, 'modules')
 ratedir = os.path.join(moddir, 'rate')
 
 sys.path.append(ratedir)
-import rate
+from lib.modules import rate
 
 def atminit(atmtype, mols, p, t, z, co, ivis=None, cheminfo=None):
     """
