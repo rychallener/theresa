@@ -17,8 +17,10 @@ Emily Rauscher
 
 Lucas Brefka
 
+Abrar Amin
+
 ## Citation
 
 If you use this code in your work, please cite our paper. Thanks!
 
-https://ui.adsabs.harvard.edu/abs/2021arXiv211008159C/abstract
+https://ui.adsabs.harvard.edu/abs/2022AJ....163..117C/abstract
