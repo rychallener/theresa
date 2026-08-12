@@ -708,6 +708,18 @@ def map3d(fit, system):
             resume = True
         else:
             resume = False
+
+        # Avoid common mc3 crash if previous run was killed
+        # or crashed
+        if resume:
+            oldrun = np.load(mc3npz)
+            oldrun = dict(oldrun)
+            if not 'chisq_factor' in oldrun:
+                oldrun['chisq_factor'] = 1.0
+                np.savez(mc3npz, **oldrun)
+                # Let's not keep an extra posterior
+                # in memory
+                del(oldrun)
             
         out = mc3.sample(data=mc3data, uncert=mc3uncert,
                          func=model.mcmc_wrapper,
