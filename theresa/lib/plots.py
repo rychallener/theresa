@@ -8,6 +8,8 @@ import matplotlib.collections as collections
 import matplotlib.lines as mpll
 import matplotlib.colors as mplc
 import matplotlib.ticker as mplt
+import matplotlib.patches as mplp
+import matplotlib.collections as mplco
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import atm
 import utils
@@ -1299,6 +1301,163 @@ def radadv(fit, outdir='.'):
     axes[1].set_title('Advective')
 
     plt.savefig(os.path.join(outdir, 'radadv.png'))
+    plt.close()
+
+def photospheres(fit, outdir='.'):
+    '''
+    Make a plot of the wl-dependent photospheric pressures
+    and temperatures.
+    '''
+    ncolumn, nlayer, nwl = fit.cf.shape
+
+    ipeak = np.argmax(fit.cf, axis=1)
+
+    # Pressures/temperatures of photospheres (peak of cf)
+    psp = np.zeros((ncolumn, nwl))
+    pst = np.zeros((ncolumn, nwl))
+    for ic in range(ncolumn):
+        for iwl in range(nwl):
+            psp[ic, iwl] = fit.p[ipeak[ic, iwl]]
+            pst[ic, iwl] = fit.besttgrid[ipeak[ic,iwl],ic]
+
+    lat = fit.lat3d
+    lon = fit.lon3d
+
+    ### Figure out the extent of each grid cell ###
+    ringlat, ncpr = np.unique(lat, return_counts=True)
+    nrings = len(ringlat)
+
+    # Each ring has a latitudinal width
+    latedges = np.zeros(nrings+1)
+    latedges[1:-1] = (ringlat[1:] + ringlat[:-1]) / 2
+    latedges[ 0] = -90.
+    latedges[-1] =  90.
+    ringdlat = np.diff(latedges)
+
+    # One would expect all cells in the same ring would have the same
+    # longitudinal width, but it seems starry's sampling doesn't ensure
+    # this and you end up with some big and/or some small cells on the
+    # night side. Might think about changing this in the future. As far as
+    # I can tell, the areas of the cells are appropriately accounted for
+    # in the operators we use in the visibility function.
+    ringlon  = []
+    ringdlon = []
+    lonedges = []
+    for i in range(nrings):
+        # Cells at the poles span all longitudes
+        if ringlat[i] == -90. or ringlat[i] == 90.:
+            ringdlon.append([360.])
+            lonedges.append([-180., 180.])
+            ringlon.append([0.])
+        # Otherwise they are equally spaced except for those at the edges
+        else:
+            tringlon = lon[np.where(lat == ringlat[i])]
+            tlonedges = np.zeros(len(tringlon) + 1)
+            tlonedges[ 0] = -180.
+            tlonedges[-1] = 180.
+            tlonedges[1:-1] = (tringlon[1:] + tringlon[:-1]) / 2
+            lonedges.append(tlonedges)
+            ringdlon.append(np.diff(tlonedges))
+            ringlon.append(tringlon)
+
+    # Plot of photosphere pressures and temperatures
+    fig, axes = plt.subplots(nrows=nwl, ncols=2, sharex=True, sharey=True)
+    fig.set_size_inches((6.5, 6.5))
+
+    vmax = np.max(np.log10(fit.p))
+    vmin = np.min(np.log10(fit.p))
+
+    cmap = plt.cm.magma
+
+    # Pressures
+    vmax = np.max(np.log10(fit.p))
+    vmin = np.min(np.log10(fit.p))
+    for iwl in range(nwl):
+        ax = axes[iwl,0]
+        patches = []
+        for i in range(ncolumn):
+            tlat = lat[i]
+            tlon = lon[i]
+            # Identify the ring
+            iring = np.where(tlat == ringlat)[0][0]
+            dlat = ringdlat[iring]
+            y = latedges[iring]
+
+            # Identify the lon cell
+            ilon = np.where(tlon == ringlon[iring])[0][0]
+            dlon = ringdlon[iring][ilon]
+            x = lonedges[iring][ilon]
+
+            rectangle = mplp.Rectangle((x,y), dlon, dlat)
+            patches.append(rectangle)
+
+        norm = plt.Normalize(vmin, vmax)
+        p = mplco.PatchCollection(patches, cmap=cmap, norm=norm)
+        p.set_array(np.log10(psp[:,iwl]))
+        ax.add_collection(p)
+
+        ax.set_xlim((-180., 180.))
+        ax.set_ylim(( -90.,  90.))
+
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    pcbar = plt.colorbar(sm, ax=axes[:,0], aspect=30)
+    pcbar.ax.invert_yaxis()
+
+    # Temperatures
+    vmax = np.max(pst)
+    vmin = np.min(pst)
+    for iwl in range(nwl):
+        ax = axes[iwl,1]
+        patches = []
+        for i in range(ncolumn):
+            tlat = lat[i]
+            tlon = lon[i]
+            # Identify the ring
+            iring = np.where(tlat == ringlat)[0][0]
+            dlat = ringdlat[iring]
+            y = latedges[iring]
+
+            # Identify the lon cell
+            ilon = np.where(tlon == ringlon[iring])[0][0]
+            dlon = ringdlon[iring][ilon]
+            x = lonedges[iring][ilon]
+
+            rectangle = mplp.Rectangle((x,y), dlon, dlat)
+            patches.append(rectangle)
+
+        norm = plt.Normalize(vmin, vmax)
+        p = mplco.PatchCollection(patches, cmap=cmap, norm=norm)
+        p.set_array(pst[:,iwl])
+        ax.add_collection(p)
+
+        ax.set_xlim((-180., 180.))
+        ax.set_ylim(( -90.,  90.))
+
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    tcbar = plt.colorbar(sm, ax=axes[:,1], aspect=30)
+
+    for ax in axes.flatten():
+        ax.set_xticks([-180, -90, 0, 90, 180])
+        ax.set_yticks([ -90, -45, 0, 45,  90])
+
+    for ax in axes[:,0]:
+        ax.set_ylabel(r'Latitude ($^\circ$)')
+
+    for ax in axes[-1]:
+        ax.set_xlabel(r'Longitude ($^\circ$)')
+
+    pcbar.ax.set_ylabel('log pressure (bar)')
+    tcbar.ax.set_ylabel('Temperature (K)')
+
+    axes[0,0].set_title('Photosphere Pressure')
+    axes[0,1].set_title('Photosphere Temperature')
+
+    allmaps = [m for d in fit.datasets for m in d.maps]
+    # TODO: this could label which dataset the map belongs to
+    for iax, ax in enumerate(axes[:,0]):
+        ax.text(-175, 65, '{:.2f} um'.format(allmaps[iax].wlmid))
+
+    plt.savefig(os.path.join(outdir, 'photosphere.png'))
     plt.close()
     
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
