@@ -1362,7 +1362,7 @@ def photospheres(fit, outdir='.'):
 
     # Plot of photosphere pressures and temperatures
     fig, axes = plt.subplots(nrows=nwl, ncols=2, sharex=True, sharey=True)
-    fig.set_size_inches((6.5, 6.5))
+    fig.set_size_inches((1.5*nwl, 6.5))
 
     vmax = np.max(np.log10(fit.p))
     vmin = np.min(np.log10(fit.p))
