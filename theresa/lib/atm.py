@@ -527,6 +527,14 @@ def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
     for i in range(ncolumn):
         lon = lon3d[i]
         lat = lat3d[i]
+
+        # First handle poles
+        # Make them part of the nightside to avoid advecting
+        # all their energy away
+        if (lat == -np.pi / 2) or (lat == np.pi / 2):
+            t4adv[:,i] = lin(p, lat, lon)
+            continue
+            
         # Segment 1 (east dayside)
         # Second if handles cases where phi1 < 0 s.t. lon is large
         # but still in this segment
@@ -548,10 +556,6 @@ def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
         elif (lon < phi1):
             t4adv[:,i] = (wparab(p, lat, lon + 2*np.pi) \
                           + werf(p, lat, lon + 2*np.pi)) / 2
-        else:
-            print(lat, lon)
-            print(phi1, phi2, phi3)
-            print("Uh oh!")
 
     temp3d = (t4rad + t4adv)**0.25
 
