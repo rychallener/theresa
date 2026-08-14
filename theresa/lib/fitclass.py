@@ -81,6 +81,8 @@ class Fit:
         # 3D options
         self.cfg.threed.outdir = self.cfg.cfg.get('3D', 'outdir')
         self.cfg.threed.indir  = self.cfg.cfg.get('3D', 'indir')
+
+        self.cfg.threed.sampler = self.cfg.cfg.get('3D', 'sampler')
         
         self.cfg.threed.ncpu       = self.cfg.cfg.getint('3D', 'ncpu')
         self.cfg.threed.nsamples   = self.cfg.cfg.getint('3D', 'nsamples')

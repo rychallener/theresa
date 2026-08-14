@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import mc3
 import gc
 import sys
+import pymultinest as pym
 from numba import jit, literal_unroll
 
 # Lib imports
@@ -272,8 +273,8 @@ def specgrid(params, fit):
             # Check for nonphysical atmosphere and return a bad fit
             # if so
             if not np.all(tgrid[:,i] >= 0):
-                msg = "WARNING: Nonphysical TP profile at Lat: {}, Lon: {}"
-                print(msg.format(fit.lat3d[i], fit.lon3d[i]))
+                #msg = "WARNING: Nonphysical TP profile at Lat: {}, Lon: {}"
+                #print(msg.format(fit.lat3d[i], fit.lon3d[i]))
                 is_physical = False
             rtt = TemperatureArray(
                 tp_array=tgrid[:,i])
@@ -440,11 +441,11 @@ def mcmc_wrapper(params, fit):
         # If you, dear reader, can determine why sometimes the
         # calculation takes about 3x more time than usual during MCMC,
         # find me at a conference and I will buy you a drink.
-        print("Model Evaluation: {} s".format(time.time() - tic))
+        #print("Model Evaluation: {} s".format(time.time() - tic))
         return np.concatenate((systemflux, cfsd))
     
     else:
-        print("Model Evaluation: {} s".format(time.time() - tic))
+        #print("Model Evaluation: {} s".format(time.time() - tic))
 
         return systemflux
 
@@ -816,7 +817,7 @@ def get_par_3d(fit):
             par    = [100.,     tirr,         -2.0,            -3.0,      12.0,      13.0,      13.0,         5.0,         5.0,         5.0,    np.pi/4,     -2.0,      0.0,      0.0,      0.0]
             pstep  = [  1.,       1.,          0.1,             0.1,       1.0,       1.0,       1.0,         0.1,         0.1,         0.1,        0.1,      0.1,      0.1,      0.1,      0.1]
             pmin   = [  0.,     200.,         -7.0,            -7.0,       5.0,       5.0,       5.0,        0.01,        0.01,        0.01,        0.1,     -5.0, -np.pi/4, -np.pi/4, -np.pi/4]
-            pmax   = [800.,    4000.,          1.0,             1.0,      15.0,      15.0,      15.0,        10.0,        10.0,        10.0,    np.pi/2,      2.0,  np.pi/4,  np.pi/4,  np.pi/4]
+            pmax   = [500.,    2500.,          1.0,             1.0,      15.0,      15.0,      15.0,        10.0,        10.0,        10.0,    np.pi/2,      2.0,  np.pi/4,  np.pi/4,  np.pi/4]
             pnames = ['Tint', 'Tirr', 'log(gamma)', 'log(kappa_IR)', '-log(A1)', 'log(A2)', 'log(A3)', 'log(sig1)', 'log(sig2)', 'log(sig3)', 'sig_lat', 'log(c)',   'phi1',   'phi2',   'phi3']
             modeltype.append('tgrid')
             nparams[im] = npar
@@ -945,4 +946,39 @@ def get_par_3d(fit):
     return (allparams, allpstep, allpmin, allpmax, allpnames, nparams,
             modeltype, imodel)
         
+
+def pym_retrieval(fit, data, uncert, pmin, pmax, **kwargs):
+    '''
+    Performs 3D retrieval with PyMultiNest.
+    '''
+
+    uncert2 = uncert * uncert
+    lognorm = (-0.5 * np.log(2.0 * np.pi * uncert2)).sum()
+
+    ndims = len(pmin)
     
+    def prior(cube, ndims, nparams):
+        '''
+        Transform the PyMultiNest unit cube into parameter values used
+        by the 3D ThERESA model.
+
+        Note: Assumes uniform priors on everything!
+        '''
+        for i in range(len(pmin)):
+            minval = pmin[i]
+            maxval = pmax[i]
+            cube[i] = ((cube[i] * (maxval - minval)) + minval)
+
+    def loglikelihood(cube, ndims, nparams):
+        '''
+        Calculates lnZ for a given parameter set.
+        '''
+        params = np.ctypeslib.as_array(cube, shape=(nparams,))
+        y = mcmc_wrapper(params, fit)
+
+        ll = (-0.5 * ((y - data)**2)/uncert2).sum()
+        ll += lognorm
+
+        return ll
+
+    pym.run(loglikelihood, prior, ndims, **kwargs)

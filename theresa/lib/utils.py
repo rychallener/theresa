@@ -874,16 +874,16 @@ def fmap_to_tmap(fmap, meanwl, rp, rs, ts, scorr, starspec='bb',
         if fpfs_bb is None:
             sspec_int = np.interp(fwl_m, swl_m, sspec)
             
-            trange = np.linspace(50, 5000, 10000)
+            trange = np.arange(50., 5001., 5.)
             bbs = blackbody_wl(trange, fwl_m)
             
-            sspec_fint = np.trapz(ftrans * sspec_int, fwl_m)
+            sspec_fint = np.trapezoid(ftrans * sspec_int, fwl_m)
             
             # Integrate over the filter throughput
             rprs2 = (rp / rs)**2
             fpfs_spec = rprs2 * bbs / sspec_int
-            fpfs_bb = np.trapz(fpfs_spec * ftrans * sspec_int,
-                               fwl_m, axis=1) / sspec_fint
+            fpfs_bb = np.trapezoid(fpfs_spec * ftrans * sspec_int,
+                                   fwl_m, axis=1) / sspec_fint
 
         # Function to interpolate fluxes to temperatures
         interp_fpfs = spi.CubicSpline(fpfs_bb, trange)

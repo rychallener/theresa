@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import progressbar
 import numpy as np
+import mpi4py
+import mpi4py.MPI
 import matplotlib.pyplot as plt
 import jaxoplanet.starry.light_curves as light_curves
 
@@ -40,25 +42,22 @@ transitdir = os.path.join(moddir, 'transit')
 
 # Lib imports
 sys.path.append(libdir)
-from lib import cf
-from lib import atm
-from lib import pca
-from lib import eigen
-from lib import model
-from lib import plots
-from lib import mkcfg
-from lib import utils
-from lib import constants   as c
-from lib import fitclass    as fc
-#import taurexclass as trc
-
-#starry.config.quiet = True
-
-# Starry seems to have a lot of recursion
-sys.setrecursionlimit(10000)
+import cf
+import atm
+import pca
+import eigen
+import model
+import plots
+import utils
+import constants as c
+import fitclass  as fc
 
 # Work in double precision with JAX
 jax.config.update("jax_enable_x64", True)
+
+# MPI
+comm = mpi4py.MPI.COMM_WORLD
+rank = comm.Get_rank()
 
 def map2d(cfile):
     """
@@ -553,10 +552,6 @@ def map3d(fit, system):
     for d in fit.datasets:
         for m in d.maps:
             star, planet, system = utils.initsystem(fit, m.bestln.lmax)
-            fwl    = m.filtwl
-            ftrans = m.filttrans
-            swl    = fit.starwl
-            sspec  = fit.starflux
             ln = getattr(m, 'l{}n{}'.format(m.bestln.lmax, ncurves3d))
             fmap, tmap = eigen.mkmaps(fit, m, ln, ln.bestp,
                                       lat=fit.lat3d,
@@ -575,12 +570,10 @@ def map3d(fit, system):
                     if l < -90. or l > 90.:
                         templat = np.linspace(-90., 90., 100)
                         templon = np.ones(100) * l
-                        fslice, tslice = eigen.mkmaps(
-                            planet, ln.eigeny, ln.bestp,
-                            ncurves3d, m.wlmid, cfg.star.r, cfg.planet.r,
-                            cfg.star.t, templat, templon,
-                            starspec=cfg.star.starspec,
-                            fwl=fwl, ftrans=ftrans, swl=swl, sspec=sspec)
+                        fslice, tslice = eigen.mkmaps(fit, m, ln,
+                                                      ln.bestp,
+                                                      lat=templat,
+                                                      lon=templon)
 
                         favg = np.mean(fslice * np.cos(np.deg2rad(templat))) \
                                        / np.mean(np.cos(np.deg2rad(templat)))
@@ -609,31 +602,7 @@ def map3d(fit, system):
             fit.systematics3d.append(ln.systematics)
 
     print("Fitting spectrum.")
-    # This doesn't work. Stick to TauREx.
-    if cfg.threed.rtfunc == 'transit':
-        tcfg = mkcfg.mktransit(cfile, outdir)
-        rtcall = os.path.join(transitdir, 'transit', 'transit')
-        opacfile = cfg.cfg.get('transit', 'opacityfile')
-        if not os.path.isfile(opacfile):
-            print("  Generating opacity grid.")
-            subprocess.call(["{:s} -c {:s} --justOpacity".format(rtcall, tcfg)],
-                            shell=True, cwd=outdir)
-        else:
-            print("  Copying opacity grid: {}".format(opacfile))
-            try:
-                shutil.copy2(opacfile, os.path.join(outdir,
-                                                    os.path.basename(opacfile)))
-            except shutil.SameFileError:
-                print("  Files match. Skipping.")
-                pass
-        subprocess.call(["{:s} -c {:s}".format(rtcall, tcfg)],
-                        shell=True, cwd=outdir)
-
-        wl, flux = np.loadtxt(os.path.join(outdir,
-                                           cfg.cfg.get('transit', 'outspec')),
-                              unpack=True)
-
-    elif cfg.threed.rtfunc == 'taurex':
+    if cfg.threed.rtfunc == 'taurex':
         # Make sure the wn range is appropriate
         wnlow  = cfg.cfg.getfloat('taurex', 'wnlow')
         wnhigh = cfg.cfg.getfloat('taurex', 'wnhigh')
@@ -685,9 +654,9 @@ def map3d(fit, system):
         
 
         # Build data and uncert arrays for mc3
-        mc3data   = \
+        mcdata   = \
             np.concatenate([m.flux for d in fit.datasets for m in d.maps])
-        mc3uncert = \
+        mcuncert = \
             np.concatenate([m.ferr for d in fit.datasets for m in d.maps])
         
         if cfg.threed.fitcf:
@@ -699,8 +668,8 @@ def map3d(fit, system):
             # correct chisq contribution from each cf
             cfdata = np.zeros(ncfpar)
             cfunc  = np.ones( ncfpar)
-            mc3data   = np.concatenate((mc3data,   cfdata))
-            mc3uncert = np.concatenate((mc3uncert, cfunc))
+            mcdata   = np.concatenate((mc3data,   cfdata))
+            mcuncert = np.concatenate((mc3uncert, cfunc))
 
         # Avoid crashing if user tries to resume a run that never
         # happened
@@ -711,8 +680,8 @@ def map3d(fit, system):
 
         # Avoid common mc3 crash if previous run was killed
         # or crashed
-        if resume:
-            oldrun = np.load(mc3npz)
+        if resume and cfg.threed.sampler == 'mc3':
+            oldrun = np.load(mcnpz)
             oldrun = dict(oldrun)
             if not 'chisq_factor' in oldrun:
                 oldrun['chisq_factor'] = 1.0
@@ -720,24 +689,36 @@ def map3d(fit, system):
                 # Let's not keep an extra posterior
                 # in memory
                 del(oldrun)
-            
-        out = mc3.sample(data=mc3data, uncert=mc3uncert,
-                         func=model.mcmc_wrapper,
-                         nsamples=cfg.threed.nsamples,
-                         burnin=cfg.threed.burnin,
-                         #ncpu=cfg.threed.ncpu,
-                         sampler='snooker',
-                         savefile=mc3npz, params=params,
-                         indparams=indparams, pstep=pstep, pmin=pmin,
-                         pmax=pmax, pnames=pnames,
-                         leastsq=cfg.threed.leastsq,
-                         grbreak=cfg.threed.grbreak,
-                         fgamma=cfg.threed.fgamma,
-                         plots=cfg.threed.plots,
-                         resume=resume)
+                
+        if cfg.threed.sampler == 'mc3':
+            out = mc3.sample(data=mc3data, uncert=mc3uncert,
+                             func=model.mcmc_wrapper,
+                             nsamples=cfg.threed.nsamples,
+                             burnin=cfg.threed.burnin,
+                             #ncpu=cfg.threed.ncpu,
+                             sampler='snooker',
+                             savefile=mc3npz, params=params,
+                             indparams=indparams,
+                             pstep=pstep, pmin=pmin,
+                             pmax=pmax, pnames=pnames,
+                             leastsq=cfg.threed.leastsq,
+                             grbreak=cfg.threed.grbreak,
+                             fgamma=cfg.threed.fgamma,
+                             plots=cfg.threed.plots,
+                             resume=resume)
 
-        # MC3 doesn't clear its plots >:(
-        plt.close('all')
+            # MC3 doesn't clear its plots >:(
+            plt.close('all')
+        elif cfg.threed.sampler == 'multinest':
+            print('Running PyMultiNest retrieval.')
+            basename = os.path.join(cfg.twod.outdir, cfg.threed.outdir)
+            model.pym_retrieval(fit, mcdata, mcuncert, pmin, pmax,
+                                n_live_points=400,
+                                outputfiles_basename=basename,
+                                verbose=True,
+                                resume=cfg.threed.resume,
+                                importance_nested_sampling=False)
+                                
 
     fit.specbestp  = out['bestp']
     fit.chisq3d    = out['best_chisq']
@@ -876,11 +857,12 @@ def map3d(fit, system):
 
         
 if __name__ == "__main__":
-    print("#########################################################")
-    print("  ThERESA: Three-dimensional Exoplanet Retrieval from    ")
-    print("           Eclipse Spectroscopy of Atmospheres           ")
-    print("  Copyright 2021-2026 Ryan C. Challener & collaborators  ")
-    print("#########################################################")
+    if rank == 0:
+        print("#########################################################")
+        print("  ThERESA: Three-dimensional Exoplanet Retrieval from    ")
+        print("           Eclipse Spectroscopy of Atmospheres           ")
+        print("  Copyright 2021-2026 Ryan C. Challener & collaborators  ")
+        print("#########################################################")
     
     if len(sys.argv) < 3:
         print("ERROR: Call structure is theresa.py <mode> <configuration file>.")
@@ -894,10 +876,15 @@ if __name__ == "__main__":
     elif mode in ['3d', '3D']:
         # Read config to find location of output, load output,
         # then read config again to get any changes from 2d run.
-        fit = fc.Fit()
-        fit.read_config(cfile)
-        fit = fc.load(outdir=fit.cfg.threed.indir)
-        fit.read_config(cfile)
+        if rank == 0:
+            fit = fc.Fit()
+            fit.read_config(cfile)
+            fit = fc.load(outdir=fit.cfg.threed.indir)
+            fit.read_config(cfile)
+        else:
+            fit = None
+
+        fit = comm.bcast(fit, root=0)
         # 3D mapping doesn't care about the degree of harmonics, so
         # just use 1
         star, planet, system = utils.initsystem(fit, 1)
