@@ -13,6 +13,7 @@ import numpy as np
 import mpi4py
 import mpi4py.MPI
 import matplotlib.pyplot as plt
+import pymultinest as pym
 import jaxoplanet.starry.light_curves as light_curves
 
 # Taurex imports
@@ -442,6 +443,10 @@ def map2d(cfile):
 def map3d(fit, system):
     cfg = fit.cfg
     outdir = os.path.join(cfg.threed.indir, cfg.threed.outdir)
+
+    if not os.path.isdir(outdir):
+        os.mkdir(outdir)
+    
     # Handle any atmosphere setup
     if cfg.threed.atmtype == 'ggchem':
         if cfg.cfg.has_option('GGchem', 'dispolfiles'):
@@ -707,70 +712,79 @@ def map3d(fit, system):
                              plots=cfg.threed.plots,
                              resume=resume)
 
+            fit.specbestp   = out['bestp']
+            fit.chisq3d     = out['best_chisq']
+            fit.redchisq3d  = out['red_chisq']
+            fit.bic3d       = out['BIC']
+            fit.zmask3d     = out['zmask']
+            fit.zchain3d    = out['zchain']
+            fit.posterior3d = out['posterior']
+
+            # Put fixed and shared params in the posterior so it's a
+            # consistent size
+            niter, nfree = fit.posterior3d.shape
+            for i in range(nparams):
+                if pstep[i] == 0:
+                    fit.posterior3d = np.insert(
+                        fit.posterior3d, i,
+                        np.ones(niter) * params[i],
+                        axis=1)
+                if pstep[i] < 0:
+                    fit.posterior3d = np.insert(
+                        fit.posterior3d, i,
+                        np.ones(niter) * fit.specbestp[-int(pstep[i])],
+                        axis=1)
+
+            # Evaluate SPEIS, ESS, and CR error
+            print("Calculating effective sample size.")
+            nchains = np.max(fit.zchain3d) + 1
+            fit.cspeis3d = np.zeros((nchains, nparams)) # SPEIS by chain
+            fit.cess3d   = np.zeros((nchains, nparams)) # ESS by chain
+            for i in range(nchains):
+                where = np.where(fit.zchain3d[fit.zmask3d] == i)
+                chain = fit.posterior3d[fit.zmask3d][where]
+                if len(chain) == 0:
+                    print('WARNING: Chain {} has no accepted iterations!'.format(i))
+                else:
+                    fit.cspeis3d[i], fit.cess3d[i] = utils.ess(chain)
+
+            fit.ess3d   = np.sum(fit.cess3d, axis=0) # Overall ESS
+            fit.speis3d = np.ceil(niter / fit.ess3d).astype(int) # Overall SPEIS
+            fit.crsig3d = np.zeros(nparams)
+            for i in range(nparams):
+                fit.crsig3d[i] = utils.crsig(fit.ess3d[i])
+
+            print("\nParameter        SPEIS     ESS   68.3% Error"
+                  "\n-------------- ------- ------- -------------")
+            for i in range(nparams):
+                if pstep[i] == 0:
+                    continue
+                print(f"{pnames[i]:<14s} " +
+                      f"{fit.speis3d[i]:7d} " +
+                      f"{fit.ess3d[i]:7.1f} " +
+                      f"{fit.crsig3d[i]:13.2e}")
+
             # MC3 doesn't clear its plots >:(
             plt.close('all')
         elif cfg.threed.sampler == 'multinest':
             print('Running PyMultiNest retrieval.')
-            basename = os.path.join(cfg.twod.outdir, cfg.threed.outdir)
+            basename = os.path.join(cfg.twod.outdir, cfg.threed.outdir) + '/'
             model.pym_retrieval(fit, mcdata, mcuncert, pmin, pmax,
                                 n_live_points=400,
                                 outputfiles_basename=basename,
                                 verbose=True,
                                 resume=cfg.threed.resume,
                                 importance_nested_sampling=False)
-                                
 
-    fit.specbestp  = out['bestp']
-    fit.chisq3d    = out['best_chisq']
-    fit.redchisq3d = out['red_chisq']
-    fit.bic3d      = out['BIC']
-    fit.zmask3d    = out['zmask']
-    fit.zchain3d   = out['zchain']
+            analyzer = pym.Analyzer(nparams,
+                                    outputfiles_basename=basename,
+                                    verbose=False)
 
-    # Put fixed and shared params in the posterior so it's a
-    # consistent size
-    fit.posterior3d = out['posterior']
-    niter, nfree = fit.posterior3d.shape
-    for i in range(nparams):
-        if pstep[i] == 0:
-            fit.posterior3d = np.insert(
-                fit.posterior3d, i,
-                np.ones(niter) * params[i],
-                axis=1)
-        if pstep[i] < 0:
-            fit.posterior3d = np.insert(
-                fit.posterior3d, i,
-                np.ones(niter) * fit.specbestp[-int(pstep[i])],
-                axis=1)
+            fit.specbestp   = np.array(analyzer.get_best_fit()['parameters'])
+            fit.loglike3d   = analyzer.get_best_fit()['log_likelihood']
+            fit.posterior3d = analyzer.get_equal_weighted_posterior()[:,:-1]
 
-    # Evaluate SPEIS, ESS, and CR error
-    print("Calculating effective sample size.")
-    nchains = np.max(fit.zchain3d) + 1
-    fit.cspeis3d = np.zeros((nchains, nparams)) # SPEIS by chain
-    fit.cess3d   = np.zeros((nchains, nparams)) # ESS by chain
-    for i in range(nchains):
-        where = np.where(fit.zchain3d[fit.zmask3d] == i)
-        chain = fit.posterior3d[fit.zmask3d][where]
-        if len(chain) == 0:
-            print('WARNING: Chain {} has no accepted iterations!'.format(i))
-        else:
-            fit.cspeis3d[i], fit.cess3d[i] = utils.ess(chain)
-
-    fit.ess3d   = np.sum(fit.cess3d, axis=0) # Overall ESS
-    fit.speis3d = np.ceil(niter / fit.ess3d).astype(int) # Overall SPEIS
-    fit.crsig3d = np.zeros(nparams)
-    for i in range(nparams):
-        fit.crsig3d[i] = utils.crsig(fit.ess3d[i])
-
-    print("\nParameter        SPEIS     ESS   68.3% Error"
-          "\n-------------- ------- ------- -------------")
-    for i in range(nparams):
-        if pstep[i] == 0:
-            continue
-        print(f"{pnames[i]:<14s} " +
-              f"{fit.speis3d[i]:7d} " +
-              f"{fit.ess3d[i]:7.1f} " +
-              f"{fit.crsig3d[i]:13.2e}")
+            niter, nfree = fit.posterior3d.shape
           
     nmaps = fit.nmaps
 
@@ -784,11 +798,12 @@ def map3d(fit, system):
     fit.pmaps       = specout[5]
     
     fit.specbestmodel = model.sysflux(fit.specbestp, fit)[0]
-    #fit.specbestmodel = fit.specbestmodel.reshape((nfilt, nt))
+    rawbestmodel = model.mcmc_wrapper(fit.specbestp, fit)
 
     # Calculate chisq of just light curve (ignoring cf penalty)
     lcs  = [m.flux for d in fit.datasets for m in d.maps]
     elcs = [m.ferr for d in fit.datasets for m in d.maps]
+    fit.chisq3d    = np.sum(((rawbestmodel - mcdata) / mcuncert)**2)
     fit.chisq3d_lc = 0
     for i in range(len(lcs)):
         fit.chisq3d_lc += np.sum(((lcs[i] - fit.specbestmodel[i]) / elcs[i])**2)
@@ -834,9 +849,10 @@ def map3d(fit, system):
 
     # Save before plots, in case of crashes
     # Do not add attributes to fit after this
-    fit.save(outdir)
+    if rank == 0:
+        fit.save(outdir)
     
-    if cfg.threed.plots:
+    if cfg.threed.plots and rank == 0:
         plots.bestfitlcsspec(fit, outdir=outdir)
         plots.bestfittgrid(fit, outdir=outdir)
         plots.tau(fit, outdir=outdir)

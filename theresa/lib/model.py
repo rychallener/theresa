@@ -29,6 +29,13 @@ from taurex import optimizer
 # This import is explicit because it's not included in taurex.temperature. Bug?
 from taurex.data.profiles.temperature.temparray import TemperatureArray
 
+import mpi4py
+import mpi4py.MPI
+
+# MPI
+comm = mpi4py.MPI.COMM_WORLD
+rank = comm.Get_rank()
+
 @jit(nopython=True)
 def fit_2d(params, ecurves, t, y00, sflux, ncurves, intens, pindex,
            baselines, tlocs, dvecs):
@@ -445,7 +452,8 @@ def mcmc_wrapper(params, fit):
         return np.concatenate((systemflux, cfsd))
     
     else:
-        #print("Model Evaluation: {} s".format(time.time() - tic))
+        print("Rank {} model Evaluation: {:.2f} s".format(rank,
+                                                          time.time() - tic))
 
         return systemflux
 

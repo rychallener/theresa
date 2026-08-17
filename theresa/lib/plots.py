@@ -765,8 +765,6 @@ def tgrid_unc(fit, outdir=''):
     fig, axes = plt.subplots(ncols=ncols, nrows=nrows, sharex=True,
                              sharey=True)
 
-    mcmcout = np.load(outdir + '/3dmcmc.npz')
-
     niter, npar = fit.posterior3d.shape
     nlev, ncolumn = fit.besttgrid.shape
 
@@ -1083,7 +1081,7 @@ def clouds(fit, outdir=''):
                   func=lambda s: plotrad_to_partrad(s)) 
         pslegend = ax.legend(*scatter.legend_elements(**kw),
                              loc='upper right',
-                             title="Part. Size \n($\mu$m)")
+                             title=r"Part. Size \n($\mu$m)")
 
     plt.savefig(os.path.join(outdir, 'clouds.png'))
 
