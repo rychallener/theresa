@@ -1255,6 +1255,10 @@ def radadv(fit, outdir='.'):
     vmax = np.max([np.max(a) for a in [t4rad, t4adv]])
     vmin = np.min([np.min(a) for a in [t4rad, t4adv]])
 
+    # Make 0 the center
+    vmax = np.max(np.abs([vmax, vmin]))
+    vmin = -vmax
+
     norm = mplc.SymLogNorm(linthresh=1e10, linscale=0.5, vmin=vmin, vmax=vmax)
 
     ieq = 90
