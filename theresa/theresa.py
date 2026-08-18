@@ -653,12 +653,14 @@ def map3d(fit, system):
         if hasattr(cfg.threed, 'pnames'):
             pnames = cfg.threed.pnames
 
+        fit.pnames3d = pnames
+
         nparams = len(params)
 
         mc3npz = os.path.join(outdir, '3dmcmc.npz')
         
 
-        # Build data and uncert arrays for mc3
+        # Build data and uncert arrays for mcmc
         mcdata   = \
             np.concatenate([m.flux for d in fit.datasets for m in d.maps])
         mcuncert = \
@@ -678,7 +680,9 @@ def map3d(fit, system):
 
         # Avoid crashing if user tries to resume a run that never
         # happened
-        if os.path.isfile(mc3npz) and cfg.threed.resume:
+        if os.path.isfile(mc3npz) and \
+           cfg.threed.sampler == 'mc3' and \
+               cfg.threed.resume:
             resume = True
         else:
             resume = False
@@ -694,7 +698,9 @@ def map3d(fit, system):
                 # Let's not keep an extra posterior
                 # in memory
                 del(oldrun)
-                
+
+        # TODO: make wrapper functions for each sampler to clean
+        #       up this main function
         if cfg.threed.sampler == 'mc3':
             out = mc3.sample(data=mc3data, uncert=mc3uncert,
                              func=model.mcmc_wrapper,
@@ -766,6 +772,7 @@ def map3d(fit, system):
 
             # MC3 doesn't clear its plots >:(
             plt.close('all')
+            
         elif cfg.threed.sampler == 'multinest':
             print('Running PyMultiNest retrieval.')
             basename = os.path.join(cfg.twod.outdir, cfg.threed.outdir) + '/'
@@ -866,6 +873,8 @@ def map3d(fit, system):
         if 'tgcm' in fit.cfg.threed.modelnames:
             plots.isobars(fit, outdir=outdir)
             plots.radadv(fit, outdir=outdir)
+        if cfg.threed.sampler == 'multinest':
+            plots.corner(fit, outdir=outdir)
 
     # There actually aren't any of these at the moment
     if cfg.threed.animations:

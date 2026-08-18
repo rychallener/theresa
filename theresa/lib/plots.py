@@ -1457,6 +1457,97 @@ def photospheres(fit, outdir='.'):
 
     plt.savefig(os.path.join(outdir, 'photosphere.png'))
     plt.close()
+
+def corner(fit, outdir='.'):
+    '''
+    Corner-plot routine for posterior distributions, for use with
+    samplers that don't produce one automatically.
+
+    Adapted from corner plotting used in POSEIDON 
+    (github.com/MartianColonist/POSEIDON)
+    '''
+    post = fit.posterior3d
+    niter, ndim = post.shape
+    bins = 20
+
+    # Setup axes layout (from corner.py)
+    factor = 2.0         # Size of one panel
+    lbdim = 0.5 * factor # Left/bottom margin
+    trdim = 0.2 * factor # Top/right margin
+    whspace = 0.05       # Width/height margin
+    plotdim = factor * ndim + factor * (ndim - 1.) * whspace # Plot size
+    dim = lbdim + plotdim + trdim # Figure size
+    
+    fig, axes = plt.subplots(ndim, ndim, figsize=(dim, dim))
+
+    lb =  lbdim            / dim
+    tr = (lbdim + plotdim) / dim
+    fig.subplots_adjust(left=lb, bottom=lb, right=tr, top=tr,
+                        wspace=whspace, hspace=whspace)
+
+    # 1D histograms
+    for i in range(ndim):
+        ax = axes[i,i]
+        xpost1d = post[:,i]
+        med = np.median(xpost1d)
+        
+        ax.hist(xpost1d, color='steelblue', bins=bins)
+        ax.axvline(med, color='black', ls='-')
+
+        q = np.percentile(xpost1d, [50. - 68.3/2, 50. + 68.3/2])
+
+        titlefmt = r'{} = ${:.2f}^{{+{:.2f}}}_{{{:.2f}}}$'
+        ax.set_title(titlefmt.format(fit.pnames3d[i], med,
+                                     q[1] - med, q[0] - med))
+
+        ax.axvline(q[0], color='black', ls='--')
+        ax.axvline(q[1], color='black', ls='--')
+
+        # 2D histograms
+        for j in range(ndim):
+            ax = axes[i,j]
+
+            # Remove extra axes
+            if j > i:
+                ax.set_frame_on(False)
+                ax.set_xticks([])
+                ax.set_yticks([])
+                continue
+            elif j == i:
+                continue
+            
+            ypost1d = post[:,j]
+
+            ax.hist2d(ypost1d, xpost1d, cmap='Blues', bins=bins)
+
+    # Formatting
+    for i in range(ndim):
+        for j in range(ndim):
+            # Ignore hidden frames
+            if j > i:
+                continue
+            
+            ax = axes[i,j]
+
+            # First column of 2D hists
+            if i > 0 and j == 0:
+                ax.set_ylabel(fit.pnames3d[i])
+            # Not first column of 2D hists
+            else:
+                ax.set_yticklabels([])
+
+            # Last row of 2D hists
+            if (i == ndim - 1) and (j < ndim - 1):
+                ax.set_xlabel(fit.pnames3d[j])
+            # Exception for bottom right 1D hist
+            elif (i == ndim - 1) and (j == ndim - 1):
+                pass
+            # Not last row of 2D hists or bottom right 1D hist
+            else:
+                ax.set_xticklabels([])
+
+    plt.savefig(os.path.join(outdir, 'corner.png'))
+    plt.close()
     
 # Function adapted from https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
 def gradient_cmap(color):
