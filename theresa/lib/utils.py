@@ -978,4 +978,3 @@ def blackbody_wl(T, wl):
         * 1 / (np.exp(sc.h * sc.c / wl[np.newaxis] / sc.k / T[:, np.newaxis]) - 1.0)
     
     return bb
-    

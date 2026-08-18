@@ -52,6 +52,7 @@ import plots
 import utils
 import constants as c
 import fitclass  as fc
+import logger
 
 # Work in double precision with JAX
 jax.config.update("jax_enable_x64", True)
@@ -66,28 +67,31 @@ def map2d(cfile):
     """
     # Create the master fit object
     fit = fc.Fit()
+
+    # Logging object
+    log = logger.Logger(rank)
     
-    print("Reading the configuration file.")
+    log("Reading the configuration file.")
     fit.read_config(cfile)
     cfg = fit.cfg
 
-    print("Reading the data.")
+    log("Reading the data.")
     fit.read_data()
 
-    print("Reading filters.")
+    log("Reading filters.")
     fit.read_filters()
-    print("Filter mean wavelengths (um):")
+    log("Filter mean wavelengths (um):")
     for d in fit.datasets:
-        print(d.wlmid)
+        log(d.wlmid)
 
     # Create star, planet, and system objects
     # Not added to fit obj because they aren't pickleable
-    print("Initializing star and planet objects.")
+    log("Initializing star and planet objects.")
     star, planet, system = utils.initsystem(fit, 1)
 
     # This is basically doing the angular size for each entry in the
     # array (hence the dlat)
-    print("Calculating latitude and longitude of planetary grid.")
+    log("Calculating latitude and longitude of planetary grid.")
     fit.dlat = 180. / cfg.twod.nlat
     fit.dlon = 360. / cfg.twod.nlon
     fit.lat, fit.lon = np.meshgrid(np.linspace(-90  + fit.dlat / 2.,
@@ -102,26 +106,26 @@ def map2d(cfile):
                                              indexing='ij')
 
     for d in fit.datasets:
-        print("Precomputing - {}".format(d.name))
+        log("Precomputing - {}".format(d.name))
 
-        print("Computing planet and star positions at observation times.")
+        log("Computing planet and star positions at observation times.")
         px, py, pz = system.bodies[0].position(d.t)
         sx, sy, sz = system.central_position(d.t)
         d.x = np.vstack([sx, px])
         d.y = np.vstack([sy, py])
         d.z = np.vstack([sz, pz])
 
-        print("Calculating uniform-map planet and star fluxes.")
+        log("Calculating uniform-map planet and star fluxes.")
         lcfunc = light_curves.light_curve(system)
         d.sflux, d.pflux_y00 = lcfunc(d.t).T
         # Convert to numpy arrays for numba compatibility
         d.sflux = np.array(d.sflux)
         d.pflux_y00 = np.array(d.pflux_y00)
 
-        print("Calculating minimum and maximum observed longitudes.")
+        log("Calculating minimum and maximum observed longitudes.")
         d.minvislon, d.maxvislon = utils.vislon(system, d)
-        print("Minimum Longitude: {:6.2f}".format(d.minvislon))
-        print("Maximum Longitude: {:6.2f}".format(d.maxvislon))
+        log("Minimum Longitude: {:6.2f}".format(d.minvislon))
+        log("Maximum Longitude: {:6.2f}".format(d.maxvislon))
 
         # Indices of visible cells (only considers longitudes)
         ivis = np.where((fit.lon + fit.dlon / 2. > d.minvislon) &
@@ -131,11 +135,11 @@ def map2d(cfile):
     if not os.path.isdir(cfg.twod.outdir):
         os.mkdir(cfg.twod.outdir)
 
-    print("Optimizing 2D maps.")
+    log("Optimizing 2D maps.")
     for d in fit.datasets:
         d.maps = []
         for i in range(len(d.wlmid)):
-            print("{:.2f} um".format(d.wlmid[i]))
+            log("{:.2f} um".format(d.wlmid[i]))
             m = fc.Map()
             
             d.maps.append(m)
@@ -170,7 +174,7 @@ def map2d(cfile):
                         setattr(m, 'l{}n{}'.format(l, n), m.l1n0)
                         continue
 
-                    print("Fitting lmax={}, n={}".format(l,n))
+                    log("Fitting lmax={}, n={}".format(l,n))
                     setattr(m, 'l{}n{}'.format(l, n), fc.LN())
                     ln = getattr(m, 'l{}n{}'.format(l, n))
 
@@ -184,7 +188,7 @@ def map2d(cfile):
                     # New planet object with updated lmax
                     star, planet, system = utils.initsystem(fit, ln.lmax)
 
-                    print("Running PCA to determine eigencurves.")
+                    log("Running PCA to determine eigencurves.")
                     ncomp = ln.ncurves
                     if ln.ncurves == 0:
                         ncomp = None
@@ -195,7 +199,7 @@ def map2d(cfile):
                                        orbcheck=cfg.twod.orbcheck,
                                        sigorb=cfg.twod.sigorb)
 
-                    print("Calculating intensities of visible grid cells of each eigenmap.")
+                    log("Calculating intensities of visible grid cells of each eigenmap.")
                     ln.intens, ln.vislat, ln.vislon = \
                         eigen.intensities(fit, d, ln)
 
@@ -300,15 +304,15 @@ def map2d(cfile):
                     ln.bic      = ln.chisq + \
                         ln.nfreep * np.log(ln.ndata)
 
-                    print("Chisq:         {}".format(ln.chisq))
-                    print("Reduced Chisq: {}".format(ln.redchisq))
-                    print("BIC:           {}".format(ln.bic))
+                    log("Chisq:         {}".format(ln.chisq))
+                    log("Reduced Chisq: {}".format(ln.redchisq))
+                    log("BIC:           {}".format(ln.bic))
 
                     if ln.bic < minbic:
                         minbic = ln.bic
                         m.bestln = ln
 
-            print("Calculating hotspot latitude and longitude.")
+            log("Calculating hotspot latitude and longitude.")
             hs = utils.hotspotloc_driver(fit, m.bestln)
             m.hslocbest  = hs[0]
             m.hslocstd   = hs[1]
@@ -316,9 +320,9 @@ def map2d(cfile):
             m.hsloctserr = hs[3]
 
             msg = "Hotspot Longitude: {:.2f} +{:.2f} {:.2f}"
-            print(msg.format(m.hslocbest[1],
-                             m.hsloctserr[1][0],
-                             m.hsloctserr[1][1]))
+            log(msg.format(m.hslocbest[1],
+                           m.hsloctserr[1][0],
+                           m.hsloctserr[1][1]))
 
             # Populate blackbody spectra outside posterior map
             # calculation loop for speed
@@ -346,41 +350,40 @@ def map2d(cfile):
                 m.trange          = None
                 m.fpfs_for_interp = None
 
-            print("Calculating flux and temperature map uncertainties.")
+            log("Calculating flux and temperature map uncertainties.")
             m.fmappost, m.tmappost = utils.tmappost(fit, m, m.bestln)
             m.tmapunc = np.std(m.tmappost, axis=0)
             m.fmapunc = np.std(m.fmappost, axis=0)
 
-    print("Optimum lmax and ncurves:")
+    log("Optimum lmax and ncurves:")
     for d in fit.datasets:
-        print(d.name)
+        log(d.name)
         for m in d.maps:
-            print("  {:.2f} um: lmax={}, ncurves={}".format(m.wlmid,
-                                                            m.bestln.lmax,
-                                                            m.bestln.ncurves))
+            log("  {:.2f} um: lmax={}, ncurves={}".format(
+                m.wlmid, m.bestln.lmax, m.bestln.ncurves))
         
     # Save stellar correction terms (we need them later)
     #fit.scorr = np.zeros(len(fit.maps))
     #for i in range(len(fit.maps)):
     #    fit.scorr[i] = fit.maps[i].bestln.bestp[fit.maps[i].bestln.ncurves+1]
 
-    print("Checking for negative fluxes in visible cells:")
+    log("Checking for negative fluxes in visible cells:")
     for d in fit.datasets:
-        print(d.name)
+        log(d.name)
         for m in d.maps:
-            print("  Wl: {:.2f} um".format(m.wlmid))
+            log("  Wl: {:.2f} um".format(m.wlmid))
             for i in range(m.bestln.intens.shape[1]):
                 check = np.sum(m.bestln.intens[:,i] *
                                m.bestln.bestp[:m.bestln.ncurves]) + \
                                m.bestln.bestp[ m.bestln.ncurves] / np.pi
                 if check <= 0.0:
                     msg = "    Lat: {:+07.2f}, Lon: {:+07.2f}, Flux: {:+013.10f}"
-                    print(msg.format(m.dataset.vislat[i],
-                                     m.dataset.vislon[i],
-                                     check))
+                    log(msg.format(m.dataset.vislat[i],
+                                   m.dataset.vislon[i],
+                                   check))
 
-    print("Constructing total flux and brightness temperature maps " +
-          "from eigenmaps.")
+    log("Constructing total flux and brightness temperature maps " +
+        "from eigenmaps.")
     for d in fit.datasets:
         for m in d.maps:
             star, planet, system = utils.initsystem(fit, m.bestln.lmax)
@@ -388,15 +391,15 @@ def map2d(cfile):
             m.fmap = fmap
             m.tmap = tmap
 
-    print("Temperature ranges of maps:")
+    log("Temperature ranges of maps:")
     for d in fit.datasets:
         for m in d.maps:
-            print("  {:.2f} um:".format(m.wlmid))
+            log("  {:.2f} um:".format(m.wlmid))
             tmax = np.max(m.tmap[~np.isnan(m.tmap)])
             tmin = np.min(m.tmap[~np.isnan(m.tmap)])
-            print("    Max: {:.2f} K".format(tmax))
-            print("    Min: {:.2f} K".format(tmin))
-            print("    Negative: {:f}".format(np.sum(np.isnan(m.tmap))))
+            log("    Max: {:.2f} K".format(tmax))
+            log("    Min: {:.2f} K".format(tmin))
+            log("    Negative: {:f}".format(np.sum(np.isnan(m.tmap))))
 
     # Make a single array of tmaps for convenience
     fit.nmaps = np.sum([len(d.maps) for d in fit.datasets])
@@ -414,7 +417,7 @@ def map2d(cfile):
     fit.save(cfg.twod.outdir)
 
     if cfg.twod.plots:
-        print("Making plots.")
+        log("Making plots.")
         for d in fit.datasets:
             for m in d.maps:
                 outdir = os.path.join(cfg.twod.outdir, m.subdir)
@@ -441,6 +444,9 @@ def map2d(cfile):
         #plots.fluxmapanimation(fit, outdir=cfg.twod.outdir)
 
 def map3d(fit, system):
+    # Logging object
+    log = logger.Logger(rank)
+    
     cfg = fit.cfg
     outdir = os.path.join(cfg.threed.indir, cfg.threed.outdir)
 
@@ -474,7 +480,7 @@ def map3d(fit, system):
                        (cfg.threed.condensates == False))
 
         if defaultgrid:
-            print("Loading default chemistry grid.")
+            log("Loading default chemistry grid.")
             cheminfo = np.load('inputs/ggchem-default.npz')
             fit.cheminfo = (cheminfo['T'],
                             cheminfo['P'],
@@ -484,7 +490,7 @@ def map3d(fit, system):
                             cheminfo['abn'])
             del(cheminfo)
         else:
-            print("Precomputing chemistry grid.")
+            log("Precomputing chemistry grid.")
             # T, P, z, spec, abn
             fit.cheminfo = atm.setup_GGchem(cfg.threed.tmin,
                                             cfg.threed.tmax,
@@ -506,7 +512,7 @@ def map3d(fit, system):
     else:
         fit.cheminfo = None
 
-    print("Pre-calculating planet visibility with time.")
+    log("Pre-calculating planet visibility with time.")
     # Determine highest lmax which sets how much we sample
     # the 3D grid
     vis_lmax = 0
@@ -516,7 +522,7 @@ def map3d(fit, system):
                 vis_lmax = m.bestln.lmax
                 
     for d in fit.datasets:
-        print(d.name)
+        log(d.name)
         d.vis, d.lat3d, d.lon3d = utils.visibility(
             fit, d, vis_lmax)
 
@@ -546,9 +552,9 @@ def map3d(fit, system):
     fit.tmaps3d = np.zeros((fit.nmaps, fit.ncolumn))
     fit.fmaps3d = np.zeros((fit.nmaps, fit.ncolumn))
 
-    print("Calculating 2D temperature maps at oversample resolution.")
+    log("Calculating 2D temperature maps at oversample resolution.")
     if fit.cfg.threed.nightavg:
-        print("Averaging nightside temperatures (this may take a while).")
+        log("Averaging nightside temperatures (this may take a while).")
         pbar = progressbar.ProgressBar(max_value=fit.nmaps*fit.ncolumn)
         
     ncurves3d = np.max([m.bestln.ncurves for m in d.maps for d in fit.datasets])
@@ -606,7 +612,7 @@ def map3d(fit, system):
             ln = getattr(m, 'l{}n{}'.format(m.bestln.lmax, ncurves3d))
             fit.systematics3d.append(ln.systematics)
 
-    print("Fitting spectrum.")
+    log("Fitting spectrum.")
     if cfg.threed.rtfunc == 'taurex':
         # Make sure the wn range is appropriate
         wnlow  = cfg.cfg.getfloat('taurex', 'wnlow')
@@ -619,7 +625,7 @@ def map3d(fit, system):
                 filttrans = m.filttrans
                 nonzero = filtwn[np.where(filttrans != 0.0)]
                 if not np.all((nonzero > wnlow) & (nonzero < wnhigh)):
-                    print("ERROR: Wavenumber range does not cover all filters!")
+                    log("ERROR: Wavenumber range does not cover all filters!")
                     sys.exit()
                 
         fit.wngrid = np.arange(wnlow, wnhigh, wndelt)
@@ -668,7 +674,7 @@ def map3d(fit, system):
         
         if cfg.threed.fitcf:
             ncfpar = fit.ivis3d.size * fit.nmaps
-            print("ncf: " + str(ncfpar))
+            log("ncf: " + str(ncfpar))
             # Here we use 0s and 1s for the cf data and uncs, then
             # have the model return a value equal to the number
             # of sigma away from the cf peak, so MC3 computes the
@@ -742,7 +748,7 @@ def map3d(fit, system):
                         axis=1)
 
             # Evaluate SPEIS, ESS, and CR error
-            print("Calculating effective sample size.")
+            log("Calculating effective sample size.")
             nchains = np.max(fit.zchain3d) + 1
             fit.cspeis3d = np.zeros((nchains, nparams)) # SPEIS by chain
             fit.cess3d   = np.zeros((nchains, nparams)) # ESS by chain
@@ -750,7 +756,7 @@ def map3d(fit, system):
                 where = np.where(fit.zchain3d[fit.zmask3d] == i)
                 chain = fit.posterior3d[fit.zmask3d][where]
                 if len(chain) == 0:
-                    print('WARNING: Chain {} has no accepted iterations!'.format(i))
+                    log('WARNING: Chain {} has no accepted iterations!'.format(i))
                 else:
                     fit.cspeis3d[i], fit.cess3d[i] = utils.ess(chain)
 
@@ -760,12 +766,12 @@ def map3d(fit, system):
             for i in range(nparams):
                 fit.crsig3d[i] = utils.crsig(fit.ess3d[i])
 
-            print("\nParameter        SPEIS     ESS   68.3% Error"
+            log("\nParameter        SPEIS     ESS   68.3% Error"
                   "\n-------------- ------- ------- -------------")
             for i in range(nparams):
                 if pstep[i] == 0:
                     continue
-                print(f"{pnames[i]:<14s} " +
+                log(f"{pnames[i]:<14s} " +
                       f"{fit.speis3d[i]:7d} " +
                       f"{fit.ess3d[i]:7.1f} " +
                       f"{fit.crsig3d[i]:13.2e}")
@@ -774,7 +780,7 @@ def map3d(fit, system):
             plt.close('all')
             
         elif cfg.threed.sampler == 'multinest':
-            print('Running PyMultiNest retrieval.')
+            log('Running PyMultiNest retrieval.')
             basename = os.path.join(cfg.twod.outdir, cfg.threed.outdir) + '/'
             model.pym_retrieval(fit, mcdata, mcuncert, pmin, pmax,
                                 n_live_points=400,
@@ -795,7 +801,7 @@ def map3d(fit, system):
           
     nmaps = fit.nmaps
 
-    print("Calculating best fit.")
+    log("Calculating best fit.")
     specout = model.specgrid(fit.specbestp, fit)
     fit.fluxgrid    = specout[0]
     fit.besttgrid   = specout[1]
@@ -817,9 +823,9 @@ def map3d(fit, system):
 
     nlcdata = len(np.concatenate(lcs))
     fit.redchisq3d_lc = fit.chisq3d / (nlcdata - nfree)
-    print("Light Curve Chisq:      {:.2f}".format(fit.chisq3d_lc))
-    print("Light Curve Red. Chisq: {:.4f}".format(fit.redchisq3d_lc))
-    print("CF Penalty:             {:.2f}".format(fit.chisq3d - fit.chisq3d_lc))
+    log("Light Curve Chisq:      {:.2f}".format(fit.chisq3d_lc))
+    log("Light Curve Red. Chisq: {:.4f}".format(fit.redchisq3d_lc))
+    log("CF Penalty:             {:.2f}".format(fit.chisq3d - fit.chisq3d_lc))
 
     allmols = np.concatenate((cfg.threed.mols, cfg.threed.cmols))
     if type(fit.cfg.threed.z) is float:
@@ -829,7 +835,7 @@ def map3d(fit, system):
         istart = np.sum(fit.nparams3d[:izmodel])
         z = params[istart]
     else:
-        print("Something has gone wrong.")
+        log("Something has gone wrong.")
 
     if type(fit.cfg.threed.co) is float:
         co = fit.cfg.threed.co
@@ -838,7 +844,7 @@ def map3d(fit, system):
         istart = np.sum(fit.nparams3d[:icomodel])
         co = params[istart]
     else:
-        print("Something has gone wrong.")
+        log("Something has gone wrong.")
         
     fit.abnbest, fit.abnspec, _ = atm.atminit(fit.cfg.threed.atmtype,
                                               allmols, fit.p,
@@ -847,7 +853,7 @@ def map3d(fit, system):
                                               cheminfo=fit.cheminfo)
                                            
 
-    print("Calculating contribution functions.")
+    log("Calculating contribution functions.")
     allfiltwn    = [m.filtwn    for d in fit.datasets for m in d.maps]
     allfilttrans = [m.filttrans for d in fit.datasets for m in d.maps]
     fit.cf = cf.contribution_filters(fit.besttgrid, fit.modelwngrid,
@@ -890,7 +896,7 @@ if __name__ == "__main__":
         print("#########################################################")
     
     if len(sys.argv) < 3:
-        print("ERROR: Call structure is theresa.py <mode> <configuration file>.")
+        log("ERROR: Call structure is theresa.py <mode> <configuration file>.")
         sys.exit()
     else:
         mode  = sys.argv[1]
@@ -915,7 +921,7 @@ if __name__ == "__main__":
         star, planet, system = utils.initsystem(fit, 1)
         map3d(fit, system)
     else:
-        print("ERROR: Unrecognized mode. Options are <2d, 3d>.")
+        log("ERROR: Unrecognized mode. Options are <2d, 3d>.", rank)
         
     
         
