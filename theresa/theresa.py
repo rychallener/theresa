@@ -767,14 +767,14 @@ def map3d(fit, system):
                 fit.crsig3d[i] = utils.crsig(fit.ess3d[i])
 
             log("\nParameter        SPEIS     ESS   68.3% Error"
-                  "\n-------------- ------- ------- -------------")
+                "\n-------------- ------- ------- -------------")
             for i in range(nparams):
                 if pstep[i] == 0:
                     continue
                 log(f"{pnames[i]:<14s} " +
-                      f"{fit.speis3d[i]:7d} " +
-                      f"{fit.ess3d[i]:7.1f} " +
-                      f"{fit.crsig3d[i]:13.2e}")
+                    f"{fit.speis3d[i]:7d} " +
+                    f"{fit.ess3d[i]:7.1f} " +
+                    f"{fit.crsig3d[i]:13.2e}")
 
             # MC3 doesn't clear its plots >:(
             plt.close('all')
@@ -888,12 +888,13 @@ def map3d(fit, system):
 
         
 if __name__ == "__main__":
-    if rank == 0:
-        print("#########################################################")
-        print("  ThERESA: Three-dimensional Exoplanet Retrieval from    ")
-        print("           Eclipse Spectroscopy of Atmospheres           ")
-        print("  Copyright 2021-2026 Ryan C. Challener & collaborators  ")
-        print("#########################################################")
+    log = logger.Logger(rank)
+    
+    log("#########################################################")
+    log("  ThERESA: Three-dimensional Exoplanet Retrieval from    ")
+    log("           Eclipse Spectroscopy of Atmospheres           ")
+    log("  Copyright 2021-2026 Ryan C. Challener & collaborators  ")
+    log("#########################################################")
     
     if len(sys.argv) < 3:
         log("ERROR: Call structure is theresa.py <mode> <configuration file>.")
