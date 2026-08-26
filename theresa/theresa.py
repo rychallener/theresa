@@ -450,7 +450,7 @@ def map3d(fit, system):
     cfg = fit.cfg
     outdir = os.path.join(cfg.threed.indir, cfg.threed.outdir)
 
-    if not os.path.isdir(outdir):
+    if not os.path.isdir(outdir) and rank == 0:
         os.mkdir(outdir)
     
     # Handle any atmosphere setup
