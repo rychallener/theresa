@@ -378,7 +378,7 @@ def specvtime(params, fit):
             for i in range(fit.ncolumn):
                 intfluxgrid[i,count] = \
                     utils.specint(wn, fluxgrid[i], [m.filtwn],
-                                  [m.filttrans])
+                                  [m.filttrans])[0]
             count += 1
 
     # fluxvtime could be different sizes for each dataset, so we
