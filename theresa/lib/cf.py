@@ -50,7 +50,7 @@ def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
         interp = sci.interp1d(filtwn[i], filttrans[i], bounds_error=False,
                               fill_value=0.0)
         interptrans = interp(wn)
-        integtrans  = np.trapz(interptrans)
+        integtrans  = np.trapezoid(interptrans)
         
         # Contribution functions convolved with filter transmissions
         cf_trans = cf * interptrans
