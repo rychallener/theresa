@@ -10,7 +10,6 @@ import matplotlib.colors as mplc
 import matplotlib.ticker as mplt
 import matplotlib.patches as mplp
 import matplotlib.collections as mplco
-import matplotlib.colormaps as mplcm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import atm
 import utils
@@ -456,7 +455,7 @@ def bics(fit, outdir=''):
 
             ax = axes[0,im]
 
-            cmap = copy.copy(mplcm['viridis'])
+            cmap = copy.copy(mpl.colormaps['viridis'])
             cmap.set_bad(color='red')
             overlaycmap = mplc.ListedColormap([(0,0,0,0), (0,0,0,1)])
 
@@ -529,7 +528,7 @@ def bestfittgrid(fit, outdir=''):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     # Line colors from colormap
-    cmap = mplcm['hsv']
+    cmap = mpl.colormaps['hsv']
 
     nmaps = fit.nmaps
 
@@ -885,7 +884,7 @@ def cf_by_filter(fit, outdir=''):
                            left=False, right=False)
             continue
 
-        cmap = mplcm['hsv']
+        cmap = mpl.colormaps['hsv']
         
         for j in range(ncolumn):
                 ic = fit.lon3d[j] / 360.
@@ -1003,7 +1002,7 @@ def clouds(fit, outdir=''):
     maxrad = np.max(allrad)
     minrad = np.min(allrad[np.nonzero(allrad)])
     
-    cmap = copy.copy(mplcm['hsv'])
+    cmap = copy.copy(mpl.colormaps['hsv'])
     cmap.set_over(color='gray')
 
     ieq = nlat // 2
@@ -1093,7 +1092,7 @@ def spectra(fit, outdir=''):
     fig, ax = plt.subplots()
     fig.set_size_inches((6,8))
 
-    cmap = copy.copy(mplcm['hsv'])
+    cmap = copy.copy(mpl.colormaps['hsv'])
 
     for i in range(fit.ncolumn):
         c = fit.lon3d[i] / 360
