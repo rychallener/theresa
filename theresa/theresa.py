@@ -473,7 +473,7 @@ def map3d(fit, system):
                        (cfg.threed.zmax  ==  2.0)   &
                        (cfg.threed.comin == -2.0)  &
                        (cfg.threed.comax ==  0.0)   &
-                       (cfg.threed.numco == 10)    &
+                       (cfg.threed.numco == 21)    &
                        (cfg.threed.mols == ['H2O', 'CH4', 'CO', 'CO2', 'NH3', 'C2H2', 'C2H4', 'HCN', 'H2S']) &
                        (dispolfiles is None)       &
                        (cfg.threed.elem == ['H', 'He', 'C', 'N', 'O', 'S']) &
