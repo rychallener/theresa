@@ -58,6 +58,6 @@ def contribution_filters(tgrid, wn, taugrid, p, filtwn, filttrans):
         # Integrate
         for j in range(ncolumn):
             filter_cf[j,:,i] = \
-                np.trapz(cf_trans[j], axis=1) / integtrans
+                np.trapezoid(cf_trans[j], axis=1) / integtrans
         
     return filter_cf
