@@ -929,7 +929,6 @@ if __name__ == "__main__":
                         try:
                             ln = getattr(m, "l{}n{}".format(l,n))
                             del(ln.post)
-                            totbytes += (ln.post.size * 8)
                         except:
                             pass
 
