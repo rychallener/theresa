@@ -920,17 +920,18 @@ if __name__ == "__main__":
         # Consider simply saving posteriors in a separate
         # file that can be loaded into the fit object
         # or not depending on a kwarg to the load function
-        for d in fit.datasets:
-            for m in d.maps:
-                del(m.tmappost)
-                del(m.fmappost)
-                for l in range(fit.cfg.twod.lmax):
-                    for n in range(fit.cfg.twod.ncurves):
-                        try:
-                            ln = getattr(m, "l{}n{}".format(l,n))
-                            del(ln.post)
-                        except:
-                            pass
+        if fit is not None:
+            for d in fit.datasets:
+                for m in d.maps:
+                    del(m.tmappost)
+                    del(m.fmappost)
+                    for l in range(fit.cfg.twod.lmax):
+                        for n in range(fit.cfg.twod.ncurves):
+                            try:
+                                ln = getattr(m, "l{}n{}".format(l,n))
+                                del(ln.post)
+                            except:
+                                pass
 
         fit = comm.bcast(fit, root=0)
         # 3D mapping doesn't care about the degree of harmonics, so
