@@ -939,8 +939,9 @@ def get_par_3d(fit):
             allpnames.append(pnames)
         else:
             print('WARNING: {} model not recognized in model.get_par_3d()!')
+            
         cumpar = np.sum(nparams[:im])
-        imodel.append(range(cumpar, cumpar + nparams[im]))
+        imodel.append(np.arange(cumpar, cumpar + nparams[im]))
 
     # Turn into 1D arrays (MC3 likes them this way)
     modeltype = np.array(modeltype)
