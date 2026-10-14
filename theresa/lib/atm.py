@@ -423,7 +423,7 @@ def tgrid_gcm(fit, nlayers, pbot, ptop, params, nparams,
     a GCM-motivated temperature structure.
     """  
     # Parse out parameters
-    ip = imodel[np.where(modeltype == 'tgrid')[0]]
+    ip = imodel[np.where(modeltype == 'tgrid')[0][0]]
     Tint, Tirr, loggamma, logkappa, logA1, logA2, logA3, \
         logsigma1, logsigma2, logsigma3, sigmalat, \
         logc, off1, off2, off3 = \
