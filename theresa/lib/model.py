@@ -945,7 +945,6 @@ def get_par_3d(fit):
 
     # Turn into 1D arrays (MC3 likes them this way)
     modeltype = np.array(modeltype)
-    imodel    = np.array(imodel, dtype=object)
     allparams = np.array([i for item in allparams for i in item])
     allpstep  = np.array([i for item in allpstep  for i in item])
     allpmin   = np.array([i for item in allpmin   for i in item])
